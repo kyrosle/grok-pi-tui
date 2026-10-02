@@ -49,7 +49,7 @@ const DEFAULT_BUILTIN_TOOLS: [&str; 5] = ["read", "bash", "powershell", "edit", 
 const DEFAULT_BUILTIN_TOOLS: [&str; 4] = ["read", "bash", "edit", "write"];
 
 pub(super) fn configured_builtin_tools() -> String {
-    let Ok(config) = xai_grok_shell::config::load_effective_config() else {
+    let Ok(config) = xai_grok_config::load_effective_config_disk_only() else {
         return DEFAULT_BUILTIN_TOOLS.join(",");
     };
     let Some(tools) = config

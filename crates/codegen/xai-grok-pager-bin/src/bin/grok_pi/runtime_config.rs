@@ -55,7 +55,7 @@ pub(super) fn bash_bridge_enabled() -> bool {
     if std::env::var_os("PI_GROK_BASH").is_some() {
         return env_flag_default_on("PI_GROK_BASH");
     }
-    let config = xai_grok_shell::config::load_effective_config().ok();
+    let config = xai_grok_config::load_effective_config_disk_only().ok();
     bash_bridge_enabled_from_config(config.as_ref())
 }
 
@@ -90,7 +90,7 @@ pub(super) fn bash_control_meta_for_adapter(
 /// `[ui].pi_eval` — select the mutually exclusive Eval bridge generation.
 /// Only an explicit `"v2"` opts into Eval Bridge v2; missing/invalid values preserve v1.
 pub(super) fn eval_version() -> &'static str {
-    let config = xai_grok_shell::config::load_effective_config().ok();
+    let config = xai_grok_config::load_effective_config_disk_only().ok();
     eval_version_from_config(config.as_ref())
 }
 
@@ -108,7 +108,7 @@ pub(super) fn eval_version_from_config(config: Option<&toml::Value>) -> &'static
 /// `[ui].pi_eval_v2_language` — select Eval v2 language exposure.
 /// Missing or invalid values preserve the pre-selector JavaScript-only default.
 pub(super) fn eval_v2_language() -> &'static str {
-    let config = xai_grok_shell::config::load_effective_config().ok();
+    let config = xai_grok_config::load_effective_config_disk_only().ok();
     eval_v2_language_from_config(config.as_ref())
 }
 
@@ -126,7 +126,7 @@ fn eval_v2_language_from_config(config: Option<&toml::Value>) -> &'static str {
 
 /// `[ui].pi_eval_v2_only` — force Eval v2 and isolate the top-level model to Eval.
 pub(super) fn eval_v2_only_enabled() -> bool {
-    let config = xai_grok_shell::config::load_effective_config().ok();
+    let config = xai_grok_config::load_effective_config_disk_only().ok();
     eval_v2_only_enabled_from_config(config.as_ref())
 }
 
@@ -140,7 +140,7 @@ pub(super) fn eval_v2_only_enabled_from_config(config: Option<&toml::Value>) -> 
 
 /// The MCP facade is explicitly opt-in and only works with Eval-v2-only.
 pub(super) fn eval_mcp_enabled() -> bool {
-    let config = xai_grok_shell::config::load_effective_config().ok();
+    let config = xai_grok_config::load_effective_config_disk_only().ok();
     eval_mcp_enabled_from_config(config.as_ref())
 }
 

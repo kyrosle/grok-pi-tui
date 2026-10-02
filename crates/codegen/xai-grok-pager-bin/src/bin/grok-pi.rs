@@ -85,9 +85,9 @@ use xai_grok_pager::{
     pi_resource_config::PiResourceCatalog,
     pi_resource_policy::ResourcePolicy,
 };
-use xai_grok_shell::host_features::{
+use xai_grok_shared::host_features::{
     HostFeatureKey, HostFeatureManifest, PI_ASK_USER_QUESTION, PI_BTW, PI_GOAL, PI_HERDR, PI_LOOP,
-    PI_SUBAGENTS, PI_TODO, PI_WORKFLOWS,
+    PI_MCP, PI_SUBAGENTS, PI_TODO, PI_WORKFLOWS,
 };
 
 mod bundled_host_ui {
@@ -369,7 +369,7 @@ async fn run(mut args: Args) -> Result<()> {
         HostFeatureManifest::from_json_sources(bundled_host_ui::BUNDLED_HOST_UI_SOURCES)
             .map_err(anyhow::Error::msg)
             .context("invalid bundled extension grok-pi UI manifest")?;
-    let host_feature_config = xai_grok_shell::config::load_effective_config().ok();
+    let host_feature_config = xai_grok_config::load_effective_config_disk_only().ok();
     let enabled_host_features = host_feature_manifest
         .iter()
         .filter(|spec| {
@@ -378,6 +378,7 @@ async fn run(mut args: Args) -> Result<()> {
         .collect::<Vec<_>>();
     let host_feature_enabled =
         |key: HostFeatureKey| enabled_host_features.iter().any(|spec| spec.key == key);
+    let pi_mcp_enabled = host_feature_enabled(PI_MCP);
     // F2 `[ui].pi_herdr` (default off). Outside Herdr the extension is a silent no-op.
     let herdr_extension = if host_feature_enabled(PI_HERDR) {
         Some(write_herdr_extension().context("failed to create Pi Herdr extension")?)
@@ -687,7 +688,11 @@ async fn run(mut args: Args) -> Result<()> {
     );
     let selected_builtin_tools = f2_tools_enabled.then(configured_builtin_tools);
     let cli_exclusions = if let Some(selected) = selected_builtin_tools.as_deref() {
-        let disabled = disabled_builtin_tools_from_selected(selected);
+        let disabled = disabled_builtin_tools_from_selected(selected)
+            .split(',')
+            .filter(|name| !pi_mcp_enabled || *name != "codemode")
+            .collect::<Vec<_>>()
+            .join(",");
         merge_tool_exclusions(&mut pi_args, &disabled)
     } else {
         cli_tool_exclusions(&pi_args)
@@ -915,7 +920,10 @@ async fn run(mut args: Args) -> Result<()> {
             .as_ref()
             .map(|extension| extension.source_path()),
         // Pi's built-in codemode extension; `builtin:` is a Pi resource id, not a filesystem path.
-        codemode_extension_requested.then(|| std::path::Path::new("builtin:codemode")),
+        (codemode_extension_requested || pi_mcp_enabled)
+            .then(|| std::path::Path::new("builtin:codemode")),
+        pi_mcp_enabled.then(|| std::path::Path::new("builtin:mcp")),
+        pi_mcp_enabled.then(|| std::path::Path::new("builtin:tool-search")),
         tools_extension.as_ref().map(|extension| extension.path()),
         // Rollback extension observes the final built-in registrations.
         rollback_ext

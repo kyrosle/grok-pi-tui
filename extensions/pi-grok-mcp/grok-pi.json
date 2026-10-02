@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "settings": [
+    {
+      "key": "pi_mcp",
+      "label": "Pi MCP",
+      "description": "Load Pi's built-in MCP client using Pi mcp.json and project trust. Pi owns servers, OAuth, resources and tool exposure, including automatic Codemode activation. Explicit CLI tool restrictions still apply. Restart required.",
+      "keywords": ["pi", "mcp", "server", "oauth", "codemode", "tools", "resources"],
+      "f2": { "category": "agent", "section": "Pi features", "order": 45 },
+      "kind": "bool",
+      "default": false,
+      "restartRequired": true,
+      "configPath": ["ui", "pi_mcp"],
+      "startupEnv": { "key": "PI_GROK_MCP", "on": "1", "off": "0" }
+    }
+  ]
+}

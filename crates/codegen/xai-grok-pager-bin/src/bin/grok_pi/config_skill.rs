@@ -7,7 +7,7 @@ const CONFIG_SKILL_BODY: &str = include_str!("skills/grok-pi-config/SKILL.md");
 /// F2 `[ui].pi_config_skill` — load the embedded grok-pi configuration skill.
 /// Missing/invalid config preserves the default-on behavior.
 pub(super) fn config_skill_enabled() -> bool {
-    let config = xai_grok_shell::config::load_effective_config().ok();
+    let config = xai_grok_config::load_effective_config_disk_only().ok();
     config_skill_enabled_from_config(config.as_ref())
 }
 
@@ -20,7 +20,7 @@ fn config_skill_enabled_from_config(config: Option<&toml::Value>) -> bool {
 }
 
 pub(super) fn sync_config_skill_cache(enabled: bool) -> Result<Option<PathBuf>> {
-    sync_config_skill_cache_in_home(&xai_grok_shell::util::grok_home::grok_home(), enabled)
+    sync_config_skill_cache_in_home(&xai_grok_config::grok_home(), enabled)
 }
 
 fn sync_config_skill_cache_in_home(home: &Path, enabled: bool) -> Result<Option<PathBuf>> {

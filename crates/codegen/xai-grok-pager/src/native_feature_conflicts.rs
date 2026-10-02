@@ -144,7 +144,7 @@ impl FeatureConflictTable {
 /// Paths checked after embedded defaults (user → project).
 fn overlay_paths() -> Vec<PathBuf> {
     let mut paths = Vec::with_capacity(2);
-    paths.push(xai_grok_tools::util::grok_home::grok_home().join(SIDECAR_FILE));
+    paths.push(xai_grok_config::grok_home().join(SIDECAR_FILE));
     if let Ok(cwd) = std::env::current_dir() {
         if let Some(proj) = find_project_sidecar(&cwd) {
             paths.push(proj);

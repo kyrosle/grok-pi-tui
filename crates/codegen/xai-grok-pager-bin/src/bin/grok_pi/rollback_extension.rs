@@ -81,7 +81,7 @@ pub(super) fn write_rollback_extension() -> Result<RollbackExtension> {
 
 /// Read the F2 `pi_tree_file_rollback` setting from the effective config.
 pub(super) fn rollback_enabled() -> bool {
-    let Ok(config) = xai_grok_shell::config::load_effective_config() else {
+    let Ok(config) = xai_grok_config::load_effective_config_disk_only() else {
         return false;
     };
     config

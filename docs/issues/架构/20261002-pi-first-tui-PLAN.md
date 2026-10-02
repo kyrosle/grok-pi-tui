@@ -116,3 +116,8 @@ category: "architecture"
 - Pi child 使用正式 SDK，按真实 project trust、model/effort/capabilities 创建；resume/fork/worktree/abort 与 drain ACK 保留 Pi 语义。存储按 Pi session ID 隔离；取消 session switch 保留旧 scope，接受新 session 后等待旧 child 退出和持久化完成。
 - 已执行：中性 Workflow 150 tests、最新 adapter 196 tests、真实 Workflow SDK 2 tests / 41 assertions、`pi_workflow_scope --ignored` 1 test、实际 Pi→ACP projection、生产 `./build.sh` 均退出 0。synthetic provider 与临时目录不构成真实模型/账号证明。
 - adapter normal/build 图 231 个唯一 package，Grok agent/tools/workspace/MCP/sampler 不可达。composition 图仍带入 stock runtime，不能将该提交写成 FR-09 完成；后续继续处理 native UI 残余入边。
+
+### Pi MCP composition 提交验证
+
+- F2 `pi_mcp` 默认关闭；启用时显式加载 Pi 的 `builtin:mcp`、tool-search 与所需 Codemode，沿用 Pi exposure/CLI exclusions。配置读取改用中性产品配置层，不使用 stock agent config loader。
+- 最新 grok-pi bin 96 tests 退出 0；包含 manifest/injector/runtime config 与资源政策回归。真实系统 Pi + 本地 MCP 的8场景已通过；禁用时不启动 server、目标被排除时不执行 tools/call。取消路径先 clear_queue 的 adapter 检查已随契约阶段通过。
