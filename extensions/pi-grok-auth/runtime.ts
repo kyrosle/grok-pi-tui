@@ -1,110 +1,75 @@
-import * as path from "node:path";
-import { realpathSync } from "node:fs";
-import { pathToFileURL } from "node:url";
-
+import { randomUUID } from "node:crypto";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { Component, TUI } from "@earendil-works/pi-tui";
-
-import type {
-	ExtensionSelectorConstructor,
-	LoadedAuthComponents,
-	LoginDialogConstructor,
-	ModelRegistryLike,
-	ModelRuntimeLike,
-	OAuthSelectorConstructor,
-} from "./shared.ts";
-
-function hostUrl(relativePath: string): string {
-	const entryDir = path.dirname(realpathSync(process.argv[1]!));
-	if (path.basename(entryDir) === "bundle" && relativePath.startsWith("modes/interactive/components/")) {
-		return new URL("index.js", pathToFileURL(entryDir).href + "/").href;
-	}
-	const hostDistDir = path.basename(entryDir) === "bundle" ? path.dirname(entryDir) : entryDir;
-	return new URL(relativePath, pathToFileURL(hostDistDir).href + "/").href;
-}
-
-function ensureRemoteTuiHost(ui: ExtensionCommandContext["ui"]): void {
-	const ensure = (
-		globalThis as typeof globalThis & {
-			__piGrokEnsureRemoteTuiHost?: (ui: ExtensionCommandContext["ui"]) => void;
-		}
-	).__piGrokEnsureRemoteTuiHost;
-	if (typeof ensure === "function") ensure(ui);
-}
-
-export async function ensurePiTheme(): Promise<void> {
-	const mod = (await import(hostUrl("modes/interactive/theme/theme.js"))) as {
-		theme?: { name?: string };
-		initTheme?: (name?: string, enableWatcher?: boolean) => void;
-	};
-	try {
-		void mod.theme?.name;
-	} catch {
-		mod.initTheme?.(undefined, false);
-		void mod.theme?.name;
-	}
-}
+import { AUTH_DIALOG_PREFIX, AUTH_DIALOG_DONE_STATUS, type AuthPrompt, type ModelRegistryLike, type ModelRuntimeLike } from "./shared.ts";
 
 export function resolveRuntime(ctx: ExtensionCommandContext): ModelRuntimeLike {
-	const registry = ctx.modelRegistry as unknown as ModelRegistryLike | undefined;
-	const runtime = registry?.runtime;
-	if (!runtime || typeof runtime.login !== "function" || typeof runtime.getProviders !== "function") {
-		throw new Error(
-			"Pi ModelRuntime unavailable on ctx.modelRegistry.runtime. " +
-				"grok-pi requires Pi >= 0.99.0 (system `pi`).",
-		);
-	}
-	return runtime;
+ const runtime = (ctx.modelRegistry as unknown as ModelRegistryLike).runtime;
+ if (!runtime || typeof runtime.login !== "function") throw new Error("grok-pi requires Pi >= 1.0.0 ModelRuntime");
+ return runtime;
 }
 
-export async function loadComponents(): Promise<LoadedAuthComponents> {
-	const [oauth, login, selector] = await Promise.all([
-		import(hostUrl("modes/interactive/components/oauth-selector.js")) as Promise<{
-			OAuthSelectorComponent: OAuthSelectorConstructor;
-		}>,
-		import(hostUrl("modes/interactive/components/login-dialog.js")) as Promise<{
-			LoginDialogComponent: LoginDialogConstructor;
-		}>,
-		import(hostUrl("modes/interactive/components/extension-selector.js")) as Promise<{
-			ExtensionSelectorComponent: ExtensionSelectorConstructor;
-		}>,
-	]);
-	return {
-		OAuthSelectorComponent: oauth.OAuthSelectorComponent,
-		LoginDialogComponent: login.LoginDialogComponent,
-		ExtensionSelectorComponent: selector.ExtensionSelectorComponent,
-	};
+export async function promptAuth(ctx: ExtensionCommandContext, prompt: AuthPrompt): Promise<string> {
+ const scope = randomUUID();
+ const title = `${AUTH_DIALOG_PREFIX}${scope}:${prompt.message}`;
+ try {
+  let value: string | undefined;
+  if (prompt.type === "select") {
+   const labels = prompt.options.map(option => option.label);
+   const selected = await ctx.ui.select(title, labels, { signal: prompt.signal });
+   value = prompt.options.find(option => option.label === selected)?.id;
+  } else {
+   value = await ctx.ui.input(title, prompt.placeholder, { signal: prompt.signal });
+  }
+  if (value === undefined) throw new Error("Login cancelled");
+  return value;
+ } finally {
+  ctx.ui.setStatus(AUTH_DIALOG_DONE_STATUS, scope);
+ }
 }
 
-export async function openCustom<T>(
-	ctx: ExtensionCommandContext,
-	factory: (tui: TUI, theme: unknown, kb: unknown, done: (value: T) => void) => Component,
-): Promise<{ ran: boolean; value: T | undefined }> {
-	let ran = false;
-	const value = await ctx.ui.custom<T>((tui, theme, kb, done) => {
-		ran = true;
-		return factory(tui as TUI, theme, kb, done);
-	});
-	return { ran, value };
-}
-
-export async function prepareUi(ctx: ExtensionCommandContext, command: string): Promise<boolean> {
-	if (process.env.PI_GROK_REMOTE_TUI !== "1") {
-		ctx.ui.notify(
-			`/${command} needs PI_GROK_REMOTE_TUI=1 (Remote TUI). Restart grok-pi without PI_GROK_REMOTE_TUI=0.`,
-			"error",
-		);
-		return false;
-	}
-	ensureRemoteTuiHost(ctx.ui);
-	try {
-		await ensurePiTheme();
-	} catch (error: unknown) {
-		ctx.ui.notify(
-			`/${command}: theme init failed: ${error instanceof Error ? error.message : String(error)}`,
-			"error",
-		);
-		return false;
-	}
-	return true;
+/** Edit the documented Pi mcp.json format without touching credentials. */
+export function configureRadiusMcp(path: string): boolean {
+ const requestedPath = path;
+ let existing;
+ try { existing = lstatSync(path); }
+ catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+ // Resolve existing links before locking/writing so atomic replacement keeps
+ // the user's link. A dangling link fails instead of replacing it.
+ if (existing) path = realpathSync(path);
+ mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+ const lock = `${path}.grok-pi-lock`;
+ mkdirSync(lock, { mode: 0o700 });
+ try {
+  const before = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+  let root: Record<string, unknown>;
+  try { root = before === undefined ? {} : JSON.parse(before); }
+  catch { throw new Error("Pi mcp.json contains invalid JSON; configuration was preserved"); }
+  if (!root || typeof root !== "object" || Array.isArray(root)) throw new Error("Pi mcp.json must be an object");
+  const servers = root.mcpServers ?? {};
+  if (!servers || typeof servers !== "object" || Array.isArray(servers)) throw new Error("Pi mcpServers must be an object");
+  const entries = servers as Record<string, any>;
+  const endpoint = "https://radius.pi.dev/mcp";
+  let name = Object.keys(entries).find(key => typeof entries[key]?.url === "string" && entries[key].url.replace(/\/+$/u, "") === endpoint);
+  if (name && entries[name].auth?.provider === "radius") return false;
+  if (!name) {
+   name = "radius";
+   for (let ordinal = 1; Object.hasOwn(entries, name); ordinal++) name = `radius-mcp-${ordinal}`;
+  }
+  const server = { ...entries[name], url: endpoint, auth: { provider: "radius" } };
+  delete server.oauth;
+  entries[name] = server;
+  root.mcpServers = entries;
+  const temporary = `${lock}/mcp.json`;
+  writeFileSync(temporary, JSON.stringify(root, null, 2) + "\n", { mode: 0o600 });
+  const current = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+  if (current !== before) throw new Error("Pi mcp.json changed while configuring Radius; retry");
+  if (existing && realpathSync(requestedPath) !== path) throw new Error("Pi mcp.json link changed while configuring Radius; retry");
+  renameSync(temporary, path);
+  return true;
+ } finally {
+  try { unlinkSync(`${lock}/mcp.json`); } catch { /* already renamed or not written */ }
+  rmdirSync(lock);
+ }
 }

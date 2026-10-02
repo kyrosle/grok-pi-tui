@@ -33,7 +33,7 @@ fn write_source_file(dir: &Path, name: &str, source: &str) -> Result<PathBuf> {
 
 /// Materialize default-on Pi auth commands (`/login` / `/logout`).
 ///
-/// Requires system Pi >= 0.99.0 (`modelRuntime.login` + Remote TUI). Every
+/// Requires system Pi >= 1.0.0 (`modelRuntime.login` + native dialogs). Every
 /// authored module must be materialized here because this injector owns the
 /// transitive closure of `index.ts`'s relative imports.
 pub(super) fn write_auth_extension() -> Result<AuthExtension> {
@@ -117,11 +117,10 @@ mod tests {
         assert!(bundle.login.contains("from \"./shared.ts\""));
         assert!(bundle.logout.contains("from \"./providers.ts\""));
         assert!(bundle.logout.contains("from \"./runtime.ts\""));
-        assert!(bundle.logout.contains("from \"./shared.ts\""));
         assert!(bundle.providers.contains("from \"./shared.ts\""));
         assert!(bundle.runtime.contains("from \"./shared.ts\""));
         assert!(bundle.shared.contains("ModelRuntimeLike"));
-        assert!(bundle.runtime.contains("loadComponents"));
+        assert!(bundle.runtime.contains("promptAuth"));
         assert!(bundle.providers.contains("loginProviders"));
         assert!(bundle.login.contains("registerCommand(\"login\""));
         assert!(bundle.logout.contains("registerCommand(\"logout\""));
@@ -135,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn auth_extension_source_preserves_remote_tui_login_contract() {
+    fn auth_extension_source_preserves_native_login_contract() {
         let extension = write_auth_extension().expect("write extension");
         let source = std::fs::read_to_string(extension.source_path()).expect("read extension");
         assert!(source.contains("registerLoginCommand"));

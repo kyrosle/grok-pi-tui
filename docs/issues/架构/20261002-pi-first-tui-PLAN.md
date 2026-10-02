@@ -103,3 +103,9 @@ category: "architecture"
 
 - 当前阶段重新执行 Eval v2.1 生产回归全部通过；真实系统 Pi + 本地 MCP 的8种隔离RPC场景全部通过；Auth5项测试通过。
 - 首笔源码提交限定为Pi1.0版本门禁、Eval官方执行上下文/异步callable registry、worker拒绝/取消与其隔离fixture；原生UI、Workflow断边、鉴权呈现接缝在各自阶段提交，不将此提交解释为整体完成。
+
+### Pi 鉴权扩展提交验证
+
+- 鉴权扩展删除对 Pi 私有 selector/login/theme TUI 组件的动态导入，使用 Pi UI 请求，由 Grok QuestionView 呈现；保留 ModelRegistry.runtime 的登录兼容边界，未声称所有私有 API 已移除。
+- `bun test extensions/pi-grok-auth/index.test.ts` 退出 0：5 tests / 22 assertions，包括 Anthropic 复制码、取消 scope、native logout、Radius 未知字段/无效 JSON 与既有 symlink 保持。Rust injector 与新入口一致；最新 `./build.sh` 退出 0。
+- 真实 OAuth/浏览器联动仍未验收；adapter scope teardown 与实际 PTY 证据随协议/UI 阶段提交。
