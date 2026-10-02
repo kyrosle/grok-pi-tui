@@ -75,7 +75,10 @@ type EvalV2SkillHostCall = {
 	name: string;
 };
 
-type EvalV2HostCall = EvalV2ToolHostCall | EvalV2CompletionHostCall | EvalV2SkillHostCall;
+type EvalV2CatalogHostCall = {
+	type: "host_call"; id: string; evalId: string; method: "catalog"; pattern: string; timeoutMs: number;
+};
+type EvalV2HostCall = EvalV2ToolHostCall | EvalV2CompletionHostCall | EvalV2SkillHostCall | EvalV2CatalogHostCall;
 
 type EvalV2Result = EvalWorkerReply & { type: "eval_result" };
 type EvalV2WorkerMessage = EvalV2HostCall | EvalV2Result;
@@ -84,6 +87,7 @@ export type EvalHostCallHandler = (call: EvalV2HostCall, signal: AbortSignal) =>
 
 type PendingEval = {
 	id: string;
+	hostCall?: EvalHostCallHandler;
 	resolve: (result: EvalExecution) => void;
 	reject: (error: Error) => void;
 	output: Buffer;
@@ -427,6 +431,12 @@ def _search_catalog(catalog, query, api):
 
 
 class ToolsHelper:
+    async def waitFor(self, pattern, timeout_ms=10000):
+        global active_tool_catalog
+        tools = await host_call("catalog", {"pattern": pattern, "timeoutMs": timeout_ms})
+        active_tool_catalog = {item["name"]: item for item in tools}
+        return tools
+
     def list(self):
         return list(active_tool_catalog.values())
 
@@ -675,6 +685,12 @@ const server = repl.start({
   terminal: false,
   useGlobal: false,
   ignoreUndefined: true,
+  handleError(error) {
+    const id = currentEvalId;
+    if (!id) return "print";
+    finishEval(id, { ok: false, error: error && (error.stack || error.message) || String(error) });
+    return "ignore";
+  },
 });
 let activeToolCatalog = new Map();
 let activeSkillCatalog = new Map();
@@ -784,6 +800,11 @@ function installContextGlobals() {
     },
   });
   context.tools = Object.freeze({
+    async waitFor(pattern, timeoutMs = 10000) {
+      const tools = await hostCall("catalog", { pattern, timeoutMs });
+      activeToolCatalog = new Map(tools.map(tool => [tool.name, tool]));
+      return tools;
+    },
     list() {
       return [...activeToolCatalog.values()];
     },
@@ -986,6 +1007,7 @@ export class PersistentEvalKernel {
 		tools: EvalToolMetadata[] = [],
 		skills: EvalSkillMetadata[] = [],
 		outputSink?: (chunk: Buffer) => void,
+		hostCall?: EvalHostCallHandler,
 	): Promise<EvalExecution> {
 		validateEvalTimeout(timeout);
 		if (this.pending) {
@@ -1002,6 +1024,7 @@ export class PersistentEvalKernel {
 		return new Promise<EvalExecution>((resolve, reject) => {
 			const pending: PendingEval = {
 				id,
+				hostCall: hostCall ?? this.hostCall,
 				resolve,
 				reject,
 				output: Buffer.alloc(0),
@@ -1051,7 +1074,7 @@ export class PersistentEvalKernel {
 		if (this.child) return;
 		const command =
 			this.language === "js"
-				? process.execPath
+				? (process.versions.bun ? "node" : process.execPath)
 				: process.env.PI_GROK_PYTHON || (process.platform === "win32" ? "python" : "python3");
 		const worker =
 			this.version === "v2"
@@ -1154,7 +1177,7 @@ export class PersistentEvalKernel {
 			});
 			return;
 		}
-		if (!this.hostCall) {
+		if (!pending.hostCall) {
 			this.writeWorkerMessage({ type: "host_result", id: call.id, ok: false, error: "eval v2 host bridge unavailable" });
 			return;
 		}
@@ -1162,7 +1185,7 @@ export class PersistentEvalKernel {
 		// effect rows, so the renderer's "no tool calls" signal must exclude them.
 		if (call.method === "tool") pending.toolCalls += 1;
 
-		void this.hostCall(call, pending.runController.signal)
+		void pending.hostCall(call, pending.runController.signal)
 			.then((value) => {
 				if (this.pending !== pending) return;
 				// A native Pi read tool can return ImageContent without the Eval code

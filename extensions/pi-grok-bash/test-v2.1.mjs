@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const esbuild = require(join(repoRoot, "pi-main/node_modules/esbuild"));
+const esbuildPath = process.env.PI_GROK_TEST_ESBUILD ?? join(repoRoot, "pi-main/node_modules/esbuild");
+const esbuild = existsSync(esbuildPath) ? require(esbuildPath) : undefined;
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
+
+function contextForBash() {
+  return { cwd: repoRoot, sessionManager: { getSessionId: () => "fixture-session", getSessionFile: () => undefined } };
+}
 
 function success(text) {
   return {
@@ -22,8 +28,8 @@ async function buildExtension() {
   const tempDir = await mkdtemp(join(tmpdir(), "pi-grok-eval-v21-"));
   const outfile = join(tempDir, "pi-grok-bash.mjs");
   const previousPackageDir = process.env.PI_PACKAGE_DIR;
-  process.env.PI_PACKAGE_DIR = join(repoRoot, "pi-main/packages/coding-agent");
-  await esbuild.build({
+  process.env.PI_PACKAGE_DIR ??= join(repoRoot, "pi-main/packages/coding-agent");
+  if (esbuild) await esbuild.build({
     entryPoints: [join(repoRoot, "extensions/pi-grok-bash/index.ts")],
     bundle: true,
     outfile,
@@ -34,12 +40,14 @@ async function buildExtension() {
       js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);',
     },
     nodePaths: [
+      ...(process.env.NODE_PATH ?? "").split(delimiter).filter(Boolean),
       join(homedir(), ".pi/agent/npm/node_modules"),
       join(repoRoot, "pi-main/node_modules"),
     ],
     logLevel: "silent",
   });
-  const loaded = await import(`${pathToFileURL(outfile).href}?v=${Date.now()}`);
+  if (!esbuild && typeof Bun === "undefined") throw new Error("Use Bun with system Pi, or provision the optional pi-main esbuild dependency");
+  const loaded = await import(`${pathToFileURL(esbuild ? outfile : join(repoRoot, "extensions/pi-grok-bash/index.ts")).href}?v=${Date.now()}`);
   return { register: loaded.default, EvalSessionToolBridge: loaded.EvalSessionToolBridge, tempDir, previousPackageDir };
 }
 
@@ -72,6 +80,7 @@ async function createHarness(register, version, options = {}) {
   const customMessages = [];
   const pi = {
     events: { emit() {} },
+    appendEntry() {},
     sendMessage(message, options) {
       customMessages.push({ message, options });
     },
@@ -92,10 +101,6 @@ async function createHarness(register, version, options = {}) {
     getAllTools() {
       return options.toolInfo ?? [];
     },
-    invokeTool(toolName, args, signal) {
-      if (!options.invokeTool) throw new Error(`Unexpected invokeTool(${toolName})`);
-      return options.invokeTool(toolName, args, signal);
-    },
     complete(prompt, completionOptions, signal) {
       if (!options.complete) throw new Error(`Unexpected completion(${prompt})`);
       return options.complete(prompt, completionOptions, signal);
@@ -106,7 +111,22 @@ async function createHarness(register, version, options = {}) {
   const evalTool = registeredTools.get("eval");
   assert(evalTool, "eval tool must be registered");
 
+  const context = {
+    cwd: repoRoot,
+    sessionManager: { getSessionId: () => "fixture-session", getSessionFile: () => undefined },
+          tools: options.toolInfo ?? [],
+          async executeTool(toolName, args, executionOptions) {
+            if (!options.invokeTool) throw new Error(`Unexpected executeTool(${toolName})`);
+            return {
+              toolCall: { id: "test/nested", name: toolName, arguments: args },
+              result: await options.invokeTool(toolName, args, executionOptions.signal),
+              isError: false,
+            };
+          },
+        };
+
   return {
+    context,
     evalTool,
     registeredTools,
     getActiveTools() {
@@ -119,7 +139,7 @@ async function createHarness(register, version, options = {}) {
         params,
         signal,
         undefined,
-        { cwd: repoRoot },
+        context,
       );
     },
     async emit(event, payload) {
@@ -515,7 +535,7 @@ console.log(JSON.stringify({
       { command: "printf 'zero-timeout-ok\\n'", task_name: "zero timeout bash", timeout: 0 },
       new AbortController().signal,
       undefined,
-      { cwd: repoRoot },
+      contextForBash(),
     );
     assert.match(zeroTimeoutBash.content[0].text, /zero-timeout-ok/);
     console.log("PASS 11a Bash timeout=0 disables the timeout instead of failing validation");
@@ -525,7 +545,7 @@ console.log(JSON.stringify({
       { command: "for i in $(seq 1 3000); do printf 'x\\n'; done", task_name: "long background output", is_background: true },
       new AbortController().signal,
       undefined,
-      { cwd: repoRoot },
+      contextForBash(),
     );
     const bashStarted = JSON.parse(bashBackground.content[0].text);
     await bashWaitTool.execute(
@@ -554,7 +574,7 @@ console.log(JSON.stringify({
       { command: "sleep 30", task_name: "cancelled background", is_background: true },
       new AbortController().signal,
       undefined,
-      { cwd: repoRoot },
+      contextForBash(),
     );
     const cancelledTask = JSON.parse(cancelledBackground.content[0].text);
     await killTool.execute(
@@ -645,7 +665,7 @@ console.log(JSON.stringify({
       { command: "sleep 2; printf 'auto-background-done\\n'", task_name: "auto background threshold" },
       new AbortController().signal,
       undefined,
-      { cwd: repoRoot },
+      contextForBash(),
     );
     assert.equal(promoted.details.background, true);
     assert.match(promoted.details.taskId, /^bash-/);
@@ -711,7 +731,7 @@ console.log(JSON.stringify({
       { language: "js", code: 'await new Promise(resolve => setTimeout(resolve, 900)); console.log("auto-eval-done")', title: "auto background eval", timeout: 2 },
       new AbortController().signal,
       undefined,
-      { cwd: repoRoot },
+      autoBackground.context,
     );
     assert.equal(promotedEval.details.background, true);
     assert.match(promotedEval.details.taskId, /^eval-/);
@@ -720,7 +740,7 @@ console.log(JSON.stringify({
       { language: "js", code: "20 + 22", timeout: 1 },
       new AbortController().signal,
       undefined,
-      { cwd: repoRoot },
+      autoBackground.context,
     );
     assert.match(foregroundAfterPromotion.content[0].text, /42/);
     let evalWaitedBody;
@@ -857,7 +877,10 @@ console.log(JSON.stringify({
       return observedTools;
     },
     createContext() {
-      return { cwd: repoRoot };
+      return contextForBash();
+    },
+    createToolContext() {
+      return contextForBash();
     },
     async emit(event) {
       lifecycle.push(event.type);
@@ -965,7 +988,7 @@ console.log(JSON.stringify({
     assert.deepEqual(evalOnlyBridge.catalog(), []);
     await assert.rejects(
       evalOnlyBridge.invoke("notes_list", { limit: 1 }, new AbortController().signal),
-      /inactive tool/,
+      /excluded tool/,
     );
     evalOnlyBridge.setAllowedTools(undefined);
     assert.deepEqual(evalOnlyBridge.catalog().map((tool) => tool.name), ["notes_list"]);
@@ -984,11 +1007,14 @@ console.log(JSON.stringify({
   try {
     assert.deepEqual(isolated.getActiveTools(), ["notes_list", "eval"]);
     await isolated.emit("session_start");
-    assert.deepEqual(isolated.getActiveTools(), ["eval"]);
+    assert.deepEqual(isolated.getActiveTools(), ["notes_list", "eval"]);
+    assert.deepEqual(isolated.evalTool.prepareLoadout({
+      declared: isolated.getActiveTools().map((name) => ({ name })),
+    }).hiddenDeclarations, ["notes_list"]);
   } finally {
     await isolated.close();
   }
-  console.log("PASS 16 eval-v2-only collapses only the top-level active tool set at session start");
+  console.log("PASS 16 eval-v2-only hides top-level declarations while retaining official callable tools");
 
   const searchHarness = await createHarness(register, "v2", {
     evalV2Only: true,

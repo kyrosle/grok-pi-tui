@@ -2,9 +2,10 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 
 import * as ImportedPi from "@earendil-works/pi-coding-agent";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 
 export type BridgeExecutionMode = "parallel" | "sequential";
 
@@ -23,6 +24,7 @@ type ToolResult = {
 	isError?: boolean;
 	terminate?: boolean;
 	addedToolNames?: string[];
+	structuredContent?: unknown;
 };
 
 type RegisteredToolLike = {
@@ -80,6 +82,7 @@ const HUB_SYMBOL = Symbol.for("pi-grok.eval-tool-capture.v1");
 const ANCHOR_SYMBOL = Symbol.for("pi-grok.eval-tool-anchor.v1");
 const EVAL_TOOL_UI_BRIDGE_TYPE = "pi-grok-eval-tool/v1";
 const CORE_TOOL_NAMES = new Set(["read", "bash", "edit", "write", "grep", "find", "ls"]);
+const EVAL_RECURSIVE_TOOLS = new Set(["eval", "codemode", "tool_search"]);
 
 function captureHub(Runner: RunnerConstructor): CaptureHub {
 	const prototype = Runner.prototype;
@@ -210,6 +213,9 @@ export class EvalSessionToolBridge {
 	}
 
 	async install(anchor: object | string) {
+		// ponytail: off-turn MCP has no ExtensionToolContext; remove this
+		// compatibility capture when Pi exposes official off-turn tool invocation.
+		if (process.env.PI_GROK_EVAL_MCP !== "1") return;
 		this.modules = await runtimeModules();
 		const anchorToken = typeof anchor === "string" ? undefined : {};
 		if (anchorToken) {
@@ -262,12 +268,15 @@ export class EvalSessionToolBridge {
 		}
 	}
 
-	catalog(): EvalToolMetadata[] {
+	catalog(ctx?: ExtensionToolContext): EvalToolMetadata[] {
 		const active = new Set(this.pi.getActiveTools());
 		const includeRegistered = evalV2OnlyHostToolsEnabled();
+		const callable = ctx ? new Set(ctx.tools.map((tool) => tool.name)) : undefined;
 		return this.pi
 			.getAllTools()
-			.filter((tool) => (includeRegistered || active.has(tool.name)) && tool.name !== "eval" && this.isAllowed(tool.name))
+			.filter((tool) =>
+				(callable ? callable.has(tool.name) : includeRegistered || active.has(tool.name)) &&
+				tool.exposure !== "hidden" && !EVAL_RECURSIVE_TOOLS.has(tool.name) && this.isAllowed(tool.name))
 			.map((tool) => {
 				const captured = this.registered.get(tool.name)?.registeredTool;
 				const runtimeInfo = tool as typeof tool & { executionMode?: BridgeExecutionMode };
@@ -300,8 +309,45 @@ export class EvalSessionToolBridge {
 		return info?.executionMode === "parallel" ? "parallel" : "sequential";
 	}
 
-	async invoke(toolName: string, args: Record<string, unknown>, signal: AbortSignal): Promise<ToolResult> {
+	async waitForCatalog(pattern: string, timeoutMs: number, signal: AbortSignal, ctx?: ExtensionToolContext): Promise<EvalToolMetadata[]> {
+		if (typeof pattern !== "string" || !pattern.trim()) throw new Error("tools.waitFor requires a nonempty name pattern");
+		if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000) throw new Error("tools.waitFor timeout must be 1–60000 ms");
+		const matches = new RegExp(pattern, "i");
+		const deadline = Date.now() + timeoutMs;
+		while (true) {
+			throwIfAborted(signal);
+			const catalog = this.catalog(ctx);
+			if (catalog.some(tool => matches.test(tool.name))) return catalog;
+			if (Date.now() >= deadline) throw new Error(`tools.waitFor timed out waiting for ${JSON.stringify(pattern)}`);
+			// Pi 1.0 has no public registry-ready event; observe its registry only.
+			await delay(Math.min(25, Math.max(1, deadline - Date.now())), undefined, { signal });
+		}
+	}
+
+	async invoke(toolName: string, args: Record<string, unknown>, signal: AbortSignal, ctx?: ExtensionToolContext): Promise<ToolResult> {
 		throwIfAborted(signal);
+		if (EVAL_RECURSIVE_TOOLS.has(toolName) || !this.isAllowed(toolName)) {
+			throw new Error(`Eval v2 cannot invoke excluded tool ${JSON.stringify(toolName)}`);
+		}
+		if (ctx) {
+			if (!ctx.tools.some((tool) => tool.name === toolName)) {
+				throw new Error(`Eval v2 cannot invoke non-callable tool ${JSON.stringify(toolName)}`);
+			}
+			const outcome = await ctx.executeTool(toolName, args, { signal });
+			throwIfAborted(signal);
+			// Pi emits live nested events and stores only bounded call summaries.
+			// Official custom entries retain UI output for replay without adding
+			// tool results or control traffic to the model transcript.
+			const projection = {
+				version: 1, replayOnly: true, toolCallId: outcome.toolCall.id,
+				toolName, args: outcome.toolCall.arguments,
+			};
+			this.pi.appendEntry(EVAL_TOOL_UI_BRIDGE_TYPE, { ...projection, phase: "start" });
+			this.pi.appendEntry(EVAL_TOOL_UI_BRIDGE_TYPE, {
+				...projection, phase: "end", result: outcome.result, isError: outcome.isError,
+			});
+			return { ...outcome.result, isError: outcome.isError };
+		}
 		const active = this.pi.getActiveTools().includes(toolName);
 		const registered = this.pi.getAllTools().some((tool) => tool.name === toolName);
 		if (!active && !(evalV2OnlyHostToolsEnabled() && registered && this.isAllowed(toolName))) {

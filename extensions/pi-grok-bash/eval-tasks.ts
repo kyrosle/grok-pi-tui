@@ -136,6 +136,7 @@ export async function startEvalBackgroundTask(params: {
 	kernel: PersistentEvalKernel;
 	tools: Parameters<PersistentEvalKernel["execute"]>[5];
 	skills: EvalSkillMetadata[];
+	hostCall?: Parameters<PersistentEvalKernel["execute"]>[8];
 	backgrounded?: boolean;
 	ownsKernel?: boolean;
 	onSettled?: () => void;
@@ -176,6 +177,7 @@ export async function startEvalBackgroundTask(params: {
 			params.tools,
 			params.skills,
 			(chunk) => log.write(chunk),
+			params.hostCall,
 		)
 		.then(async (result: EvalExecution) => {
 			task.result = result;
@@ -270,4 +272,3 @@ export function killEvalTask(task: EvalBackgroundTask) {
 	task.controller.abort(new Error("killed"));
 	return true;
 }
-

@@ -15,6 +15,7 @@ import {
 	createBashToolDefinition,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type ExtensionToolContext,
 } from "@earendil-works/pi-coding-agent";
 
 import {
@@ -123,7 +124,11 @@ export default async function (pi: ExtensionAPI) {
 	let evalV2ToolsOverride: string[] | undefined;
 	let evalV2ToolsOverrideLoad: Promise<void> = Promise.resolve();
 	if (evalV2Only) {
-		pi.on("session_start", () => pi.setActiveTools(["eval"]));
+		const activateCallableTools = () => pi.setActiveTools(
+			pi.getAllTools().filter((tool) => tool.exposure !== "hidden").map((tool) => tool.name),
+		);
+		pi.on("session_start", activateCallableTools);
+		pi.on("before_agent_start", activateCallableTools);
 		evalV2ToolsOverrideLoad = loadEvalV2ToolsOverride().then((names) => {
 			if (!names) return;
 			evalV2ToolsOverride = names;
@@ -148,9 +153,13 @@ export default async function (pi: ExtensionAPI) {
 	const completionAvailable = typeof (pi as ExtensionAPI & { complete?: unknown }).complete === "function";
 	const evalPrompts = buildEvalPrompts(evalVersion, completionAvailable, evalV2Language);
 	const evalHostCallGate = evalVersion === "v2" ? new HostCallGate(EVAL_V2_PARALLEL_HOST_CALL_LIMIT) : undefined;
-	const invokeEvalHostCall: EvalHostCallHandler | undefined =
+	const evalHostCallFor = (ctx?: ExtensionToolContext): EvalHostCallHandler | undefined =>
 		evalVersion === "v2"
 			? async (call, signal) => {
+					if (call.method === "catalog") {
+						if (!evalToolBridge) throw new Error("Eval tool registry is unavailable");
+						return evalToolBridge.waitForCatalog(call.pattern, call.timeoutMs, signal, ctx);
+					}
 					if (!evalHostCallGate) throw new Error("eval v2 host call gate unavailable");
 					if (call.method === "skill") {
 						if (call.operation !== "read") throw new Error(`Unsupported Eval skill operation ${JSON.stringify(call.operation)}`);
@@ -174,13 +183,15 @@ export default async function (pi: ExtensionAPI) {
 					if (!evalToolBridge) throw new Error("eval v2 host tool bridge unavailable");
 					const executionMode: HostCallExecutionMode = evalToolBridge.executionMode(toolName);
 					return evalHostCallGate.run(executionMode, signal, async () => {
-						const result = await evalToolBridge.invoke(toolName, call.args ?? {}, signal);
+						const result = await evalToolBridge.invoke(toolName, call.args ?? {}, signal, ctx);
 						const value = evalHostToolValue(result.content);
+						if (result.structuredContent !== undefined) Object.assign(value, { structuredContent: result.structuredContent });
 						if (result.isError) throw new Error(value.text || `Tool ${toolName} failed`);
 						return value;
 					});
 				}
 			: undefined;
+	const invokeEvalHostCall = evalHostCallFor();
 	let evalKernels: Partial<Record<EvalLanguage, PersistentEvalKernel>> =
 		evalVersion === "v2"
 			? evalV2Language === "js"
@@ -245,6 +256,9 @@ export default async function (pi: ExtensionAPI) {
 		promptSnippet: evalPrompts.promptSnippet,
 		promptGuidelines: evalPrompts.promptGuidelines,
 		parameters: EvalParameters,
+		prepareLoadout: evalV2Only ? (loadout: { declared: readonly { name: string }[] }) => ({
+			hiddenDeclarations: loadout.declared.filter((tool) => tool.name !== "eval").map((tool) => tool.name),
+		}) : undefined,
 		async execute(
 			toolCallId: string,
 			params: EvalParams,
@@ -253,6 +267,12 @@ export default async function (pi: ExtensionAPI) {
 			ctx: ExtensionContext,
 		) {
 			if (!params.code.trim()) throw new Error("eval code must not be empty");
+			const toolContext = typeof (ctx as ExtensionToolContext).executeTool === "function"
+				? ctx as ExtensionToolContext : undefined;
+			if (evalVersion === "v2" && !toolContext && process.env.PI_GROK_EVAL_MCP !== "1") {
+				throw new Error("Eval v2 requires a Pi ExtensionToolContext");
+			}
+			const hostCall = evalHostCallFor(toolContext);
 			if (params.is_background) {
 				if (evalVersion !== "v2" || !evalV2Languages.includes(params.language)) {
 					throw new Error(`background eval is unavailable for language ${JSON.stringify(params.language)} in this Eval configuration`);
@@ -266,8 +286,9 @@ export default async function (pi: ExtensionAPI) {
 					timeout: params.timeout ?? 300,
 					ui: ctx.ui,
 					kernel,
-					tools: evalToolBridge?.catalog() ?? [],
+					tools: evalToolBridge?.catalog(toolContext) ?? [],
 					skills: evalSkills,
+					hostCall,
 				});
 				evalTasks.set(task.taskId, task);
 				return {
@@ -299,8 +320,9 @@ export default async function (pi: ExtensionAPI) {
 					timeout: params.timeout ?? 300,
 					ui: ctx.ui,
 					kernel,
-					tools: evalToolBridge?.catalog() ?? [],
+					tools: evalToolBridge?.catalog(toolContext) ?? [],
 					skills: evalSkills,
+					hostCall,
 					backgrounded: false,
 					ownsKernel: false,
 				});

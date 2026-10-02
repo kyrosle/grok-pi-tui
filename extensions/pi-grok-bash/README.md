@@ -45,6 +45,8 @@ This is separate from **Eval v2-only MCP** above: `eval-pi-mcp` lets an external
 
 ## Current behavior at a glance
 
+Pi MCP servers connect asynchronously. In Eval v2, `await tools.waitFor("^mcp__server__", 10000)` waits for matching **callable** tool metadata and refreshes the cell's catalogue; JavaScript and Python use the same helper. Existing `tools.list/search/describe` remain synchronous. Waiting only observes Pi's registry, is bounded to 1–60000 ms, and honours the cell's abort signal, hidden exposure and CLI exclusions. Codemode and `tool_search` are Pi `model-only` tools and cannot be nested from Eval.
+
 | Capability | Eval v1 | Eval v2 |
 | --- | --- | --- |
 | JavaScript | yes | yes |

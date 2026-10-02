@@ -98,3 +98,8 @@ category: "architecture"
 - 当前从 main@222d614d 和全部既有本任务改动继续；中断时没有仍运行的 Cargo。先提交 Spec/Plan 的当前范围与检查点，再分别验证、提交 Pi 1.0 接缝、中性契约、上游原生组与 verifier 修复。
 - 三个并行执行范围：Workflow 真正切断 adapter→Shell；terminal restore/reader/fence 与必要 clipboard/repaint；来源 hash baseline 精确迁移与旧 Pager fixture 恢复。当前会话模型继承，不按旧角色别名切换；主代理统一 commit 和 Cargo 验证。
 - 新核查发现 Workflow effort 被 host 计算后未进入 backend request，补齐传递并按 Pi SDK thinking level 映射；notifications/activity 已下沉，wire-shape 定向证明已通过（adapter 194 tests，Workflow 95 tests），最新 effort 改动仍需验证。
+
+### Pi 1.0 Eval 接缝提交验证
+
+- 当前阶段重新执行 Eval v2.1 生产回归全部通过；真实系统 Pi + 本地 MCP 的8种隔离RPC场景全部通过；Auth5项测试通过。
+- 首笔源码提交限定为Pi1.0版本门禁、Eval官方执行上下文/异步callable registry、worker拒绝/取消与其隔离fixture；原生UI、Workflow断边、鉴权呈现接缝在各自阶段提交，不将此提交解释为整体完成。
