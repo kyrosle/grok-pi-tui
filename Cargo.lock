@@ -7871,7 +7871,7 @@ dependencies = [
  "tracing",
  "uuid",
  "xai-acp-lib",
- "xai-grok-shell",
+ "xai-grok-config",
  "xai-workflow",
 ]
 
@@ -13656,7 +13656,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ts-rs",
- "xai-grok-tools",
+ "xai-grok-config",
 ]
 
 [[package]]
@@ -13670,6 +13670,7 @@ dependencies = [
  "reqwest-middleware 0.4.2",
  "tokio",
  "tracing",
+ "xai-tool-types",
 ]
 
 [[package]]
@@ -13740,7 +13741,6 @@ dependencies = [
  "tracing",
  "xai-grok-announcements",
  "xai-grok-config",
- "xai-grok-mcp",
 ]
 
 [[package]]
@@ -13861,7 +13861,8 @@ dependencies = [
  "xai-grok-config",
  "xai-grok-extra-ca",
  "xai-grok-sandbox",
- "xai-grok-tools",
+ "xai-tool-types",
+ "xai-tty-utils",
 ]
 
 [[package]]
@@ -13877,10 +13878,10 @@ dependencies = [
  "tracing",
  "xai-grok-auth",
  "xai-grok-extra-ca",
- "xai-grok-sampler",
+ "xai-grok-sampling-types",
  "xai-grok-telemetry",
  "xai-grok-version",
- "xai-grok-workspace",
+ "xai-tool-types",
 ]
 
 [[package]]
@@ -13897,6 +13898,7 @@ dependencies = [
 name = "xai-grok-login"
 version = "0.1.0"
 dependencies = [
+ "agent-client-protocol",
  "anyhow",
  "arc-swap",
  "async-trait",
@@ -13941,14 +13943,14 @@ dependencies = [
  "xai-grok-env",
  "xai-grok-extra-ca",
  "xai-grok-http",
- "xai-grok-memory",
- "xai-grok-sampler",
+ "xai-grok-sampling-types",
  "xai-grok-shell-base",
  "xai-grok-telemetry",
  "xai-grok-test-support",
- "xai-grok-tools",
  "xai-grok-version",
  "xai-system-power",
+ "xai-tool-types",
+ "xai-tty-utils",
 ]
 
 [[package]]
@@ -14054,12 +14056,14 @@ dependencies = [
  "tracing",
  "windows 0.61.3",
  "xai-grok-auth",
+ "xai-grok-config",
  "xai-grok-config-types",
  "xai-grok-http",
  "xai-grok-tools",
  "xai-grok-version",
  "xai-sqlite-journal",
  "xai-token-estimation",
+ "xai-tool-types",
 ]
 
 [[package]]
@@ -14187,6 +14191,7 @@ dependencies = [
  "xai-grok-agent",
  "xai-grok-announcements",
  "xai-grok-config",
+ "xai-grok-config-types",
  "xai-grok-dashboard-store",
  "xai-grok-extra-ca",
  "xai-grok-feedback",
@@ -14196,12 +14201,16 @@ dependencies = [
  "xai-grok-login",
  "xai-grok-markdown",
  "xai-grok-mermaid",
+ "xai-grok-models",
  "xai-grok-otel",
  "xai-grok-pager-diff",
  "xai-grok-pager-render",
  "xai-grok-plugin-marketplace",
+ "xai-grok-sampling-types",
  "xai-grok-sandbox",
+ "xai-grok-shared",
  "xai-grok-shell",
+ "xai-grok-shell-base",
  "xai-grok-status-line",
  "xai-grok-telemetry",
  "xai-grok-test-support",
@@ -14215,6 +14224,7 @@ dependencies = [
  "xai-ratatui-inline",
  "xai-ratatui-textarea",
  "xai-token-estimation",
+ "xai-tool-types",
  "xai-tty-utils",
 ]
 
@@ -14254,6 +14264,7 @@ dependencies = [
  "xai-grok-pager",
  "xai-grok-pager-minimal",
  "xai-grok-sandbox",
+ "xai-grok-shared",
  "xai-grok-shell",
  "xai-grok-telemetry",
  "xai-grok-update",
@@ -14271,6 +14282,7 @@ dependencies = [
  "similar",
  "tracing",
  "xai-grok-tools",
+ "xai-tool-types",
 ]
 
 [[package]]
@@ -14285,10 +14297,11 @@ dependencies = [
  "uuid",
  "xai-grok-pager",
  "xai-grok-pager-diff",
- "xai-grok-shell",
+ "xai-grok-shared",
  "xai-grok-version",
  "xai-ratatui-inline",
  "xai-token-estimation",
+ "xai-tool-types",
 ]
 
 [[package]]
@@ -14329,6 +14342,7 @@ dependencies = [
  "anstyle",
  "anyhow",
  "base64 0.22.1",
+ "blake3",
  "chrono",
  "crossterm",
  "dark-light",
@@ -14367,12 +14381,11 @@ dependencies = [
  "xai-dirs",
  "xai-grok-config",
  "xai-grok-gboom",
+ "xai-grok-image",
  "xai-grok-markdown",
  "xai-grok-paths",
  "xai-grok-shared",
  "xai-grok-telemetry",
- "xai-grok-tools",
- "xai-grok-workspace",
  "xai-ratatui-inline",
  "xai-ratatui-textarea",
  "xai-tty-utils",
@@ -14544,6 +14557,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "toml",
  "tracing",
  "urlencoding",
  "uuid",
@@ -14553,6 +14567,8 @@ dependencies = [
  "xai-grok-image",
  "xai-grok-models",
  "xai-grok-status-line",
+ "xai-token-estimation",
+ "xai-tool-types",
  "xai-tty-utils",
 ]
 
@@ -14847,7 +14863,7 @@ dependencies = [
  "xai-grok-env",
  "xai-grok-extra-ca",
  "xai-grok-otel",
- "xai-grok-sampler",
+ "xai-grok-sampling-types",
  "xai-grok-secrets",
  "xai-grok-session-events",
  "xai-grok-version",
@@ -14959,6 +14975,7 @@ dependencies = [
  "xai-grok-image",
  "xai-grok-otel",
  "xai-grok-sandbox",
+ "xai-grok-shared",
  "xai-grok-test-support",
  "xai-grok-tools-api",
  "xai-grok-version",
@@ -15129,6 +15146,7 @@ dependencies = [
  "xai-grok-paths",
  "xai-grok-sandbox",
  "xai-grok-session-events",
+ "xai-grok-shared",
  "xai-grok-telemetry",
  "xai-grok-tools",
  "xai-grok-tools-api",
@@ -15371,10 +15389,14 @@ dependencies = [
 name = "xai-tool-types"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "derive_more 2.1.1",
+ "indexmap",
  "minijinja",
  "schemars 1.0.4",
  "serde",
  "serde_json",
+ "strum 0.26.3",
 ]
 
 [[package]]
@@ -15425,7 +15447,12 @@ dependencies = [
 name = "xai-workflow"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "chrono",
+ "dunce",
+ "jsonschema",
  "libc",
+ "parking_lot",
  "rhai",
  "serde",
  "serde_json",
@@ -15436,6 +15463,9 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid",
+ "xai-tool-types",
+ "xai-tty-utils",
 ]
 
 [[package]]

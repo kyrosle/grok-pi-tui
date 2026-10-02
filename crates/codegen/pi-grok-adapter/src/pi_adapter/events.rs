@@ -2,6 +2,13 @@ use super::*;
 
 const CANCEL_IDLE_CONFIRMATIONS: u8 = 3;
 
+fn cancellation_commands(abort_command: &str) -> [Value; 2] {
+    [
+        json!({ "type": "clear_queue" }),
+        json!({ "type": abort_command }),
+    ]
+}
+
 fn cancellation_idle_confirmed(idle_polls: &mut u8, is_streaming: bool) -> bool {
     if is_streaming {
         *idle_polls = 0;
@@ -16,6 +23,14 @@ fn cancellation_probe_still_current(cancelling: bool, has_running_prompt: bool) 
 }
 
 impl PiAgent {
+    pub(super) fn notify_cancellation(&self, abort_command: &str) {
+        for command in cancellation_commands(abort_command) {
+            if let Err(error) = self.rpc.notify(command) {
+                tracing::warn!(%error, "failed to notify Pi cancellation");
+            }
+        }
+    }
+
     pub(super) async fn handle_event(&self, event: Value) -> Result<()> {
         let event_type = event
             .get("type")
@@ -24,12 +39,9 @@ impl PiAgent {
             .unwrap_or_default();
         let cancelling = self.state.borrow().cancelling;
         if cancelling && matches!(event_type, "agent_start" | "turn_start") {
-            // Pi RPC exposes abort but not clearQueue(). A residual steering
-            // message can therefore open another turn after the first abort;
-            // keep cancelling each continuation until Pi emits agent_settled.
-            if let Err(error) = self.rpc.notify(json!({ "type": "abort" })) {
-                tracing::warn!(%error, "failed to re-abort Pi continuation during cancellation");
-            }
+            // Extensions can enqueue again while abort waits for idle; clear
+            // each continuation's queue before aborting until agent_settled.
+            self.notify_cancellation("abort");
             return Ok(());
         }
         let suppress_cancelled_stream = cancelling
@@ -257,6 +269,7 @@ impl PiAgent {
                     // a dead child; clear it so post-recovery reattach can
                     // begin a fresh one.
                     state.subagent_bridge_sequences.clear();
+                    state.auth_dialog_cancels.clear();
                     state.subagent_session_to_id.clear();
                     state.pending_subagent_replays.clear();
                     let queued = state.queue_mirror.clear_local();
@@ -508,6 +521,15 @@ impl PiAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancellation_clears_external_queue_before_both_abort_paths() {
+        for abort_command in ["abort", "abort_bash"] {
+            let commands = cancellation_commands(abort_command);
+            assert_eq!(commands[0]["type"], "clear_queue");
+            assert_eq!(commands[1]["type"], abort_command);
+        }
+    }
 
     #[test]
     fn cancellation_probe_requires_stable_idle() {

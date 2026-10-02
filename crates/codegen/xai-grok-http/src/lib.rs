@@ -7,7 +7,7 @@
 
 use std::sync::OnceLock;
 
-use xai_grok_workspace::permission::ClientType;
+use xai_tool_types::client::ClientType;
 
 /// Per-attempt ceiling for a startup `/settings` or `/v1/models` fetch.
 pub const STARTUP_FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
@@ -74,7 +74,7 @@ macro_rules! startup_timer {
 
 static CLIENT_TYPE: OnceLock<ClientType> = OnceLock::new();
 
-pub use xai_grok_sampler::OriginClientInfo;
+pub use xai_grok_sampling_types::OriginClientInfo;
 
 pub fn origin_client_info_from_env() -> Option<OriginClientInfo> {
     std::env::var("GROK_CLIENT_NAME")

@@ -14,13 +14,14 @@ use crate::{
     loop_host,
     model::{
         PiCommand, PiEntryReplayCache, PiHistoryItem, PiModel, PiReplayEntry, PiSessionSwitch,
-        PiSessionTree, PiState, PiToolContent, extract_delta, json_text, parse_commands,
-        parse_messages, parse_models, parse_session_switch, parse_session_tree, parse_state,
-        scan_local_sessions, scan_local_sessions_for_cwd, string, tree_entry_editor_text,
+        PiSessionTree, PiState, extract_delta, json_text, parse_commands, parse_messages,
+        parse_models, parse_session_switch, parse_session_tree, parse_state, scan_local_sessions,
+        scan_local_sessions_for_cwd, string, tree_entry_editor_text,
     },
     pi_rpc::PiRpc,
     pi_workflow_backend::{
         BridgeCommandRequest, BridgeCommandTx, WORKFLOW_CANCEL_COMMAND, WORKFLOW_SPAWN_COMMAND,
+        WORKFLOW_TRUST_COMMAND,
     },
     prompt_bridge::{
         direct_bash_command, format_bash_result, prompt_response, prompt_streaming_behavior,
@@ -39,7 +40,7 @@ use crate::{
     },
     workflow_host::{
         WorkflowHost, WorkflowRequest, format_outcome_for_tool, outcome_to_json,
-        parse_workflow_request,
+        parse_workflow_request, pi_registry_config,
     },
 };
 use agent_client_protocol as acp;
@@ -236,6 +237,8 @@ struct AdapterState {
     /// consistent with. Ids are kept for the session so stragglers that finish
     /// after the script cannot leak through; one string per call is negligible.
     codemode_parent_ids: HashSet<String>,
+    /// Auth prompt scope → cancellation sender; prompt contents stay in Pi.
+    auth_dialog_cancels: HashMap<String, oneshot::Sender<()>>,
     /// Local timing only; Pi owns compaction itself and reports its token result.
     compaction_started_at: Option<Instant>,
     /// Pi steering / follow-up queue mirrored as Grok `x.ai/queue/changed`.
@@ -270,6 +273,13 @@ struct AdapterState {
 }
 
 #[derive(Clone)]
+struct WorkflowProjectTrust {
+    session_id: String,
+    cwd: PathBuf,
+    trusted: bool,
+}
+
+#[derive(Clone)]
 pub struct PiAgent {
     rpc: PiRpc,
     client_tx: mpsc::UnboundedSender<AcpClientMessage>,
@@ -282,6 +292,7 @@ pub struct PiAgent {
     workflow_bridge_rx: Rc<RefCell<Option<mpsc::UnboundedReceiver<BridgeCommandRequest>>>>,
     /// Lazy session-scoped upstream workflow host (xai-workflow + Pi spawn).
     workflow_host: Rc<RefCell<Option<std::sync::Arc<WorkflowHost>>>>,
+    workflow_project_trust: Rc<RefCell<Option<WorkflowProjectTrust>>>,
     /// F2 pi_goal control file + GoalHost (None when feature off).
     goal_host: Rc<RefCell<Option<GoalHost>>>,
     /// Process-private path-based local IPC emitted by the Pi subagent extension.
@@ -326,6 +337,7 @@ impl PiAgent {
             workflow_bridge_tx,
             workflow_bridge_rx: Rc::new(RefCell::new(Some(workflow_bridge_rx))),
             workflow_host: Rc::new(RefCell::new(None)),
+            workflow_project_trust: Rc::new(RefCell::new(None)),
             goal_host: Rc::new(RefCell::new(goal_control.map(GoalHost::new))),
             subagent_transport: subagent_transport.map(Rc::new),
             workflows_enabled,
@@ -353,6 +365,7 @@ impl PiAgent {
                 bash_stream_output: HashMap::new(),
                 background_bash_tasks: HashMap::new(),
                 codemode_parent_ids: HashSet::new(),
+                auth_dialog_cancels: HashMap::new(),
                 compaction_started_at: None,
                 queue_mirror: QueueMirror::default(),
                 subagent_bridge_sequences: HashMap::new(),
@@ -374,12 +387,23 @@ impl PiAgent {
             let agent = self.clone();
             tokio::task::spawn_local(async move {
                 while let Some(req) = bridge_rx.recv().await {
-                    let result = agent
-                        .run_bridge_command(&req.command, &req.args)
-                        .await
-                        .map_err(|error| error.to_string());
-                    let _ = req.reply.send(result);
+                    let agent = agent.clone();
+                    tokio::task::spawn_local(async move {
+                        let result = agent
+                            .run_bridge_command(&req.command, &req.args)
+                            .await
+                            .map_err(|error| error.to_string());
+                        let _ = req.reply.send(result);
+                    });
                 }
+            });
+        }
+        if self.workflows_enabled {
+            let agent = self.clone();
+            tokio::task::spawn_local(async move {
+                agent.refresh_workflow_project_trust().await;
+                let commands = agent.state.borrow().bootstrap.commands.clone();
+                agent.send_commands(&commands).await;
             });
         }
         let (subagent_tx, mut subagent_rx) = mpsc::unbounded_channel();
@@ -407,12 +431,15 @@ impl PiAgent {
         if let Some(task) = subagent_task {
             task.abort();
         }
+        self.state.borrow_mut().auth_dialog_cancels.clear();
         self.finish_prompts(acp::StopReason::Cancelled);
     }
 
     pub async fn refresh(&self) -> Result<PiBootstrap> {
         let bootstrap = PiBootstrap::load(&self.rpc).await?;
         self.replace_bootstrap(bootstrap.clone());
+        self.rebind_workflow_scope(&bootstrap.state.session_id)
+            .await;
         Ok(bootstrap)
     }
 }
@@ -631,6 +658,7 @@ fn is_bridge_command(name: &str) -> bool {
         || name.eq_ignore_ascii_case(SHORTCUT_DISPATCH_COMMAND)
         || name.eq_ignore_ascii_case(WORKFLOW_SPAWN_COMMAND)
         || name.eq_ignore_ascii_case(WORKFLOW_CANCEL_COMMAND)
+        || name.eq_ignore_ascii_case(WORKFLOW_TRUST_COMMAND)
 }
 
 /// Ordered non-empty model refs from `models` array and/or legacy `model` field.
@@ -668,7 +696,7 @@ fn env_flag_enabled(value: Option<&str>) -> bool {
 }
 
 fn btw_extension_enabled() -> bool {
-    if let Ok(config) = xai_grok_shell::config::load_effective_config() {
+    if let Ok(config) = xai_grok_config::load_effective_config_disk_only() {
         if config
             .get("ui")
             .and_then(|ui| ui.get("pi_btw"))
@@ -771,6 +799,19 @@ fn normalize_language_tag(value: &str) -> Option<String> {
 }
 
 fn command_catalog(commands: &[PiCommand], workflows_enabled: bool) -> Vec<acp::AvailableCommand> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let listings = if workflows_enabled {
+        xai_workflow::registry::list_workflows(&pi_registry_config(&cwd, false))
+    } else {
+        Vec::new()
+    };
+    command_catalog_with_workflows(commands, workflows_enabled, &listings)
+}
+fn command_catalog_with_workflows(
+    commands: &[PiCommand],
+    workflows_enabled: bool,
+    listings: &[xai_workflow::registry::WorkflowListing],
+) -> Vec<acp::AvailableCommand> {
     // The adapter reports Pi's command catalog (normalized + deduped), minus
     // private bridge commands. When Pi workflows are enabled, inject the
     // upstream-aligned workflow slash surface so Pager autocomplete matches
@@ -837,7 +878,7 @@ fn command_catalog(commands: &[PiCommand], workflows_enabled: bool) -> Vec<acp::
         .collect();
 
     if workflows_enabled {
-        inject_workflow_slash_commands(&mut out, &mut seen);
+        inject_workflow_slash_commands(&mut out, &mut seen, listings);
     }
     out
 }
@@ -845,6 +886,7 @@ fn command_catalog(commands: &[PiCommand], workflows_enabled: bool) -> Vec<acp::
 fn inject_workflow_slash_commands(
     out: &mut Vec<acp::AvailableCommand>,
     seen: &mut HashSet<String>,
+    listings: &[xai_workflow::registry::WorkflowListing],
 ) {
     let push = |out: &mut Vec<acp::AvailableCommand>,
                 seen: &mut HashSet<String>,
@@ -887,8 +929,6 @@ fn inject_workflow_slash_commands(
     );
 
     // Named project/user/builtin scripts as first-class slash entries.
-    let cwd = std::env::current_dir().ok();
-    let listings = xai_grok_shell::session::workflow::list_workflows(cwd.as_deref());
     for listing in listings {
         let desc = format!("Workflow: {}", listing.description);
         push(out, seen, &listing.name, &desc, Some("<args>"));

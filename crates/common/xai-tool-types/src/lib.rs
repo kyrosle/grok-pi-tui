@@ -1,10 +1,21 @@
 //! Canonical, extensible tool types.
+pub mod auth;
+pub mod client;
+pub mod classification;
+pub mod claude_alias;
 pub mod definition;
+pub mod edit;
 mod ext;
+pub mod memory;
+pub mod memory_v2;
+pub mod questions;
 mod schema_utils;
 pub mod serde_lenient;
 mod task;
+pub mod taxonomy;
+pub mod todo;
 mod types;
+pub mod workflow;
 
 pub use ext::Extensions;
 pub use schema_utils::parse_arguments_from_schema_lossy;

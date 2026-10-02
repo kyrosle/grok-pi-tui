@@ -81,6 +81,7 @@ impl PiAgent {
             );
         }
         self.replace_bootstrap(bootstrap);
+        self.rebind_workflow_scope(expected_session_id).await;
         Ok(result)
     }
 
@@ -260,18 +261,133 @@ impl PiAgent {
         )))
     }
 
+    pub(super) fn set_workflow_project_trust(
+        &self,
+        session_id: String,
+        cwd: PathBuf,
+        trusted: bool,
+    ) {
+        let current = self.state.borrow().bootstrap.state.session_id.clone();
+        if session_id != current {
+            return;
+        }
+        *self.workflow_project_trust.borrow_mut() = Some(WorkflowProjectTrust {
+            session_id: session_id.clone(),
+            cwd,
+            trusted,
+        });
+        if let Some(host) = self.workflow_host.borrow().as_ref()
+            && host.session_id() == session_id
+        {
+            host.set_project_trust(trusted);
+        }
+    }
+    pub(super) fn workflow_listings(&self) -> Vec<xai_workflow::registry::WorkflowListing> {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let session_id = self.state.borrow().bootstrap.state.session_id.clone();
+        let trusted = self
+            .workflow_project_trust
+            .borrow()
+            .as_ref()
+            .is_some_and(|policy| {
+                policy.session_id == session_id && policy.cwd == cwd && policy.trusted
+            });
+        xai_workflow::registry::list_workflows(&pi_registry_config(&cwd, trusted))
+    }
+    /// Pi has already accepted the identity change. Cancelled switches never reach this boundary.
+    pub(super) async fn rebind_workflow_scope(&self, session_id: &str) {
+        let previous = self
+            .workflow_host
+            .borrow()
+            .clone()
+            .filter(|host| host.session_id() != session_id);
+        if let Some(host) = previous {
+            match host.shutdown().await {
+                Ok(()) => {
+                    let mut current = self.workflow_host.borrow_mut();
+                    if current
+                        .as_ref()
+                        .is_some_and(|cached| std::sync::Arc::ptr_eq(cached, &host))
+                    {
+                        current.take();
+                    }
+                }
+                Err(error) => {
+                    self.send_ui_notification(&error.to_string(), Some("error"))
+                        .await
+                }
+            }
+        }
+        let stale_policy = self
+            .workflow_project_trust
+            .borrow()
+            .as_ref()
+            .is_some_and(|policy| policy.session_id != session_id);
+        if stale_policy {
+            self.workflow_project_trust.borrow_mut().take();
+            self.refresh_workflow_project_trust().await;
+        }
+    }
+
+    /// Trust probes and catalogs do not create a runtime or acquire a session persistence scope.
+    pub(super) async fn refresh_workflow_project_trust(&self) {
+        if !self.workflows_enabled {
+            return;
+        }
+        let session_id = self.state.borrow().bootstrap.state.session_id.clone();
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        self.set_workflow_project_trust(session_id.clone(), cwd.clone(), false);
+        let result = async {
+            let response_dir = tempfile::tempdir()?;
+            let response_path = response_dir.path().join("trust.json");
+            let args = json!({ "responsePath": response_path }).to_string();
+            self.run_bridge_command(WORKFLOW_TRUST_COMMAND, &args)
+                .await
+                .map_err(|error| anyhow!(error.to_string()))?;
+            let response: Value = serde_json::from_slice(&std::fs::read(&response_path)?)?;
+            Ok::<bool, anyhow::Error>(
+                response
+                    .get("cwd")
+                    .and_then(Value::as_str)
+                    .is_some_and(|path| Path::new(path) == cwd)
+                    && response.get("sessionId").and_then(Value::as_str)
+                        == Some(session_id.as_str())
+                    && response.get("trusted").and_then(Value::as_bool) == Some(true),
+            )
+        };
+        match tokio::time::timeout(Duration::from_secs(5), result).await {
+            Ok(Ok(trusted)) => self.set_workflow_project_trust(session_id, cwd, trusted),
+            Ok(Err(error)) => {
+                tracing::warn!(%error, "Pi workflow project-trust probe failed; project scripts disabled")
+            }
+            Err(_) => tracing::warn!(
+                "Pi workflow project-trust probe timed out; project scripts disabled"
+            ),
+        }
+    }
+
     pub(super) fn ensure_workflow_host(&self) -> Result<()> {
         if !self.workflows_enabled {
             bail!(
                 "Pi workflows is off. F2 → Agent → Pi workflows → on, fully quit, then restart grok-pi (extension injects only at startup)."
             );
         }
-        if self.workflow_host.borrow().is_some() {
+        if let Some(host) = self.workflow_host.borrow().as_ref() {
+            if host.session_id() != self.state.borrow().bootstrap.state.session_id {
+                bail!("previous workflow session scope did not drain; restart the Pi host");
+            }
             return Ok(());
         }
         let (session_id, cwd, session_dir) = {
             let state = self.state.borrow();
-            let session_id = state.acp_session_id.clone();
+            let session_id = state.bootstrap.state.session_id.clone();
+            if session_id.is_empty()
+                || !session_id
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+            {
+                bail!("invalid Pi session id for workflow storage");
+            }
             let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             let session_dir = state
                 .bootstrap
@@ -279,7 +395,8 @@ impl PiAgent {
                 .session_file
                 .as_ref()
                 .and_then(|p| Path::new(p).parent().map(|p| p.to_path_buf()))
-                .or_else(|| Some(state.session_dir.clone()));
+                .or_else(|| Some(state.session_dir.clone()))
+                .map(|directory| directory.join("workflow-sessions").join(&session_id));
             (session_id, cwd, session_dir)
         };
         let host = std::sync::Arc::new(WorkflowHost::new(
@@ -288,6 +405,16 @@ impl PiAgent {
             session_dir,
             self.workflow_bridge_tx.clone(),
         ));
+        let trusted = self
+            .workflow_project_trust
+            .borrow()
+            .as_ref()
+            .is_some_and(|policy| {
+                policy.session_id == host.session_id()
+                    && policy.cwd == std::env::current_dir().unwrap_or_default()
+                    && policy.trusted
+            });
+        host.set_project_trust(trusted);
         *self.workflow_host.borrow_mut() = Some(host);
         Ok(())
     }
@@ -316,6 +443,7 @@ impl PiAgent {
         name: &str,
         args: &str,
     ) -> Result<Value, acp::Error> {
+        self.refresh_workflow_project_trust().await;
         let host = self.workflow_host_arc().map_err(acp_internal)?;
         let request = parse_workflow_request(name, args)
             .map_err(|e| acp::Error::invalid_params().data(e.to_string()))?;
@@ -598,7 +726,37 @@ impl PiAgent {
             .cloned()
             .unwrap_or(Value::Null);
         let kind = details.get("kind").and_then(Value::as_str).unwrap_or("");
+        if kind == "scope_closing" {
+            let parent = details.get("parentSessionId").and_then(Value::as_str);
+            let host = self
+                .workflow_host
+                .borrow()
+                .clone()
+                .filter(|host| Some(host.session_id()) == parent);
+            if let Some(host) = host {
+                let agent = self.clone();
+                tokio::task::spawn_local(async move {
+                    if let Err(error) = host.shutdown().await {
+                        agent
+                            .send_ui_notification(&error.to_string(), Some("error"))
+                            .await;
+                    }
+                });
+            }
+            return Ok(true);
+        }
         if kind == "tool_request" {
+            if let Ok(cwd) = std::env::current_dir() {
+                let session_id = self.state.borrow().bootstrap.state.session_id.clone();
+                let trusted = details
+                    .get("cwd")
+                    .and_then(Value::as_str)
+                    .is_some_and(|path| Path::new(path) == cwd)
+                    && details.get("parentSessionId").and_then(Value::as_str)
+                        == Some(session_id.as_str())
+                    && details.get("projectTrusted").and_then(Value::as_bool) == Some(true);
+                self.set_workflow_project_trust(session_id, cwd, trusted);
+            }
             let name = details
                 .get("name")
                 .and_then(Value::as_str)
@@ -913,6 +1071,7 @@ impl PiAgent {
         // Drop cached context usage so publish_bootstrap cannot re-stamp the
         // previous session's totalTokens onto a fresh AgentView (context bar).
         if session_changed {
+            state.auth_dialog_cancels.clear();
             state.entry_replay_cache = PiEntryReplayCache::default();
             state.last_context_tokens = None;
             state.turn_start_ms = None;

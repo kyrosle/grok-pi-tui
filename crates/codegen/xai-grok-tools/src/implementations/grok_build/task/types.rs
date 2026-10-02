@@ -1619,3 +1619,18 @@ mod tests {
             .unwrap();
     }
 }
+
+impl From<SubagentResult> for xai_tool_types::workflow::WorkflowAgentSpawnResult {
+    fn from(result: SubagentResult) -> Self {
+        Self {
+            success: result.success,
+            output: result.output,
+            error: result.error,
+            cancelled: result.cancelled,
+            child_session_id: result.child_session_id,
+            total_tokens_used: result.total_tokens_used,
+            duration_ms: result.duration_ms,
+            backgrounded: result.backgrounded,
+        }
+    }
+}

@@ -93,6 +93,9 @@ pub struct UiConfig {
     /// Default off; takes effect for new grok-pi sessions only.
     #[serde(default)]
     pub pi_workflows: bool,
+    /// Load Pi's own MCP client extension; disabled until explicitly enabled.
+    #[serde(default)]
+    pub pi_mcp: bool,
     /// Enable grok-pi's built-in structured `todo` tool and native TodoPane projection.
     /// Default on; takes effect for new grok-pi sessions only.
     #[serde(default = "default_true")]
@@ -525,6 +528,7 @@ impl Default for UiConfig {
             pi_subagents: true,
             pi_subagents_v2: false,
             pi_workflows: false,
+            pi_mcp: false,
             pi_todo: true,
             pi_todo_v2: false,
             pi_goal: false,

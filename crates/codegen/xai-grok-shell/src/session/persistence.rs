@@ -3422,3 +3422,20 @@ mod repo_wide_resolution_tests;
 #[cfg(test)]
 #[path = "persistence_actor_lifetime_tests.rs"]
 mod actor_lifetime_tests;
+
+impl From<xai_workflow::store::WorkflowPersistenceMsg> for PersistenceMsg {
+    fn from(message: xai_workflow::store::WorkflowPersistenceMsg) -> Self {
+        use xai_workflow::store::WorkflowPersistenceMsg;
+        match message {
+            WorkflowPersistenceMsg::Write(manifest) => Self::WorkflowRunState(manifest),
+            WorkflowPersistenceMsg::WriteAndAck {
+                manifest,
+                respond_to,
+            } => Self::WorkflowRunStateAndAck {
+                manifest,
+                respond_to,
+            },
+            WorkflowPersistenceMsg::Delete(run_id) => Self::DeleteWorkflowRunState(run_id),
+        }
+    }
+}

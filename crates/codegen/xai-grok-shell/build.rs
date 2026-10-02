@@ -2,13 +2,19 @@
 //!
 //! - If `GROK_SHELL_BUNDLE_RG_PATH` is set, always bundle it
 //! - Otherwise, only bundle in release builds
+#[cfg(feature = "stock-runtime")]
 use std::env;
+#[cfg(feature = "stock-runtime")]
 use std::fs;
+#[cfg(feature = "stock-runtime")]
 use std::io;
+#[cfg(feature = "stock-runtime")]
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "stock-runtime")]
 const RG_VER: &str = "15.0.0";
 
+#[cfg(feature = "stock-runtime")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Only bundle in release builds to avoid slowing down cargo check.
     println!("cargo:rerun-if-env-changed=GROK_SHELL_BUNDLE_RG_PATH");
@@ -146,6 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(feature = "stock-runtime")]
 fn is_bazel_build(manifest_dir: &Path) -> bool {
     let manifest_dir_str = manifest_dir.to_string_lossy();
     env::var_os("BAZEL_WORKSPACE").is_some()
@@ -154,4 +161,9 @@ fn is_bazel_build(manifest_dir: &Path) -> bool {
         || env::var_os("BAZEL_OUTPUT_BASE").is_some()
         || manifest_dir_str.contains("/execroot/")
         || manifest_dir_str.contains("/bazel-out/")
+}
+
+#[cfg(not(feature = "stock-runtime"))]
+fn main() {
+    println!("cargo:rustc-check-cfg=cfg(bundle_rg)");
 }

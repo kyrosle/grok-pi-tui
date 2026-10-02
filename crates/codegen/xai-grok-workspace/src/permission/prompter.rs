@@ -19,10 +19,9 @@ const REJECT_ONCE_LABEL: &str = "No, and tell Grok what to do differently";
 /// Session-only and never persisted; exposed so the pager does not record it as a sticky cursor target.
 pub const ALLOW_EDITS_SESSION_OPTION_ID: &str = "allow-edits-session";
 
-/// Stable id for the "enable always-approve mode" option prepended for TUI / Pager / Desktop clients.
-/// Shell maps it to [`PromptOutcome::AllowOnce`] and persists nothing; the pager separately fires `set_yolo_mode(true)`.
-/// Keeps the wire plain ACP. An unrecognized client still gets `AllowOnce`; worst case the current call is granted but the toggle does not flip.
-pub const ENABLE_ALWAYS_APPROVE_OPTION_ID: &str = "enable-always-approve";
+pub use xai_grok_shared::permissions::{
+    ENABLE_ALWAYS_APPROVE_OPTION_ID, is_enable_always_approve_option,
+};
 
 /// Defined once so the label is identical across every permission prompt (edit, bash, MCP, web_fetch, fallback).
 const ENABLE_ALWAYS_APPROVE_LABEL: &str =
@@ -37,11 +36,6 @@ fn enable_always_approve_option() -> acp::PermissionOption {
         ENABLE_ALWAYS_APPROVE_LABEL.to_owned(),
         acp::PermissionOptionKind::AllowOnce,
     )
-}
-
-/// Canonical check for the "enable always-approve mode" option; match on this, not the label or position 0.
-pub fn is_enable_always_approve_option(opt: &acp::PermissionOption) -> bool {
-    opt.option_id.0.as_ref() == ENABLE_ALWAYS_APPROVE_OPTION_ID
 }
 
 /// Only `GrokTUI`, `GrokPager`, and `Desktop` wire the option id through to their YOLO toggle; other clients keep their existing option set.

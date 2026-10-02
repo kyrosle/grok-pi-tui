@@ -1,3 +1,15 @@
+pub mod manager;
+pub mod host_service;
+pub mod schema_contract;
+pub mod registry;
+pub mod external;
+#[cfg(test)]
+mod test_backend;
+pub mod backend;
+pub mod tracker;
+pub mod store;
+pub mod notify;
+pub mod activity;
 pub mod engine;
 pub mod host;
 pub mod journal;

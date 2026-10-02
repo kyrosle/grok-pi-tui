@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use xai_grok_mcp::oauth_config::McpOAuthConfig;
+use xai_grok_config::mcp_oauth::McpOAuthConfig;
 
 /// serde default helper.
 fn default_true() -> bool {

@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use xai_grok_tools::types::memory_backend::{MemoryBackend, MemorySearchResult};
+use xai_tool_types::memory::{MemoryBackend, MemorySearchResult};
 
 use super::embedding::EmbeddingProvider as _;
 use super::observation::{
@@ -46,76 +46,7 @@ fn select_search_error_class(
     fts_error_class.or_else(|| is_vector_degraded.then_some(MemorySearchErrorClass::Vector))
 }
 
-/// Embedding-client credentials scoped to a trusted endpoint.
-/// Only [`Self::for_endpoint`] retains a live credential; the empty default fails closed.
-#[derive(Clone, Default)]
-pub struct EndpointScopedCredentials {
-    endpoint: Option<reqwest::Url>,
-    auth_credentials: Option<Arc<dyn xai_grok_auth::AuthCredentialProvider>>,
-    api_key_provider: Option<xai_grok_tools::types::SharedApiKeyProvider>,
-}
-
-// Manual Debug that redacts the credential handles; only their presence shows.
-impl std::fmt::Debug for EndpointScopedCredentials {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EndpointScopedCredentials")
-            .field("endpoint", &self.endpoint)
-            .field("has_auth_credentials", &self.auth_credentials.is_some())
-            .field("has_api_key_provider", &self.api_key_provider.is_some())
-            .finish()
-    }
-}
-
-impl EndpointScopedCredentials {
-    pub fn none() -> Self {
-        Self::default()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.auth_credentials.is_none() && self.api_key_provider.is_none()
-    }
-
-    /// Retains the credentials only for a trusted, parsable `endpoint`; otherwise drops them.
-    pub fn for_endpoint(
-        endpoint: &str,
-        is_trusted: impl FnOnce(&str) -> bool,
-        auth_credentials: Option<Arc<dyn xai_grok_auth::AuthCredentialProvider>>,
-        api_key_provider: Option<xai_grok_tools::types::SharedApiKeyProvider>,
-    ) -> Self {
-        if is_trusted(endpoint)
-            && let Ok(url) = reqwest::Url::parse(endpoint)
-        {
-            return Self {
-                endpoint: Some(url),
-                auth_credentials,
-                api_key_provider,
-            };
-        }
-        if auth_credentials.is_some() || api_key_provider.is_some() {
-            tracing::info!(
-                target: crate::MEMORY_LOG_TARGET,
-                endpoint,
-                "memory embeddings: session credentials withheld for non-first-party endpoint; its own key, if any, still applies"
-            );
-        }
-        Self::none()
-    }
-
-    fn auth_credentials(&self) -> Option<&Arc<dyn xai_grok_auth::AuthCredentialProvider>> {
-        self.auth_credentials.as_ref()
-    }
-
-    fn api_key_provider(&self) -> Option<&xai_grok_tools::types::SharedApiKeyProvider> {
-        self.api_key_provider.as_ref()
-    }
-
-    fn approved_for(&self, base_url: &str) -> bool {
-        match &self.endpoint {
-            None => self.is_empty(),
-            Some(endpoint) => reqwest::Url::parse(base_url).is_ok_and(|url| &url == endpoint),
-        }
-    }
-}
+pub use xai_grok_auth::EndpointScopedCredentials;
 
 /// All configuration needed to build a fully-wired [`MemoryBackendImpl`] for a live session.
 /// Grouping these in one struct makes every call site (ToolBridge, first-turn injection, post-compaction recovery) share identical config.
@@ -171,7 +102,7 @@ async fn build_embedding_provider(
         tracing::error!(
             target: crate::MEMORY_LOG_TARGET,
             base_url,
-            approved = ?credentials.endpoint,
+            approved = ?credentials.endpoint(),
             "memory embeddings: scoped credentials do not match the request URL; dropping them"
         );
     }
@@ -1102,7 +1033,7 @@ mod factory_tests {
     #[tokio::test]
     async fn make_embedding_provider_uses_async_api_key_resolution() {
         use std::sync::atomic::{AtomicU32, Ordering};
-        use xai_grok_tools::types::ApiKeyProvider;
+        use xai_tool_types::auth::ApiKeyProvider;
 
         struct AsyncProbe {
             sync_calls: Arc<AtomicU32>,
@@ -1127,7 +1058,7 @@ mod factory_tests {
 
         let sync_calls = Arc::new(AtomicU32::new(0));
         let async_calls = Arc::new(AtomicU32::new(0));
-        let probe: xai_grok_tools::types::SharedApiKeyProvider = Arc::new(AsyncProbe {
+        let probe: xai_tool_types::auth::SharedApiKeyProvider = Arc::new(AsyncProbe {
             sync_calls: sync_calls.clone(),
             async_calls: async_calls.clone(),
         });
@@ -1181,7 +1112,7 @@ mod tests {
 
     /// An api-key provider that fails the test if its key is ever resolved, proving a scoped-away credential is never consulted.
     struct PanicKey;
-    impl xai_grok_tools::types::ApiKeyProvider for PanicKey {
+    impl xai_tool_types::auth::ApiKeyProvider for PanicKey {
         fn current_api_key(&self) -> Option<String> {
             panic!("scoped-away credential must not be resolved");
         }
@@ -1236,7 +1167,7 @@ mod tests {
     /// The session provider would panic if resolved.
     #[tokio::test]
     async fn test_build_drops_credentials_when_request_url_differs() {
-        let session: xai_grok_tools::types::SharedApiKeyProvider = Arc::new(PanicKey);
+        let session: xai_tool_types::auth::SharedApiKeyProvider = Arc::new(PanicKey);
 
         let scoped = EndpointScopedCredentials::for_endpoint(
             "https://api.x.ai/v1",
@@ -1288,7 +1219,7 @@ mod tests {
         }
 
         let auth: Arc<dyn xai_grok_auth::AuthCredentialProvider> = Arc::new(StubAuth);
-        let api_key: xai_grok_tools::types::SharedApiKeyProvider = Arc::new(PanicKey);
+        let api_key: xai_tool_types::auth::SharedApiKeyProvider = Arc::new(PanicKey);
         let scoped = EndpointScopedCredentials::for_endpoint(
             "https://api.x.ai/v1",
             |_| true,
@@ -1312,12 +1243,12 @@ mod tests {
     #[test]
     fn endpoint_scoped_credentials_trust_gate_and_url_match() {
         struct AnyKey;
-        impl xai_grok_tools::types::ApiKeyProvider for AnyKey {
+        impl xai_tool_types::auth::ApiKeyProvider for AnyKey {
             fn current_api_key(&self) -> Option<String> {
                 None
             }
         }
-        let key = || Arc::new(AnyKey) as xai_grok_tools::types::SharedApiKeyProvider;
+        let key = || Arc::new(AnyKey) as xai_tool_types::auth::SharedApiKeyProvider;
 
         let denied = EndpointScopedCredentials::for_endpoint(
             "https://byok.example/v1",

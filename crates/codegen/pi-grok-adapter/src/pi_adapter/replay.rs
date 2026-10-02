@@ -1,6 +1,6 @@
 use super::*;
 use crate::btw_bridge::BtwHistoryEntry;
-use crate::pi_adapter::tools::eval_top_level_hidden;
+use crate::pi_adapter::tools::{eval_result_without_tool_calls, eval_top_level_hidden};
 
 impl PiAgent {
     /// Publish Pi-owned session metadata title. This is distinct from an
@@ -28,8 +28,13 @@ impl PiAgent {
     }
 
     pub(super) async fn send_commands(&self, commands: &[PiCommand]) {
+        let listings = self.workflow_listings();
         self.send_update(acp::SessionUpdate::AvailableCommandsUpdate(
-            acp::AvailableCommandsUpdate::new(command_catalog(commands, self.workflows_enabled)),
+            acp::AvailableCommandsUpdate::new(command_catalog_with_workflows(
+                commands,
+                self.workflows_enabled,
+                &listings,
+            )),
         ))
         .await;
     }
@@ -195,40 +200,7 @@ impl PiAgent {
                 raw_output,
                 is_error,
             } => {
-                let mut raw = raw_output.unwrap_or(Value::Null);
-                // History often stores `details` as raw_output and the body in
-                // separate content blocks. Fold text into the payload so bash/read
-                // projection still sees stdout / file text.
-                if pi_result_text(&raw).is_empty() {
-                    let text = content
-                        .iter()
-                        .filter_map(|item| match item {
-                            PiToolContent::Text(text) => Some(text.as_str()),
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    if !text.is_empty() {
-                        raw = json!({ "content": [{ "type": "text", "text": text }] });
-                    }
-                }
-                // Codemode history stores the tool `details` (nested calls) as
-                // raw_output with the script body in separate content blocks.
-                // Fold both into the payload shape `codemode_tool_output`
-                // expects so replay projects the same Codemode card as live.
-                if name.eq_ignore_ascii_case("codemode") && raw.get("content").is_none() {
-                    let items = content
-                        .iter()
-                        .filter_map(|item| match item {
-                            PiToolContent::Text(text) => {
-                                Some(json!({ "type": "text", "text": text }))
-                            }
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>();
-                    let details = raw;
-                    raw = json!({ "content": items, "details": details });
-                }
+                let raw = raw_output.unwrap_or(Value::Null);
                 // Suppress the top-level Eval card exactly like the live
                 // handlers, so resume shows only the replayed nested effects.
                 // Exception: a cell that never called a host tool has no effect
@@ -240,17 +212,15 @@ impl PiAgent {
                         return;
                     }
                     let args = self.state.borrow_mut().tool_args.remove(&id);
-                    let tool_call = acp::ToolCall::new(acp::ToolCallId::new(id.clone()), name.clone())
-                        .kind(tool_kind(&name))
-                        .status(acp::ToolCallStatus::InProgress)
-                        .content(Vec::new())
-                        .locations(Vec::new())
-                        .raw_input(args);
-                    self.send_replay_update(
-                        acp::SessionUpdate::ToolCall(tool_call),
-                        timestamp_ms,
-                    )
-                    .await;
+                    let tool_call =
+                        acp::ToolCall::new(acp::ToolCallId::new(id.clone()), name.clone())
+                            .kind(tool_kind(&name))
+                            .status(acp::ToolCallStatus::InProgress)
+                            .content(Vec::new())
+                            .locations(Vec::new())
+                            .raw_input(args);
+                    self.send_replay_update(acp::SessionUpdate::ToolCall(tool_call), timestamp_ms)
+                        .await;
                 }
                 let args = self.state.borrow_mut().tool_args.remove(&id);
                 let normalized = normalize_tool_raw_output(&name, args.as_ref(), &raw, is_error);
@@ -265,7 +235,11 @@ impl PiAgent {
                 if tool_kind(&name) == acp::ToolKind::Edit {
                     fields = fields.content(edit_diff_content(&name, args.as_ref(), Some(&raw)));
                 } else {
-                    fields = fields.content(Some(history_tool_content(content)));
+                    fields = fields.content(Some(if raw.get("content").is_some() {
+                        tool_content(&raw)
+                    } else {
+                        history_tool_content(content)
+                    }));
                 }
                 // Project todo-plugin snapshots onto the native TodoPane before
                 // the tool card update so resume restores badge state.

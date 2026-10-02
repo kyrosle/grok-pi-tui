@@ -2,6 +2,10 @@
 //! This crate sits upstream of the tools and shell; keep client utilities independent of their runtimes.
 
 pub mod clipboard;
+mod formatting;
+pub mod host_features;
+pub use formatting::format_bytes;
+pub mod permissions;
 pub mod placeholder_images;
 pub mod session;
 pub mod stderr;

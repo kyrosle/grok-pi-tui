@@ -9,12 +9,13 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
-use xai_grok_shell::session::workflow::{
-    ExternalWorkflowRuntime, ExternalWorkflowRuntimeConfig, WorkflowNotifySender, WorkflowRunStore,
-    workflow_session_notification_json,
-};
 use xai_workflow::WorkflowOutcome;
+use xai_workflow::{
+    external::{ExternalWorkflowRuntime, ExternalWorkflowRuntimeConfig},
+    notify::{WorkflowNotifySender, workflow_session_notification_json},
+    registry::WorkflowRegistryConfig,
+    store::WorkflowRunStore,
+};
 
 use crate::pi_workflow_backend::{BridgeCommandTx, PiWorkflowAgentBackend};
 
@@ -32,30 +33,14 @@ impl WorkflowHost {
         session_dir: Option<PathBuf>,
         bridge_tx: BridgeCommandTx,
     ) -> Self {
-        let (persist_tx, mut persist_rx) = mpsc::unbounded_channel();
-        tokio::spawn(async move {
-            while let Some(message) = persist_rx.recv().await {
-                use xai_grok_shell::session::persistence::PersistenceMsg;
-                if let PersistenceMsg::WorkflowRunStateAndAck { respond_to, .. } = message {
-                    let _ = respond_to.send(Ok(()));
-                }
-            }
-        });
-        let (gateway_tx, mut gateway_rx) = mpsc::unbounded_channel();
-        tokio::spawn(async move { while gateway_rx.recv().await.is_some() {} });
-
-        let store = WorkflowRunStore::new(session_dir.clone(), persist_tx.clone());
-        let notify = WorkflowNotifySender::new(
-            agent_client_protocol::SessionId::new(session_id.clone()),
-            xai_acp_lib::AcpAgentGatewaySender::new(gateway_tx),
-            persist_tx,
-            store.clone(),
-        );
+        let store = WorkflowRunStore::standalone(session_dir.clone());
+        let notify = WorkflowNotifySender::new(store.clone(), Arc::new(|_, _| {}));
         let scratch = session_dir
             .clone()
             .unwrap_or_else(std::env::temp_dir)
             .join("pi-workflow-spawn");
         let backend = Arc::new(PiWorkflowAgentBackend::new(bridge_tx, scratch));
+        let registry = pi_registry_config(&cwd, false);
         let runtime = ExternalWorkflowRuntime::new(ExternalWorkflowRuntimeConfig {
             session_id: session_id.clone(),
             session_dir,
@@ -63,7 +48,8 @@ impl WorkflowHost {
             backend,
             notify,
             store,
-            session_cmd_tx: mpsc::unbounded_channel().0,
+            hooks: Default::default(),
+            registry,
             templates: HashMap::new(),
         });
         Self {
@@ -72,6 +58,25 @@ impl WorkflowHost {
         }
     }
 
+    pub fn session_id(&self) -> &str {
+        &self.session_id
+    }
+    pub async fn shutdown(&self) -> Result<()> {
+        self.runtime
+            .shutdown(Duration::from_secs(30))
+            .await
+            .map_err(|runs| {
+                anyhow::anyhow!(
+                    "workflow scope did not drain: {}; restart the Pi host",
+                    runs.join(", ")
+                )
+            })
+    }
+
+    pub fn set_project_trust(&self, trusted: bool) {
+        self.runtime
+            .set_registry_config(pi_registry_config(self.runtime.cwd(), trusted));
+    }
     pub async fn launch_named(
         &self,
         name: &str,
@@ -84,6 +89,7 @@ impl WorkflowHost {
             .map_err(|e| anyhow::anyhow!(e.to_string()))
     }
 
+    #[cfg(test)]
     pub async fn launch_inline(
         &self,
         script: String,
@@ -136,6 +142,22 @@ impl WorkflowHost {
                 }
             }
         }
+    }
+}
+
+/// Pi decides project trust. The neutral registry only receives its current verdict.
+pub fn pi_registry_config(cwd: &std::path::Path, project_allowed: bool) -> WorkflowRegistryConfig {
+    let root = cwd
+        .ancestors()
+        .find(|path| path.join(".git").exists())
+        .unwrap_or(cwd)
+        .to_path_buf();
+    WorkflowRegistryConfig {
+        project_workflow_dir: Some(xai_grok_config::project_config_dir(&root).join("workflows")),
+        project_root: Some(root),
+        project_allowed,
+        user_workflow_dir: Some(xai_grok_config::grok_home().join("workflows")),
+        ..Default::default()
     }
 }
 
@@ -241,6 +263,78 @@ pub enum WorkflowRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::mpsc;
+
+    #[test]
+    fn neutral_workflow_notification_preserves_stock_wire_shape() {
+        let state = xai_workflow::tracker::WorkflowTracker::default().start_run(
+            "wf_wire".into(),
+            "demo".into(),
+            "objective".into(),
+            Vec::new(),
+            None,
+            None,
+        );
+        let neutral = xai_workflow::notify::build_workflow_updated(&state, 25, 0);
+        assert_eq!(
+            serde_json::to_value(neutral).unwrap()["sessionUpdate"],
+            "workflow_updated"
+        );
+        let envelope =
+            xai_workflow::notify::workflow_session_notification_json("session", &state, 25);
+        assert_eq!(envelope["sessionId"], "session");
+        assert_eq!(envelope["update"]["sessionUpdate"], "workflow_updated");
+    }
+
+    #[tokio::test]
+    async fn completed_workflow_host_persists_terminal_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let (tx, mut rx) =
+            mpsc::unbounded_channel::<crate::pi_workflow_backend::BridgeCommandRequest>();
+        let bridge = tokio::spawn(async move {
+            while let Some(request) = rx.recv().await {
+                assert_eq!(
+                    request.command,
+                    crate::pi_workflow_backend::WORKFLOW_CANCEL_COMMAND
+                );
+                let args: Value = serde_json::from_str(&request.args).unwrap();
+                if let Some(response) = args.get("response").and_then(Value::as_str) {
+                    std::fs::write(response, json!({ "drained": true }).to_string()).unwrap();
+                }
+                let _ = request.reply.send(Ok(()));
+            }
+        });
+        let host = WorkflowHost::new(
+            "test".into(),
+            dir.path().into(),
+            Some(dir.path().into()),
+            tx,
+        );
+        let (run_id, outcome) = host
+            .launch_inline(
+                "let meta = #{ name: \"storage-check\", description: \"d\" }; complete(\"saved\");"
+                    .into(),
+                "storage check".into(),
+                json!({}),
+            )
+            .await
+            .unwrap();
+        let outcome = tokio::time::timeout(Duration::from_secs(10), outcome)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(outcome, WorkflowOutcome::Completed { .. }));
+        let manifest: xai_workflow::store::WorkflowRunManifest = serde_json::from_slice(
+            &std::fs::read(dir.path().join("workflows").join(run_id).join("state.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            manifest.state.status,
+            xai_workflow::tracker::WorkflowRunStatus::Complete
+        );
+        assert_eq!(manifest.state.result_summary.as_deref(), Some("saved"));
+        bridge.abort();
+    }
 
     #[test]
     fn parses_launch_and_manage() {

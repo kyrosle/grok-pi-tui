@@ -477,8 +477,7 @@ pub(crate) fn normalize_tool_raw_output(
 /// Shapes handled (Pi side, `extensions/codemode/execute.ts`):
 /// - live end: `{ content: [...], details: { calls, fullOutputPath? } }`
 /// - live update (partialResult): `{ content: [], details: { calls } }`
-/// - replay: history stores `details` alone as raw_output, so callers fold the
-///   persisted content blocks back in as `content` (see the adapter replay path).
+/// - replay: history preserves the same complete tool-result envelope.
 pub(crate) fn codemode_tool_output(result: &Value) -> Value {
     let details = result.get("details").unwrap_or(result);
     let calls = details.get("calls").cloned().unwrap_or_else(|| json!([]));

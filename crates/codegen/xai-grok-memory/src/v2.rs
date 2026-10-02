@@ -8,7 +8,9 @@ use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 
 use rusqlite::params;
-use xai_grok_tools::util::truncate_str;
+fn truncate_str(text: &str, limit: usize) -> &str {
+    &text[..text.floor_char_boundary(limit)]
+}
 use xai_sqlite_journal::JournalMode;
 
 const STATE_SCHEMA_VERSION: &str = "1";

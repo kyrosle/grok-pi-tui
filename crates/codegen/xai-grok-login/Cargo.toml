@@ -15,6 +15,7 @@ test-support = []
 default-bazel = ["test-support"]
 
 [dependencies]
+agent-client-protocol = { workspace = true }
 anyhow = { workspace = true }
 arc-swap = { workspace = true }
 async-trait = { workspace = true }
@@ -57,11 +58,11 @@ xai-grok-config = { workspace = true }
 xai-grok-config-types = { workspace = true }
 xai-grok-env = { workspace = true }
 xai-grok-http = { workspace = true }
-xai-grok-memory = { workspace = true }
-xai-grok-sampler = { workspace = true }
+xai-grok-sampling-types = { path = "../xai-grok-sampling-types" }
 xai-grok-shell-base = { workspace = true }
 xai-grok-telemetry = { workspace = true }
-xai-grok-tools = { workspace = true }
+xai-tool-types = { workspace = true }
+xai-tty-utils = { workspace = true }
 xai-grok-version = { workspace = true }
 xai-system-power = { workspace = true }
 

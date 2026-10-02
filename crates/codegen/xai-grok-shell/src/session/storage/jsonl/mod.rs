@@ -936,7 +936,7 @@ impl JsonlStorageAdapter {
                 manifest,
                 script,
                 args,
-                effort,
+                effort: effort.map(|effort| effort.to_string()),
             });
         }
         Ok(restored)

@@ -1,6 +1,14 @@
 use super::*;
 use crate::model::EVAL_TOOL_UI_BRIDGE_TYPE;
 
+pub(super) fn auth_dialog_title(raw: &str) -> Option<(String, String)> {
+    let (scope, title) = raw
+        .strip_prefix("__pi_grok_auth_dialog_v1__:")?
+        .split_once(':')?;
+    uuid::Uuid::parse_str(scope).ok()?;
+    Some((scope.to_owned(), title.to_owned()))
+}
+
 /// Whether the top-level `eval` call must stay out of the native tool cards.
 ///
 /// Eval-v2-only normally keeps the call model-visible but unrendered, showing
@@ -50,7 +58,7 @@ fn eval_legacy_display_selected() -> bool {
     // persisted F2 / `/eval-display` write lands on disk either way.
     // ponytail: ~1 small config read per Eval tool_start/update/end; cache and
     // push over its own ACP notification if that ever shows up in profiles.
-    xai_grok_shell::config::load_effective_config_disk_only()
+    xai_grok_config::load_effective_config_disk_only()
         .ok()
         .and_then(|config| {
             config
@@ -565,15 +573,13 @@ impl PiAgent {
             // instead of disappearing behind its absent effects. The completed
             // update below then fills in output and status.
             let args = self.state.borrow_mut().tool_args.remove(id);
-            let tool_call = acp::ToolCall::new(
-                acp::ToolCallId::new(id.to_string()),
-                name.to_string(),
-            )
-            .kind(tool_kind(name))
-            .status(acp::ToolCallStatus::InProgress)
-            .content(Vec::new())
-            .locations(Vec::new())
-            .raw_input(args);
+            let tool_call =
+                acp::ToolCall::new(acp::ToolCallId::new(id.to_string()), name.to_string())
+                    .kind(tool_kind(name))
+                    .status(acp::ToolCallStatus::InProgress)
+                    .content(Vec::new())
+                    .locations(Vec::new())
+                    .raw_input(args);
             self.send_update(acp::SessionUpdate::ToolCall(tool_call))
                 .await;
         }
@@ -630,6 +636,9 @@ impl PiAgent {
         let Some(data) = entry.get("data").and_then(Value::as_object) else {
             return true;
         };
+        if data.get("replayOnly").and_then(Value::as_bool) == Some(true) {
+            return true;
+        }
         if data.get("version").and_then(Value::as_u64) != Some(1) {
             return true;
         }
@@ -735,7 +744,7 @@ impl PiAgent {
         self.send_ext_notification(method, notification).await;
     }
 
-    pub(super) async fn handle_extension_ui(&self, event: Value) -> Result<()> {
+    pub(super) async fn handle_extension_ui(&self, mut event: Value) -> Result<()> {
         let method = string(&event, &["method"])
             .unwrap_or_default()
             .to_ascii_lowercase();
@@ -751,6 +760,15 @@ impl PiAgent {
                 // A few private keys carry a JSON control payload instead of
                 // status-bar text; everything else is a real status line.
                 match key {
+                    "__pi_grok_auth_dialog_done__" => {
+                        if let Some(scope) = text {
+                            if let Some(cancel) =
+                                self.state.borrow_mut().auth_dialog_cancels.remove(scope)
+                            {
+                                let _ = cancel.send(());
+                            }
+                        }
+                    }
                     EXTENSION_QUEUE_STATUS_KEY => {
                         if let Some(payload) = control_status_payload(text) {
                             let message =
@@ -828,9 +846,25 @@ impl PiAgent {
                 .await;
             }
             "select" | "confirm" | "input" | "editor" => {
+                let cancellation =
+                    string(&event, &["title"])
+                        .and_then(auth_dialog_title)
+                        .map(|(scope, title)| {
+                            let (cancel, receiver) = oneshot::channel();
+                            self.state
+                                .borrow_mut()
+                                .auth_dialog_cancels
+                                .insert(scope.clone(), cancel);
+                            event["title"] = json!(title);
+                            event["piAuthScope"] = json!(scope);
+                            receiver
+                        });
                 let agent = self.clone();
                 tokio::task::spawn_local(async move {
-                    if let Err(error) = agent.ask_extension_question(event.clone()).await {
+                    if let Err(error) = agent
+                        .ask_extension_question(event.clone(), cancellation)
+                        .await
+                    {
                         tracing::warn!(%error, "Pi extension question failed");
                         agent.respond_extension_cancelled(&event);
                         agent
@@ -857,7 +891,11 @@ impl PiAgent {
         }
     }
 
-    pub(super) async fn ask_extension_question(&self, event: Value) -> Result<()> {
+    pub(super) async fn ask_extension_question(
+        &self,
+        event: Value,
+        cancellation: Option<oneshot::Receiver<()>>,
+    ) -> Result<()> {
         let id = event
             .get("id")
             .cloned()
@@ -957,28 +995,48 @@ impl PiAgent {
         }
         let raw = serde_json::value::to_raw_value(&params)?;
         let request = acp::ExtRequest::new("x.ai/ask_user_question", raw.into());
-        let response = match extension_dialog_timeout(&event) {
-            Some(duration) => {
-                match tokio::time::timeout(duration, acp_send(request, &self.client_tx)).await {
-                    Ok(response) => response.map_err(|error| anyhow!(error.to_string()))?,
-                    Err(_) => {
-                        // Pi resolves its own dialog promise on the same timeout but
-                        // does not emit a cancellation event. Explicitly retract the
-                        // native Grok QuestionView so it cannot remain as a zombie
-                        // overlay after the extension has resumed.
-                        self.send_ext_notification(
-                            "pi/ui/cancel_interaction",
-                            json!({ "toolCallId": tool_call_id }),
-                        )
-                        .await;
-                        self.respond_extension_cancelled(&event);
-                        return Ok(());
+        let wait = async {
+            match extension_dialog_timeout(&event) {
+                Some(duration) => {
+                    match tokio::time::timeout(duration, acp_send(request, &self.client_tx)).await {
+                        Ok(response) => response
+                            .map(Some)
+                            .map_err(|error| anyhow!(error.to_string())),
+                        Err(_) => {
+                            // Pi resolves its own dialog promise on the same timeout but
+                            // does not emit a cancellation event. Explicitly retract the
+                            // native Grok QuestionView so it cannot remain as a zombie
+                            // overlay after the extension has resumed.
+                            Ok(None)
+                        }
                     }
                 }
+                None => acp_send(request, &self.client_tx)
+                    .await
+                    .map(Some)
+                    .map_err(|error| anyhow!(error.to_string())),
             }
-            None => acp_send(request, &self.client_tx)
-                .await
-                .map_err(|error| anyhow!(error.to_string()))?,
+        };
+        let response = if let Some(mut cancelled) = cancellation {
+            tokio::select! {
+                biased;
+                _ = &mut cancelled => Ok(None),
+                response = wait => response,
+            }
+        } else {
+            wait.await
+        };
+        if let Some(scope) = string(&event, &["piAuthScope"]) {
+            self.state.borrow_mut().auth_dialog_cancels.remove(scope);
+        }
+        let Some(response) = response? else {
+            self.send_ext_notification(
+                "pi/ui/cancel_interaction",
+                json!({"toolCallId": tool_call_id}),
+            )
+            .await;
+            self.respond_extension_cancelled(&event);
+            return Ok(());
         };
         let outer: Value = serde_json::from_str(response.0.get())?;
         let result = outer.get("result").unwrap_or(&outer);

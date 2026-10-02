@@ -42,6 +42,8 @@ pub use global_hook_sources::{
     unique_ancestors_rootward,
 };
 
+pub mod mcp_oauth;
+
 pub use config_layers::{
     CampaignsState, ConfigLayers, campaigns_application_disabled, campaigns_state_path,
     load_dismissed_ids_from_home, load_effective_config_disk_only,
@@ -86,3 +88,6 @@ pub use validation::{
 pub use version_overrides::{VersionOverrideError, apply_version_overrides};
 
 pub use xai_grok_env::env_bool;
+
+/// Historical default for a context snapshot without an explicit threshold.
+pub const DEFAULT_AUTO_COMPACT_THRESHOLD_PERCENT: u8 = 85;

@@ -392,9 +392,7 @@ impl acp::Agent for PiAgent {
 
         // Do not await Pi's abort RPC. AgentSession.abort() waits for idle, and
         // extension continuations can otherwise keep ACP cancel blocked forever.
-        if let Err(error) = self.rpc.notify(json!({ "type": command })) {
-            tracing::warn!(%error, "failed to notify Pi abort");
-        }
+        self.notify_cancellation(command);
         let probe = self.clone();
         tokio::task::spawn_local(async move {
             probe.settle_cancelled_prompts().await;
@@ -746,8 +744,8 @@ impl acp::Agent for PiAgent {
             // get_session_stats (+ message estimate) into native ContextInfo.
             "x.ai/session/info" => self.handle_session_info().await,
             "x.ai/workflows/list" => {
-                let cwd = std::env::current_dir().ok();
-                let listings = xai_grok_shell::session::workflow::list_workflows(cwd.as_deref());
+                self.refresh_workflow_project_trust().await;
+                let listings = self.workflow_listings();
                 let workflows: Vec<Value> = listings
                     .into_iter()
                     .map(|w| {

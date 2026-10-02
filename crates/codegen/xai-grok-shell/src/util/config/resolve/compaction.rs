@@ -1,5 +1,5 @@
 /// Default auto-compact threshold (% of context window) when no source sets it.
-pub const DEFAULT_AUTO_COMPACT_THRESHOLD_PERCENT: u8 = 85;
+pub use xai_grok_config::DEFAULT_AUTO_COMPACT_THRESHOLD_PERCENT;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CompactionToolChoice {

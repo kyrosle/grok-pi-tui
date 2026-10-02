@@ -14,26 +14,7 @@ pub struct GoalDeliverableInfo {
     pub status: String,
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct WorkflowPhaseInfo {
-    pub title: String,
-    pub state: String,
-}
-
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct WorkflowAgentInfo {
-    pub agent_id: String,
-    pub label: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub phase: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    pub state: String,
-    #[serde(default)]
-    pub tokens_used: u64,
-    #[serde(default)]
-    pub duration_ms: u64,
-}
+pub use xai_tool_types::workflow::{WorkflowAgentInfo, WorkflowPhaseInfo};
 
 /// `_meta` key on rename fan-out (`SessionSummaryGenerated` and ACP `SessionInfoUpdate`). Old clients ignore unknown meta.
 pub const TITLE_IS_MANUAL_META_KEY: &str = "x.ai/titleIsManual";

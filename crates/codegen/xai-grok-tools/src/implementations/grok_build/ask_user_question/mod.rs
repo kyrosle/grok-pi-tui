@@ -131,62 +131,7 @@ impl AskUserQuestionParams {
     }
 }
 
-/// A single option within a question.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct QuestionOption {
-    /// Option text shown to the user; a few words at most.
-    #[schemars(description = "Option text shown to the user. A few words at most.")]
-    pub label: String,
-
-    /// What picking this option means or implies.
-    #[schemars(description = "What picking this option means or implies.")]
-    pub description: String,
-
-    /// Optional content shown while the option is focused — mockups, code
-    /// snippets, anything the user should compare. Single-select only.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(
-        description = "Optional content shown while the option is focused — mockups, code snippets, anything the user should compare. Single-select questions only."
-    )]
-    pub preview: Option<String>,
-
-    /// Opaque id; hidden from the model. Grok callers leave it `None`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
-    pub id: Option<String>,
-}
-
-/// A single question with its options.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct Question {
-    /// The question to ask, phrased as a full question.
-    #[schemars(description = "The question to ask, phrased as a full question.")]
-    pub question: String,
-
-    /// The choices for this question.
-    #[schemars(description = "The choices for this question.")]
-    pub options: Vec<QuestionOption>,
-
-    /// Let the user pick more than one option (default false). Model-facing schema name is
-    /// snake_case (`multi_select`); deserialize also accepts the legacy/ACP `multiSelect` so the
-    /// shared `Question` type stays wire-compatible with the camelCase ACP ext_method.
-    #[serde(
-        default,
-        alias = "multi_select",
-        deserialize_with = "crate::types::schema::deserialize_lenient_option_bool"
-    )]
-    #[schemars(
-        rename = "multi_select",
-        description = "Let the user pick more than one option (default false)."
-    )]
-    pub multi_select: Option<bool>,
-
-    /// See `QuestionOption.id`. Hidden from the JSON schema.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
-    pub id: Option<String>,
-}
+pub use xai_tool_types::questions::{Question, QuestionOption};
 
 /// Input for the `AskUserQuestion` tool.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

@@ -646,6 +646,17 @@ fn eval_result_without_tool_calls_needs_an_explicit_zero() {
 }
 
 #[test]
+fn auth_dialog_envelope_hides_only_a_valid_scoped_title() {
+    let scope = uuid::Uuid::now_v7().to_string();
+    assert_eq!(
+        super::tools::auth_dialog_title(&format!("__pi_grok_auth_dialog_v1__:{scope}:Enter code")),
+        Some((scope, "Enter code".to_owned()))
+    );
+    assert!(super::tools::auth_dialog_title("__pi_grok_auth_dialog_v1__:invalid:Title").is_none());
+    assert!(super::tools::auth_dialog_title("Pi extension prompt").is_none());
+}
+
+#[test]
 fn codemode_nested_calls_are_suppressed_by_known_parent_ids() {
     use super::tools::is_codemode_nested_call;
     let parents: HashSet<String> = ["call-1".to_string()].into_iter().collect();

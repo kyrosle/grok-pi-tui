@@ -32,3 +32,14 @@ pub use self::tool_overrides::{
 pub use self::types::*;
 
 pub use async_openai::types::responses as rs;
+
+/// Identity of the client that originated the request, used for User-Agent rendering.
+/// The shell layer composes this with platform info into a final UA string.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct OriginClientInfo {
+    pub product: String,
+    pub version: Option<String>,
+}
+
+pub mod auth_contracts;
+pub use auth_contracts::{BearerResolver, SharedBearerResolver};

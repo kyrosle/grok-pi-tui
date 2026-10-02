@@ -160,6 +160,41 @@ fn history_preserves_reasoning_tools_and_results() {
 }
 
 #[test]
+fn history_preserves_complete_tool_envelope_without_message_carrier_fields() {
+    let payload = json!({
+        "content": [
+            { "type": "text", "text": "body" },
+            { "type": "image", "data": "fixture-png", "mimeType": "image/png" },
+            { "type": "resource", "resource": { "uri": "fixture://document", "text": "resource" } }
+        ],
+        "details": { "calls": [{ "id": "nested-1", "status": "ok" }] },
+        "structuredContent": { "value": "native" }
+    });
+    let mut message = payload.clone();
+    message.as_object_mut().unwrap().extend(
+        json!({
+            "role": "toolResult", "toolCallId": "tool-1", "toolName": "codemode",
+            "timestamp": 1234, "isError": false
+        })
+        .as_object()
+        .unwrap()
+        .clone(),
+    );
+    let (content, raw) = tool_result_payload(&message);
+    assert_eq!(raw, Some(payload));
+    assert_eq!(
+        content,
+        vec![
+            PiToolContent::Text("body".into()),
+            PiToolContent::Image {
+                data: "fixture-png".into(),
+                mime_type: "image/png".into()
+            }
+        ]
+    );
+}
+
+#[test]
 fn entries_replay_preserves_messages_across_compaction() {
     let items = parse_entries(&json!({
         "entries": [
@@ -286,7 +321,7 @@ fn entries_replay_reprojects_eval_tool_bridge_cards() {
             assert_eq!(content, &vec![PiToolContent::Text("file body".to_string())]);
             assert_eq!(
                 raw_output,
-                &Some(json!([{ "type": "text", "text": "file body" }]))
+                &Some(json!({ "content": [{ "type": "text", "text": "file body" }] }))
             );
             assert!(!is_error);
         }

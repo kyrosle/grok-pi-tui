@@ -229,42 +229,7 @@ fn push_interactive_login(
     }
 }
 
-/// ACP session auth method. Use `is_session_based_method` for classification.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AuthMethodKind {
-    XaiApiKey,
-    CachedToken,
-    GrokCom,
-    Oidc,
-    Unknown,
-}
-
-impl AuthMethodKind {
-    pub fn from_id(id: &acp::AuthMethodId) -> Self {
-        match id.0.as_ref() {
-            XAI_API_KEY_METHOD_ID => Self::XaiApiKey,
-            CACHED_TOKEN_AUTH_METHOD_ID => Self::CachedToken,
-            GROK_COM_METHOD_ID => Self::GrokCom,
-            OIDC_METHOD_ID => Self::Oidc,
-            _ => Self::Unknown,
-        }
-    }
-
-    /// API key auth: no auth.json, no refresh, no user interaction.
-    pub fn is_api_key(self) -> bool {
-        matches!(self, Self::XaiApiKey)
-    }
-
-    /// `true` for session-based methods (cached_token, grok.com, oidc).
-    pub(crate) fn is_session_based(self) -> bool {
-        matches!(self, Self::CachedToken | Self::GrokCom | Self::Oidc)
-    }
-
-    /// Requires user interaction (browser, OIDC redirect, or external auth command).
-    pub fn needs_interactive_login(self) -> bool {
-        matches!(self, Self::GrokCom | Self::Oidc)
-    }
-}
+pub use xai_grok_login::auth_method::AuthMethodKind;
 
 /// `true` for session-based ACP methods (cached_token, grok.com, oidc).
 pub(crate) fn is_session_based_method(method_id: &acp::AuthMethodId) -> bool {
@@ -327,7 +292,7 @@ pub const PREFERRED_API_KEY_UNAVAILABLE: &str = "preferred_method=api_key but no
 pub const PREFERRED_OIDC_UNAVAILABLE: &str =
     "preferred_method=oidc but no session is available. Run `grok login` to authenticate.";
 
-pub const XAI_API_KEY_METHOD_ID: &str = "xai.api_key";
+pub use xai_grok_login::auth_method::XAI_API_KEY_METHOD_ID;
 pub(crate) fn xai_api_key_auth_method() -> acp::AuthMethod {
     acp::AuthMethod::Agent(
         acp::AuthMethodAgent::new(
@@ -340,7 +305,7 @@ pub(crate) fn xai_api_key_auth_method() -> acp::AuthMethod {
     )
 }
 
-pub const CACHED_TOKEN_AUTH_METHOD_ID: &str = "cached_token";
+pub use xai_grok_login::auth_method::CACHED_TOKEN_AUTH_METHOD_ID;
 pub(crate) fn cached_token_auth_method() -> acp::AuthMethod {
     acp::AuthMethod::Agent(
         acp::AuthMethodAgent::new(
@@ -351,7 +316,7 @@ pub(crate) fn cached_token_auth_method() -> acp::AuthMethod {
     )
 }
 
-pub const GROK_COM_METHOD_ID: &str = "grok.com";
+pub use xai_grok_login::auth_method::GROK_COM_METHOD_ID;
 
 /// xAI OAuth2/OIDC auth. Method id `"grok.com"` kept for ACP wire compatibility.
 pub(crate) fn grok_com_auth_method(
@@ -373,7 +338,7 @@ pub(crate) fn grok_com_auth_method(
     )
 }
 
-pub const OIDC_METHOD_ID: &str = "oidc";
+pub use xai_grok_login::auth_method::OIDC_METHOD_ID;
 pub(crate) fn oidc_auth_method(issuer: &str, label: Option<&str>) -> acp::AuthMethod {
     let name = label
         .map(|l| l.to_string())

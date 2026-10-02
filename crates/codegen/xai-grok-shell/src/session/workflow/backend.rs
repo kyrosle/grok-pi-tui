@@ -15,73 +15,9 @@ use xai_grok_tools::implementations::grok_build::task::types::{
 use xai_tool_types::{SubagentCapabilityMode, SubagentIsolationMode};
 use xai_workflow::HostError;
 
-/// Outcome of draining workflow child agents after cancel.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HostDrainOutcome {
-    Drained,
-    TimedOut,
-}
-
-/// One host-level agent execution request (after host validation / contract wrap).
-#[derive(Debug, Clone)]
-pub struct WorkflowAgentSpawnRequest {
-    pub id: String,
-    pub prompt: String,
-    pub description: String,
-    pub subagent_type: String,
-    pub parent_session_id: String,
-    pub resume_from: Option<String>,
-    pub model: Option<String>,
-    pub capability_mode: Option<SubagentCapabilityMode>,
-    pub isolation: Option<SubagentIsolationMode>,
-    pub fork_context: bool,
-    pub run_id: String,
-    pub cancel_token: CancellationToken,
-}
-
-/// Result shape expected by `xai_workflow` host completion mapping.
-#[derive(Debug, Clone)]
-pub struct WorkflowAgentSpawnResult {
-    pub success: bool,
-    pub output: Arc<str>,
-    pub error: Option<String>,
-    pub cancelled: bool,
-    pub child_session_id: String,
-    pub total_tokens_used: u64,
-    pub duration_ms: u64,
-    pub backgrounded: bool,
-}
-
-impl From<SubagentResult> for WorkflowAgentSpawnResult {
-    fn from(result: SubagentResult) -> Self {
-        Self {
-            success: result.success,
-            output: result.output,
-            error: result.error,
-            cancelled: result.cancelled,
-            child_session_id: result.child_session_id,
-            total_tokens_used: result.total_tokens_used,
-            duration_ms: result.duration_ms,
-            backgrounded: result.backgrounded,
-        }
-    }
-}
-
-/// Spawn / cancel children for a workflow run.
-#[async_trait]
-pub trait WorkflowAgentBackend: Send + Sync {
-    async fn spawn_and_await(
-        &self,
-        request: WorkflowAgentSpawnRequest,
-    ) -> Result<WorkflowAgentSpawnResult, HostError>;
-
-    async fn cancel_run_children(&self, run_id: &str) -> HostDrainOutcome;
-
-    /// Best-effort fire-and-forget cancel (pause/stop paths).
-    fn request_cancel_run_children(&self, _run_id: &str) -> bool {
-        false
-    }
-}
+pub use xai_workflow::backend::{
+    HostDrainOutcome, WorkflowAgentBackend, WorkflowAgentSpawnRequest, WorkflowAgentSpawnResult,
+};
 
 /// Upstream Grok path: funnel through the existing subagent coordinator channel.
 pub struct GrokSubagentBackend {
@@ -107,6 +43,7 @@ impl WorkflowAgentBackend for GrokSubagentBackend {
             cwd: None,
             runtime_overrides: SubagentRuntimeOverrides {
                 model: request.model,
+                reasoning_effort: request.reasoning_effort,
                 output_token_budget: None,
                 model_override_provenance: ModelOverrideProvenance::Tool,
                 capability_mode: request.capability_mode,
@@ -214,5 +151,71 @@ impl WorkflowAgentBackend for MockWorkflowAgentBackend {
 
     fn request_cancel_run_children(&self, _run_id: &str) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stock_workflow_backend_retains_child_policy_and_ownership() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let backend = GrokSubagentBackend {
+            subagent_event_tx: tx,
+            parent_session_id: "parent".into(),
+        };
+        let cancel_token = CancellationToken::new();
+        let task = tokio::spawn(async move {
+            backend
+                .spawn_and_await(WorkflowAgentSpawnRequest {
+                    id: "child".into(),
+                    prompt: "work".into(),
+                    description: "description".into(),
+                    subagent_type: "general-purpose".into(),
+                    parent_session_id: "parent".into(),
+                    resume_from: Some("previous".into()),
+                    model: Some("model".into()),
+                    reasoning_effort: Some("high".into()),
+                    capability_mode: Some(SubagentCapabilityMode::ReadOnly),
+                    isolation: None,
+                    fork_context: false,
+                    run_id: "wf_test".into(),
+                    cancel_token,
+                })
+                .await
+                .unwrap()
+        });
+        let SubagentEvent::Spawn(spawn) = rx.recv().await.unwrap() else {
+            panic!("expected workflow spawn");
+        };
+        assert!(spawn.await_to_completion);
+        assert!(spawn.owner.is_workflow());
+        assert!(!spawn.surface_completion);
+        assert_eq!(
+            spawn.runtime_overrides.model_override_provenance,
+            ModelOverrideProvenance::Tool
+        );
+        assert_eq!(
+            spawn.runtime_overrides.capability_mode,
+            Some(SubagentCapabilityMode::ReadOnly)
+        );
+        assert_eq!(
+            spawn.runtime_overrides.reasoning_effort.as_deref(),
+            Some("high")
+        );
+        assert_eq!(spawn.runtime_overrides.output_token_budget, None);
+        assert!(spawn.runtime_overrides.output_schema.is_none());
+        assert_eq!(spawn.resume_from.as_deref(), Some("previous"));
+        spawn
+            .respond_with(|request| SubagentResult {
+                success: true,
+                output: Arc::from("done"),
+                subagent_id: request.id.clone(),
+                child_session_id: request.id.clone(),
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(task.await.unwrap().success);
     }
 }

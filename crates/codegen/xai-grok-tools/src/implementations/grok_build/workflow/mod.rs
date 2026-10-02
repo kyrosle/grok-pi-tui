@@ -60,12 +60,7 @@ pub enum WorkflowSource {
     },
 }
 
-/// Control the workflow tool applies to a run the calling session owns.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkflowControl {
-    Pause,
-    Stop,
-}
+pub use xai_tool_types::workflow::WorkflowControl;
 
 #[derive(Debug, Clone, serde::Serialize, schemars::JsonSchema)]
 pub struct WorkflowToolInput {

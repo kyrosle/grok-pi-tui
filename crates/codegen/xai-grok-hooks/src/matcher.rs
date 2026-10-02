@@ -1,5 +1,5 @@
 use regex::Regex;
-use xai_grok_tools::types::{claude_names_for, grok_names_for};
+use xai_tool_types::claude_alias::{claude_names_for, grok_names_for};
 
 /// A compiled hook matcher for tool names.
 /// The pattern semantics are chosen so that `matcher` entries in hooks migrated from other agent CLIs keep firing unchanged:

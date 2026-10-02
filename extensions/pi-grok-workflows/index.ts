@@ -9,11 +9,15 @@
  *   /__pi_workflow_cancel --run-id <id>
  */
 import { randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createAgentSession,
   DefaultResourceLoader,
   getAgentDir,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   type AgentSession,
@@ -23,6 +27,7 @@ import {
 
 const SPAWN_COMMAND = "__pi_workflow_spawn";
 const CANCEL_COMMAND = "__pi_workflow_cancel";
+const TRUST_COMMAND = "__pi_workflow_trust";
 const BRIDGE_TYPE = "pi-grok-workflow/v1";
 
 type CapabilityMode = "read-only" | "read-write" | "execute" | "all";
@@ -30,7 +35,7 @@ type CapabilityMode = "read-only" | "read-write" | "execute" | "all";
 const CAPABILITY_TOOLS: Record<CapabilityMode, string[]> = {
   "read-only": ["read", "grep", "find", "ls"],
   "read-write": ["read", "grep", "find", "ls", "edit", "write"],
-  execute: ["read", "grep", "find", "ls", "edit", "write", "bash"],
+  execute: ["read", "bash", "grep", "find", "ls"],
   all: ["read", "grep", "find", "ls", "edit", "write", "bash"],
 };
 
@@ -42,6 +47,7 @@ type SpawnRequest = {
   parent_session_id?: string;
   resume_from?: string;
   model?: string;
+  reasoning_effort?: string;
   capability_mode?: string;
   isolation_worktree?: boolean;
   fork_context?: boolean;
@@ -59,9 +65,31 @@ type SpawnResponse = {
   backgrounded: boolean;
 };
 
-const activeByRun = new Map<string, Set<AgentSession>>();
+type WorkflowChild = { parentSessionId: string; session?: AgentSession; cancelled: boolean; done: Promise<void>; finish: () => void };
+const activeByRun = new Map<string, Set<WorkflowChild>>();
+
+async function drainWorkflowChildren(children: WorkflowChild[]): Promise<void> {
+  for (const child of children) child.cancelled = true;
+  await Promise.all(children.map(async child => {
+    if (child.session) await child.session.abort();
+    await child.done;
+  }));
+}
+
+/** Preserve the legacy stock token; Pi owns model-specific clamping. */
+export function normalizeWorkflowThinkingLevel(effort?: string | null):
+  NonNullable<Parameters<typeof createAgentSession>[0]>["thinkingLevel"] {
+  if (effort == null) return undefined;
+  const level = effort === "none" ? "off" : effort;
+  switch (level) {
+    case "off": case "minimal": case "low": case "medium": case "high": case "xhigh": case "max":
+      return level;
+    default: throw new Error(`invalid workflow thinking level: ${effort}`);
+  }
+}
 
 function parseArgs(args: string): Record<string, string> {
+  if (args.trimStart().startsWith("{")) return JSON.parse(args) as Record<string, string>;
   const out: Record<string, string> = {};
   const tokens = args.trim().split(/\s+/).filter(Boolean);
   for (let i = 0; i < tokens.length; i++) {
@@ -79,12 +107,66 @@ function parseArgs(args: string): Record<string, string> {
   return out;
 }
 
-function normalizeCapability(raw: string | undefined): CapabilityMode {
+export function normalizeCapability(raw: string | undefined): CapabilityMode {
   const v = (raw ?? "all").toLowerCase();
   if (v === "read-only" || v === "read-write" || v === "execute" || v === "all") {
     return v;
   }
-  return "all";
+  throw new Error(`invalid workflow capability mode: ${raw}`);
+}
+
+/** Reuse public provider registrations with Pi 1.0's canonical SDK runtime. */
+export async function createWorkflowModelRuntime(ctx: ExtensionContext, agentDir = getAgentDir()): Promise<ModelRuntime> {
+  const runtime = await ModelRuntime.create({
+    authPath: join(agentDir, "auth.json"),
+    modelsPath: join(agentDir, "models.json"),
+    modelsStorePath: join(agentDir, "models-store.json"),
+    refreshOnCreate: false,
+  });
+  for (const id of ctx.modelRegistry.getRegisteredProviderIds()) {
+    const native = ctx.modelRegistry.getRegisteredNativeProvider(id);
+    if (native) runtime.registerNativeProvider(native);
+    else {
+      const config = ctx.modelRegistry.getRegisteredProviderConfig(id);
+      if (config) runtime.registerProvider(id, config);
+    }
+  }
+  return runtime;
+}
+
+function childSessionManager(request: SpawnRequest, ctx: ExtensionContext): { manager: SessionManager; cwd: string; worktree?: string } {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(request.run_id)) throw new Error("invalid workflow run id");
+  const sessionDir = join(ctx.sessionManager.getSessionDir(), "workflow-children", ctx.sessionManager.getSessionId(), request.run_id);
+  mkdirSync(sessionDir, { recursive: true });
+  if (request.resume_from) {
+    const path = SessionManager.findById(ctx.cwd, request.resume_from, sessionDir);
+    if (!path) throw new Error(`workflow child session not found in this run: ${request.resume_from}`);
+    const manager = SessionManager.open(path, sessionDir);
+    const cwd = manager.getCwd();
+    return { manager, cwd, worktree: cwd !== ctx.cwd ? cwd : undefined };
+  }
+  const parent = ctx.sessionManager.getSessionFile();
+  if (request.fork_context && !parent) throw new Error("workflow fork requires a persisted parent session");
+  let cwd = ctx.cwd;
+  let worktree: string | undefined;
+  if (request.isolation_worktree) {
+    const path = mkdtempSync(join(tmpdir(), "pi-workflow-worktree-"));
+    worktree = join(path, "checkout");
+    execFileSync("git", ["worktree", "add", "--detach", worktree, "HEAD"], { cwd, stdio: "pipe", timeout: 30000 });
+    cwd = worktree;
+  }
+  if (request.fork_context) {
+    return { manager: SessionManager.forkFrom(parent!, cwd, sessionDir), cwd, worktree };
+  }
+  return { manager: SessionManager.create(cwd, sessionDir, { parentSession: ctx.sessionManager.getSessionFile() }), cwd, worktree };
+}
+
+function selectedModel(ctx: ExtensionContext, key?: string) {
+  if (!key) return ctx.model;
+  const matches = ctx.modelRegistry.getAll().filter(model =>
+    key === `${model.provider}/${model.id}` || key === `${model.provider}::${model.id}` || key === model.id);
+  if (matches.length !== 1) throw new Error(`workflow model must match one available Pi model: ${key}`);
+  return matches[0];
 }
 
 function lastAssistantText(session: AgentSession): string {
@@ -117,6 +199,26 @@ export default function (pi: ExtensionAPI): void {
     return;
   }
 
+  let scopeClosing = false;
+  pi.on("session_shutdown", async (_event, ctx) => {
+    const parentSessionId = ctx.sessionManager.getSessionId();
+    scopeClosing = true;
+    pi.appendEntry(BRIDGE_TYPE, { version: 1, kind: "scope_closing", parentSessionId });
+    const children = [...activeByRun.values()].flatMap(set => [...set]).filter(child => child.parentSessionId === parentSessionId);
+    await drainWorkflowChildren(children);
+  });
+
+  pi.registerCommand(TRUST_COMMAND, {
+    description: "Internal: report Pi's current project trust",
+    hidden: true,
+    handler: async (args, ctx) => {
+      const { responsePath } = JSON.parse(args) as { responsePath: string };
+      writeFileSync(responsePath, JSON.stringify({
+        trusted: ctx.isProjectTrusted(), cwd: ctx.cwd, sessionId: ctx.sessionManager.getSessionId(),
+      }), "utf8");
+    },
+  });
+
   pi.registerCommand(SPAWN_COMMAND, {
     description: "Internal: spawn workflow agent for xai-workflow host",
     hidden: true,
@@ -148,27 +250,24 @@ export default function (pi: ExtensionAPI): void {
 
       const started = Date.now();
       const id = request.id || randomUUID();
-      const capabilityMode = normalizeCapability(request.capability_mode);
-      const model = ctx.model;
-      if (!model) {
-        writeResponse(responsePath, {
-          success: false,
-          output: "",
-          error: "no Pi model is selected",
-          cancelled: false,
-          child_session_id: "",
-          total_tokens_used: 0,
-          duration_ms: Date.now() - started,
-          backgrounded: false,
-        });
-        return;
-      }
+      let finish!: () => void;
+      const child: WorkflowChild = { parentSessionId: ctx.sessionManager.getSessionId(), cancelled: false, done: new Promise(resolve => { finish = resolve; }), finish: () => finish() };
+      const set = activeByRun.get(request.run_id) ?? new Set<WorkflowChild>();
+      set.add(child); activeByRun.set(request.run_id, set);
 
       try {
+        if (request.parent_session_id && request.parent_session_id !== ctx.sessionManager.getSessionId()) throw new Error("workflow parent session changed before child startup");
+        if (scopeClosing) throw new Error("workflow session scope is closing");
+        const capabilityMode = normalizeCapability(request.capability_mode);
         const agentDir = getAgentDir();
-        const settingsManager = SettingsManager.create(ctx.cwd, agentDir);
+        const modelRuntime = await createWorkflowModelRuntime(ctx, agentDir);
+        if (scopeClosing || child.cancelled) throw new Error("workflow child cancelled during startup");
+        const model = request.resume_from && !request.model ? undefined : selectedModel(ctx, request.model?.trim());
+        if (!request.resume_from && !model) throw new Error("no Pi model is selected");
+        const { manager, cwd, worktree } = childSessionManager(request, ctx);
+        const settingsManager = SettingsManager.create(cwd, agentDir);
         const resourceLoader = new DefaultResourceLoader({
-          cwd: ctx.cwd,
+          cwd,
           agentDir,
           noExtensions: true,
           noSkills: true,
@@ -182,49 +281,48 @@ export default function (pi: ExtensionAPI): void {
         await resourceLoader.reload();
 
         const { session } = await createAgentSession({
-          cwd: ctx.cwd,
+          cwd,
           agentDir,
-          sessionManager: SessionManager.create(ctx.cwd),
+          sessionManager: manager,
           settingsManager,
-          modelRegistry: ctx.modelRegistry,
+          modelRuntime,
           model,
+          thinkingLevel: normalizeWorkflowThinkingLevel(request.reasoning_effort),
           tools: [...CAPABILITY_TOOLS[capabilityMode]],
           resourceLoader,
         });
         await session.bindExtensions({});
 
-        const set = activeByRun.get(request.run_id) ?? new Set();
-        set.add(session);
-        activeByRun.set(request.run_id, set);
-
-        let cancelled = false;
+        child.session = session;
+        const initialTokens = session.getSessionStats().tokens.total;
+        if (child.cancelled) throw new Error("workflow child cancelled during startup");
         try {
           await session.prompt(request.prompt);
         } catch (e) {
-          cancelled = true;
           writeResponse(responsePath, {
             success: false,
             output: "",
             error: e instanceof Error ? e.message : String(e),
-            cancelled: true,
+            cancelled: child.cancelled,
             child_session_id: session.sessionId,
             total_tokens_used: 0,
             duration_ms: Date.now() - started,
             backgrounded: false,
           });
           return;
-        } finally {
-          set.delete(session);
-          if (set.size === 0) activeByRun.delete(request.run_id);
         }
 
         const output = lastAssistantText(session);
+        const final = session.messages.findLast(message => message.role === "assistant");
+        const failed = final?.role === "assistant" && (final.stopReason === "error" || final.stopReason === "aborted");
+        const success = !child.cancelled && !failed;
         writeResponse(responsePath, {
-          success: true,
-          output,
-          cancelled: false,
+          success,
+          error: child.cancelled ? "workflow child cancelled" : failed && final?.role === "assistant" ? final.errorMessage ?? "workflow child failed" : undefined,
+          output: worktree ? `${output}\n\nIsolated worktree: ${worktree}` : output,
+          cancelled: child.cancelled,
           child_session_id: session.sessionId,
-          total_tokens_used: 0,
+          total_tokens_used: session.getSessionStats().tokens.total - initialTokens,
           duration_ms: Date.now() - started,
           backgrounded: false,
         });
@@ -236,19 +334,24 @@ export default function (pi: ExtensionAPI): void {
           runId: request.run_id,
           agentId: id,
           childSessionId: session.sessionId,
-          success: true,
+          success,
         });
       } catch (e) {
         writeResponse(responsePath, {
           success: false,
           output: "",
           error: e instanceof Error ? e.message : String(e),
-          cancelled: false,
+          cancelled: child.cancelled,
           child_session_id: "",
           total_tokens_used: 0,
           duration_ms: Date.now() - started,
           backgrounded: false,
         });
+      } finally {
+        child.session?.dispose();
+        child.finish();
+        set.delete(child);
+        if (set.size === 0) activeByRun.delete(request.run_id);
       }
     },
   });
@@ -260,16 +363,14 @@ export default function (pi: ExtensionAPI): void {
       const parsed = parseArgs(args);
       const runId = parsed["run-id"] ?? parsed.run_id;
       if (!runId) return;
-      const set = activeByRun.get(runId);
-      if (!set) return;
-      for (const session of set) {
-        try {
-          session.abort();
-        } catch {
-          /* ignore */
-        }
+      try {
+        const children = [...(activeByRun.get(runId) ?? [])];
+        await drainWorkflowChildren(children);
+        if (parsed.response) writeFileSync(parsed.response, JSON.stringify({ drained: true }), "utf8");
+      } catch (error) {
+        if (parsed.response) writeFileSync(parsed.response, JSON.stringify({ drained: false, error: String(error) }), "utf8");
+        else throw error;
       }
-      activeByRun.delete(runId);
     },
   });
 
@@ -310,6 +411,7 @@ export default function (pi: ExtensionAPI): void {
         responsePath,
         cwd: ctx.cwd,
         parentSessionId: ctx.sessionManager.getSessionId(),
+        projectTrusted: ctx.isProjectTrusted(),
       });
 
       const started = Date.now();

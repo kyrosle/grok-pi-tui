@@ -1600,10 +1600,10 @@ fn parse_agent_content(value: &Value, output: &mut Vec<PiHistoryItem>) {
     }
 }
 
-/// Split a Pi tool-result-shaped object (`{content, details?}`) into the typed
-/// replay content blocks and the `raw_output` payload the ACP projection
-/// normalizes. Shared by persisted `toolResult` messages and the Eval-v2-only
-/// nested-call bridge entries, whose `data.result` uses the same shape.
+/// Preserve the complete tool-result envelope beside typed replay content.
+/// Dropping everything except `details` loses structured/resource output and
+/// forces replay to reconstruct a different payload from the live result.
+/// Strip only the persisted message carrier fields; bridge results have none.
 fn tool_result_payload(value: &Value) -> (Vec<PiToolContent>, Option<Value>) {
     let mut content = Vec::new();
     if let Some(items) = value.get("content").and_then(Value::as_array) {
@@ -1619,10 +1619,21 @@ fn tool_result_payload(value: &Value) -> (Vec<PiToolContent>, Option<Value>) {
     } else if let Some(text) = value.get("content").and_then(Value::as_str) {
         content.push(PiToolContent::Text(text.to_string()));
     }
-    let raw_output = value
-        .get("details")
-        .cloned()
-        .or_else(|| value.get("content").cloned());
+    let raw_output = value.as_object().map(|fields| {
+        let mut payload = fields.clone();
+        for key in [
+            "role",
+            "toolCallId",
+            "tool_call_id",
+            "toolName",
+            "tool_name",
+            "timestamp",
+            "isError",
+        ] {
+            payload.remove(key);
+        }
+        Value::Object(payload)
+    });
     (content, raw_output)
 }
 

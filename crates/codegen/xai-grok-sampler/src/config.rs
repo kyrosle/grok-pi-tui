@@ -147,21 +147,7 @@ impl Default for SamplerConfig {
     }
 }
 
-/// Cheap sync read of the current bearer for [`SamplerConfig::bearer_resolver`].
-pub trait BearerResolver: Send + Sync + std::fmt::Debug {
-    fn current_bearer(&self) -> Option<String>;
-
-    /// Awaited by the client right before it stamps a request; [`Self::current_bearer`] is read afterwards.
-    /// A resolver that can renew its bearer does so here when the cached one would not survive the send, so the request never leaves with no credential.
-    /// Default: no-op.
-    fn prepare_for_send(
-        &self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
-        Box::pin(async {})
-    }
-}
-
-pub type SharedBearerResolver = std::sync::Arc<dyn BearerResolver>;
+pub use xai_grok_sampling_types::{BearerResolver, SharedBearerResolver};
 
 /// Per-request header injection (e.g. OTel `traceparent`).
 pub trait HeaderInjector: Send + Sync + std::fmt::Debug {
@@ -191,13 +177,7 @@ impl Default for RetryPolicy {
     }
 }
 
-/// Identity of the client that originated the request, used for User-Agent rendering.
-/// The shell layer composes this with platform info into a final UA string.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct OriginClientInfo {
-    pub product: String,
-    pub version: Option<String>,
-}
+pub use xai_grok_sampling_types::OriginClientInfo;
 
 #[cfg(test)]
 mod tests {

@@ -5,19 +5,138 @@ version = "1.0.24"
 edition.workspace = true
 
 [features]
-default = []
+default = ["stock-runtime"]
+# Stock Grok agent, storage, tools, workspace, and transport runtime.
+# Native Pi hosts use no-default-features and the real contracts re-exports.
+stock-runtime = [
+    "dep:dunce",
+    "dep:xai-grok-announcements",
+    "dep:xai-prompt-queue",
+    "dep:xai-grok-version",
+    "dep:async-openai",
+    "dep:async-trait",
+    "dep:blake3",
+    "dep:bm25",
+    "dep:bytes",
+    "dep:chrono",
+    "dep:indexmap",
+    "dep:ignore",
+    "dep:jsonschema",
+    "dep:futures",
+    "dep:glob",
+    "dep:globset",
+    "dep:kanal",
+    "dep:regex",
+    "dep:xai-grok-mcp",
+    "dep:reqwest",
+    "dep:reqwest-middleware",
+    "dep:serde_ignored",
+    "dep:thiserror",
+    "dep:clap",
+    "dep:toml",
+    "dep:toml_edit",
+    "dep:tokio",
+    "dep:tracing-subscriber",
+    "dep:obfstr",
+    "dep:tokio-util",
+    "dep:tokio-retry",
+    "dep:uuid",
+    "dep:xai-acp-lib",
+    "dep:axum",
+    "dep:backon",
+    "dep:webbrowser",
+    "dep:tokio-tungstenite",
+    "dep:tokio-rustls",
+    "dep:rustls",
+    "dep:futures-util",
+    "dep:urlencoding",
+    "dep:gethostname",
+    "dep:gcloud-storage",
+    "dep:git2",
+    "dep:notify",
+    "dep:notify-debouncer-mini",
+    "dep:nucleo",
+    "dep:arc-swap",
+    "dep:infer",
+    "dep:image",
+    "dep:moka",
+    "dep:base64",
+    "dep:hmac",
+    "dep:sha2",
+    "dep:strum",
+    "dep:xai-fast-worktree",
+    "dep:xai-grok-paths",
+    "dep:xai-grok-shell-session-support",
+    "dep:xai-grok-shell-terminal",
+    "dep:xai-grok-status-line",
+    "dep:xai-tracing-macros",
+    "dep:xai-fsnotify",
+    "dep:xai-codebase-graph",
+    "dep:xai-hunk-tracker",
+    "dep:xai-agent-lifecycle",
+    "dep:xai-interjection-core",
+    "dep:xai-message-delivery-core",
+    "dep:xai-grok-sandbox",
+    "dep:xai-chat-state",
+    "dep:xai-compaction-transcript",
+    "dep:xai-grok-compaction",
+    "dep:xai-grok-extra-ca",
+    "dep:xai-grok-sampler",
+    "dep:xai-grok-session-search",
+    "dep:xai-token-estimation",
+    "dep:xai-grok-tools",
+    "dep:xai-tty-utils",
+    "dep:xai-grok-workspace",
+    "dep:xai-grok-foreign-sessions",
+    "dep:xai-grok-subagent-resolution",
+    "dep:xai-grok-agent",
+    "dep:xai-grok-bundle",
+    "dep:xai-grok-feedback",
+    "dep:xai-grok-env",
+    "dep:xai-dirs",
+    "dep:xai-grok-memory",
+    "dep:xai-grok-hooks",
+    "dep:xai-hooks-plugins-types",
+    "dep:xai-grok-plugin-marketplace",
+    "dep:xai-file-utils",
+    "dep:xai-grok-otel",
+    "dep:xai-grok-session-events",
+    "dep:xai-grok-auth",
+    "dep:xai-grok-telemetry",
+    "dep:xai-grok-http",
+    "dep:xai-grok-login",
+    "dep:xai-grok-models",
+    "dep:prod-mc-cli-chat-proxy-types",
+    "dep:flate2",
+    "dep:fs2",
+    "dep:zstd",
+    "dep:tar",
+    "dep:url",
+    "dep:walkdir",
+    "dep:tdigests",
+    "dep:semver",
+    "dep:parking_lot",
+    "dep:dashmap",
+    "dep:xai-computer-hub-sdk",
+    "dep:xai-tool-runtime",
+    "dep:xai-tool-protocol",
+    "dep:libc",
+    "dep:nix",
+    "dep:siphasher",
+    "dep:windows",
+]
 dhat-heap = ["dep:dhat"]
 # Session synthesis + in-process e2e harness (`session::testkit`) for soak,
 # load, and bench tests. Off by default; the tests/benches that use it declare
 # it via `required-features`. Forwards `xai-grok-login/test-support` for downstream test builds.
-test-support = ["xai-grok-login/test-support"]
+test-support = ["stock-runtime", "xai-grok-login/test-support"]
 test-util = []
 # Local Computer Hub workspace_server (own/attach + crash-restart). Requires
-local-workspace = []
+local-workspace = ["stock-runtime"]
 # CI default set (preferred over cargo `default` for hermetic CI builds):
 # `config-docs` is on this set (not cargo `default`) so hermetic lib tests
 # parse the committed config-reference page.
-config-docs = []
+config-docs = ["stock-runtime"]
 default-bazel = [
     "local-workspace",
     "test-support",
@@ -25,43 +144,43 @@ default-bazel = [
 ]
 
 [dependencies]
-dunce = { workspace = true }
+dunce = { optional = true, workspace = true }
 agent-client-protocol = { workspace = true }
 anyhow = { workspace = true }
-xai-grok-announcements = { workspace = true }
-xai-prompt-queue = { workspace = true }
-xai-grok-version = { workspace = true }
+xai-grok-announcements = { optional = true, workspace = true }
+xai-prompt-queue = { optional = true, workspace = true }
+xai-grok-version = { optional = true, workspace = true }
 
-async-openai = { workspace = true }
-async-trait = { workspace = true }
-blake3 = { workspace = true }
-bm25 = "2.3"
-bytes = { workspace = true }
-chrono = { workspace = true }
-indexmap = { workspace = true, features = ["serde"] }
-ignore = { workspace = true }
-jsonschema = { workspace = true }
-futures = { workspace = true }
-glob = { workspace = true }
-globset = { workspace = true }
-kanal = "0.1"
-regex = { workspace = true }
+async-openai = { optional = true, workspace = true }
+async-trait = { optional = true, workspace = true }
+blake3 = { optional = true, workspace = true }
+bm25 = { version = "2.3", optional = true }
+bytes = { optional = true, workspace = true }
+chrono = { optional = true, workspace = true }
+indexmap = { optional = true, workspace = true, features = ["serde"] }
+ignore = { optional = true, workspace = true }
+jsonschema = { optional = true, workspace = true }
+futures = { optional = true, workspace = true }
+glob = { optional = true, workspace = true }
+globset = { optional = true, workspace = true }
+kanal = { version = "0.1", optional = true }
+regex = { optional = true, workspace = true }
 # rmcp 2.1 + reqwest 0.13 are quarantined inside `xai-grok-mcp`. The remaining
 # MCP code in this crate (extensions/mcp.rs, mcp_doctor.rs) reaches rmcp model
 # types via `xai_grok_mcp::rmcp::model::*`. reqwest 0.13 is a private impl
 # detail of xai-grok-mcp::servers; shell never sees it. Every HTTP call site
 # in this crate uses workspace reqwest 0.12.
-xai-grok-mcp = { workspace = true }
-reqwest = { workspace = true, features = ["stream", "blocking"] }
-reqwest-middleware = { workspace = true }
+xai-grok-mcp = { optional = true, workspace = true }
+reqwest = { optional = true, workspace = true, features = ["stream", "blocking"] }
+reqwest-middleware = { optional = true, workspace = true }
 serde = { workspace = true }
-serde_ignored = "0.1"
+serde_ignored = { version = "0.1", optional = true }
 serde_json = { workspace = true, features = ["preserve_order"] }
-thiserror = { workspace = true }
-clap = { workspace = true }
-toml = { workspace = true, features = ["preserve_order"] }
-toml_edit = { workspace = true }
-tokio = { workspace = true, features = [
+thiserror = { optional = true, workspace = true }
+clap = { optional = true, workspace = true }
+toml = { optional = true, workspace = true, features = ["preserve_order"] }
+toml_edit = { optional = true, workspace = true }
+tokio = { optional = true, workspace = true, features = [
     "io-std",
     "process",
     "rt",
@@ -71,129 +190,129 @@ tokio = { workspace = true, features = [
     "sync",
 ] }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = [
+tracing-subscriber = { optional = true, workspace = true, features = [
     "env-filter",
     "fmt",
     "json",
     "time",
 ] }
-obfstr = { workspace = true }
-tokio-util = { workspace = true, features = ["compat", "rt"] }
-tokio-retry = { workspace = true }
-uuid = { workspace = true, features = ["v4", "v5", "v7"] }
-xai-acp-lib = { workspace = true }
-axum = { workspace = true, features = ["ws", "multipart"] }
-backon = { workspace = true }
-webbrowser = { workspace = true }
-tokio-tungstenite = { workspace = true, features = ["rustls-tls-native-roots"] }
-tokio-rustls = { version = "0.26", default-features = false, features = [
+obfstr = { optional = true, workspace = true }
+tokio-util = { optional = true, workspace = true, features = ["compat", "rt"] }
+tokio-retry = { optional = true, workspace = true }
+uuid = { optional = true, workspace = true, features = ["v4", "v5", "v7"] }
+xai-acp-lib = { optional = true, workspace = true }
+axum = { optional = true, workspace = true, features = ["ws", "multipart"] }
+backon = { optional = true, workspace = true }
+webbrowser = { optional = true, workspace = true }
+tokio-tungstenite = { optional = true, workspace = true, features = ["rustls-tls-native-roots"] }
+tokio-rustls = { optional = true, version = "0.26", default-features = false, features = [
     "ring",
     "logging",
     "tls12",
 ] }
-rustls = { version = "0.23", default-features = false, features = [
+rustls = { optional = true, version = "0.23", default-features = false, features = [
     "ring",
     "logging",
     "std",
     "tls12",
 ] }
-futures-util = { workspace = true }
-urlencoding = { workspace = true }
-gethostname = { workspace = true }
-gcloud-storage = { workspace = true }
-git2 = { version = "0.20", default-features = false, features = [
+futures-util = { optional = true, workspace = true }
+urlencoding = { optional = true, workspace = true }
+gethostname = { optional = true, workspace = true }
+gcloud-storage = { optional = true, workspace = true }
+git2 = { optional = true, version = "0.20", default-features = false, features = [
     "vendored-libgit2",
 ] }
-notify = { workspace = true }
-notify-debouncer-mini = { workspace = true }
-nucleo = { workspace = true }
-arc-swap = { workspace = true }
-infer = "0.15"
-image = { workspace = true, features = ["png", "jpeg", "gif", "webp"] }
-moka = { workspace = true, features = ["future"] }
+notify = { optional = true, workspace = true }
+notify-debouncer-mini = { optional = true, workspace = true }
+nucleo = { optional = true, workspace = true }
+arc-swap = { optional = true, workspace = true }
+infer = { version = "0.15", optional = true }
+image = { optional = true, workspace = true, features = ["png", "jpeg", "gif", "webp"] }
+moka = { optional = true, workspace = true, features = ["future"] }
 dhat = { workspace = true, optional = true }
-base64 = { workspace = true }
-hmac = { workspace = true }
-sha2 = { workspace = true }
-strum = { workspace = true }
-xai-fast-worktree = { path = "../xai-fast-worktree", features = ["metadata"] }
+base64 = { optional = true, workspace = true }
+hmac = { optional = true, workspace = true }
+sha2 = { optional = true, workspace = true }
+strum = { optional = true, workspace = true }
+xai-fast-worktree = { optional = true, path = "../xai-fast-worktree", features = ["metadata"] }
 
-xai-grok-paths = { path = "../xai-grok-paths" }
+xai-grok-paths = { optional = true, path = "../xai-grok-paths" }
 xai-grok-shell-base = { workspace = true }
-xai-grok-shell-session-support = { workspace = true }
-xai-grok-shell-terminal = { workspace = true }
+xai-grok-shell-session-support = { optional = true, workspace = true }
+xai-grok-shell-terminal = { optional = true, workspace = true }
 xai-grok-shared = { workspace = true }
-xai-grok-status-line = { workspace = true }
-xai-tracing-macros = { path = "../xai-tracing-macros" }
-xai-fsnotify = { path = "../xai-fsnotify" }
-xai-codebase-graph = { path = "../xai-codebase-graph" }
-xai-hunk-tracker = { path = "../xai-hunk-tracker" }
-xai-agent-lifecycle = { workspace = true }
-xai-interjection-core = { workspace = true }
-xai-message-delivery-core = { workspace = true }
-xai-grok-sandbox = { path = "../xai-grok-sandbox", default-features = false }
-xai-chat-state = { path = "../xai-chat-state" }
+xai-grok-status-line = { optional = true, workspace = true }
+xai-tracing-macros = { optional = true, path = "../xai-tracing-macros" }
+xai-fsnotify = { optional = true, path = "../xai-fsnotify" }
+xai-codebase-graph = { optional = true, path = "../xai-codebase-graph" }
+xai-hunk-tracker = { optional = true, path = "../xai-hunk-tracker" }
+xai-agent-lifecycle = { optional = true, workspace = true }
+xai-interjection-core = { optional = true, workspace = true }
+xai-message-delivery-core = { optional = true, workspace = true }
+xai-grok-sandbox = { optional = true, path = "../xai-grok-sandbox", default-features = false }
+xai-chat-state = { optional = true, path = "../xai-chat-state" }
 # Segment markdown rendering + the `compaction/` store path convention.
-xai-compaction-transcript = { workspace = true }
-xai-grok-compaction = { path = "../../common/xai-grok-compaction" }
-xai-grok-extra-ca = { workspace = true }
-xai-grok-sampler = { path = "../xai-grok-sampler" }
+xai-compaction-transcript = { optional = true, workspace = true }
+xai-grok-compaction = { optional = true, path = "../../common/xai-grok-compaction" }
+xai-grok-extra-ca = { optional = true, workspace = true }
+xai-grok-sampler = { optional = true, path = "../xai-grok-sampler" }
 # Session FTS search; owns this crate's only rusqlite/bundled-SQLite use.
-xai-grok-session-search = { workspace = true }
-xai-token-estimation = { workspace = true }
+xai-grok-session-search = { optional = true, workspace = true }
+xai-token-estimation = { optional = true, workspace = true }
 xai-grok-sampling-types = { path = "../xai-grok-sampling-types" }
-xai-grok-tools = { path = "../xai-grok-tools" }
-xai-tty-utils = { workspace = true }
+xai-grok-tools = { optional = true, path = "../xai-grok-tools" }
+xai-tty-utils = { optional = true, workspace = true }
 xai-workflow = { path = "../xai-workflow" }
-xai-grok-workspace = { workspace = true }
+xai-grok-workspace = { optional = true, workspace = true }
 # Backs the compatibility-only `xai_grok_shell::foreign_sessions` re-export.
-xai-grok-foreign-sessions = { workspace = true }
-xai-grok-subagent-resolution = { path = "../xai-grok-subagent-resolution" }
-xai-grok-agent = { path = "../xai-grok-agent" }
-xai-grok-bundle = { workspace = true }
+xai-grok-foreign-sessions = { optional = true, workspace = true }
+xai-grok-subagent-resolution = { optional = true, path = "../xai-grok-subagent-resolution" }
+xai-grok-agent = { optional = true, path = "../xai-grok-agent" }
+xai-grok-bundle = { optional = true, workspace = true }
 xai-grok-config = { workspace = true }
-xai-grok-feedback = { workspace = true }
+xai-grok-feedback = { optional = true, workspace = true }
 xai-grok-config-types = { workspace = true }
-xai-grok-env = { workspace = true }
-xai-dirs = { workspace = true }
-xai-grok-memory = { workspace = true }
-xai-grok-hooks = { path = "../xai-grok-hooks" }
-xai-hooks-plugins-types = { path = "../xai-hooks-plugins-types" }
-xai-grok-plugin-marketplace = { path = "../xai-grok-plugin-marketplace" }
-xai-file-utils = { path = "../xai-file-utils" }
-xai-grok-otel = { workspace = true }
-xai-grok-session-events = { workspace = true }
-xai-grok-auth = { workspace = true, features = ["middleware"] }
-xai-grok-telemetry = { workspace = true }
-xai-grok-http = { workspace = true }
-xai-grok-login = { workspace = true }
-xai-grok-models = { workspace = true }
-prod-mc-cli-chat-proxy-types = { path = "../../../prod/mc/cli-chat-proxy-types" }
-flate2 = { workspace = true }
-fs2 = { workspace = true }
-zstd = { workspace = true }
-tar = { workspace = true }
-url = { workspace = true }
-walkdir = { workspace = true }
-tdigests = "1.0"
-semver = { workspace = true }
-parking_lot.workspace = true
-dashmap.workspace = true
+xai-grok-env = { optional = true, workspace = true }
+xai-dirs = { optional = true, workspace = true }
+xai-grok-memory = { optional = true, workspace = true }
+xai-grok-hooks = { optional = true, path = "../xai-grok-hooks" }
+xai-hooks-plugins-types = { optional = true, path = "../xai-hooks-plugins-types" }
+xai-grok-plugin-marketplace = { optional = true, path = "../xai-grok-plugin-marketplace" }
+xai-file-utils = { optional = true, path = "../xai-file-utils" }
+xai-grok-otel = { optional = true, workspace = true }
+xai-grok-session-events = { optional = true, workspace = true }
+xai-grok-auth = { optional = true, workspace = true, features = ["middleware"] }
+xai-grok-telemetry = { optional = true, workspace = true }
+xai-grok-http = { optional = true, workspace = true }
+xai-grok-login = { optional = true, workspace = true }
+xai-grok-models = { optional = true, workspace = true }
+prod-mc-cli-chat-proxy-types = { optional = true, path = "../../../prod/mc/cli-chat-proxy-types" }
+flate2 = { optional = true, workspace = true }
+fs2 = { optional = true, workspace = true }
+zstd = { optional = true, workspace = true }
+tar = { optional = true, workspace = true }
+url = { optional = true, workspace = true }
+walkdir = { optional = true, workspace = true }
+tdigests = { version = "1.0", optional = true }
+semver = { optional = true, workspace = true }
+parking_lot = { workspace = true, optional = true }
+dashmap = { workspace = true, optional = true }
 
 # Used by acp_session.rs and mcp_servers.rs for the unified
 # xai_tool_runtime::Tool dispatch model and the computer-hub MCP adapter.
-xai-computer-hub-sdk = { workspace = true }
-xai-tool-runtime = { workspace = true }
-xai-tool-protocol = { workspace = true }
+xai-computer-hub-sdk = { optional = true, workspace = true }
+xai-tool-runtime = { optional = true, workspace = true }
+xai-tool-protocol = { optional = true, workspace = true }
 xai-tool-types = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-libc = { workspace = true }
-nix = { workspace = true }
+libc = { optional = true, workspace = true }
+nix = { optional = true, workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-siphasher = { workspace = true }
-windows = { workspace = true }
+siphasher = { optional = true, workspace = true }
+windows = { optional = true, workspace = true }
 
 [dev-dependencies]
 xai-dirs = { workspace = true }
@@ -278,10 +397,11 @@ workspace = true
 [build-dependencies]
 # build.rs only downloads ripgrep — no rmcp involvement. Workspace reqwest
 # (0.12) is plenty.
-reqwest = { workspace = true, features = ["blocking"] }
-flate2 = { workspace = true }
-tar = { workspace = true }
+reqwest = { optional = true, workspace = true, features = ["blocking"] }
+flate2 = { optional = true, workspace = true }
+tar = { optional = true, workspace = true }
 
 [[bin]]
 name = "chat-history-downgrade"
+required-features = ["stock-runtime"]
 path = "src/bin/chat-history-downgrade.rs"

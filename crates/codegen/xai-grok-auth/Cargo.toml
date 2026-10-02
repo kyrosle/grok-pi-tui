@@ -10,6 +10,7 @@ authors = ["xAI"]
 middleware = ["dep:reqwest-middleware", "dep:http"]
 
 [dependencies]
+xai-tool-types = { workspace = true }
 async-trait = { workspace = true }
 http = { workspace = true, optional = true }
 reqwest = { workspace = true }

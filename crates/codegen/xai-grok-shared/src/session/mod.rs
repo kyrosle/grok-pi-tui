@@ -1,6 +1,15 @@
 use std::path::PathBuf;
 
+mod context;
+mod details;
+pub use details::{
+    AssistantUsageMetric, CacheSessionMetrics, CacheUsageTotals, FeedbackOutcome, FeedbackResponse,
+    SessionInfoData, SessionInfoResponse, SessionTokenTotals, SessionUsageStats,
+    model_display_name,
+};
 pub mod info;
+pub use context::{ContextInfo, TokenUsageCategory};
+pub mod todo;
 
 pub use info::Info;
 
@@ -9,4 +18,10 @@ pub use prod_mc_cli_chat_proxy_types::feedback_types::FeedbackTerminalInfo;
 
 pub fn session_dir(info: &Info) -> PathBuf {
     xai_grok_config::sessions_cwd_dir(&info.cwd).join(info.id.to_string())
+}
+
+/// Formats a count with a naively pluralized noun: `"1 skill"`, `"21 skills"`.
+pub fn count_detail(count: u64, noun: &str) -> String {
+    let suffix = if count == 1 { "" } else { "s" };
+    format!("{count} {noun}{suffix}")
 }

@@ -200,22 +200,7 @@ pub fn estimate_chars(s: u64) -> u64 {
     xai_token_estimation::estimate_chars(s)
 }
 
-/// Human-readable size in powers of 1024: integral bytes (`512 B`), one
-/// decimal above (`1.5 MB`). Every output fits nine columns.
-pub fn format_bytes(bytes: u64) -> String {
-    if bytes < 1024 {
-        return format!("{bytes} B");
-    }
-    const UNITS: &[&str] = &["KB", "MB", "GB", "TB", "PB"];
-    let mut val = bytes as f64 / 1024.0;
-    for unit in UNITS {
-        if val < 1023.95 {
-            return format!("{val:.1} {unit}");
-        }
-        val /= 1024.0;
-    }
-    format!("{val:.1} EB")
-}
+pub use xai_grok_shared::format_bytes;
 
 /// Apply soft-wrapping to every line in a multi-line string.
 /// All content is preserved. Lines already within `wrap_width` are untouched.

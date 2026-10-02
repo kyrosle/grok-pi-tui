@@ -109,3 +109,10 @@ category: "architecture"
 - 鉴权扩展删除对 Pi 私有 selector/login/theme TUI 组件的动态导入，使用 Pi UI 请求，由 Grok QuestionView 呈现；保留 ModelRegistry.runtime 的登录兼容边界，未声称所有私有 API 已移除。
 - `bun test extensions/pi-grok-auth/index.test.ts` 退出 0：5 tests / 22 assertions，包括 Anthropic 复制码、取消 scope、native logout、Radius 未知字段/无效 JSON 与既有 symlink 保持。Rust injector 与新入口一致；最新 `./build.sh` 退出 0。
 - 真实 OAuth/浏览器联动仍未验收；adapter scope teardown 与实际 PTY 证据随协议/UI 阶段提交。
+
+### 中性契约与 Pi Workflow 提交检查点
+
+- Workflow manager/store/registry/notify/host 下沉到已有 `xai-workflow`，stock producer 保留执行/遥测包装与旧路径 re-export；adapter 不再依赖 Shell。鉴权、工具分类、权限、上下文和 session UI 数据下沉到既有轻量层，没有增加第二套 runtime。
+- Pi child 使用正式 SDK，按真实 project trust、model/effort/capabilities 创建；resume/fork/worktree/abort 与 drain ACK 保留 Pi 语义。存储按 Pi session ID 隔离；取消 session switch 保留旧 scope，接受新 session 后等待旧 child 退出和持久化完成。
+- 已执行：中性 Workflow 150 tests、最新 adapter 196 tests、真实 Workflow SDK 2 tests / 41 assertions、`pi_workflow_scope --ignored` 1 test、实际 Pi→ACP projection、生产 `./build.sh` 均退出 0。synthetic provider 与临时目录不构成真实模型/账号证明。
+- adapter normal/build 图 231 个唯一 package，Grok agent/tools/workspace/MCP/sampler 不可达。composition 图仍带入 stock runtime，不能将该提交写成 FR-09 完成；后续继续处理 native UI 残余入边。
