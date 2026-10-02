@@ -133,3 +133,9 @@ category: "architecture"
 
 - 只读追踪发现登录方式/provider 选择与 logout 仍未经过已有 auth scope helper，Pi EOF/session close 时可能遗留初始选择框。三处均改用同一个 `promptAuth`；logout 按原 provider ID 回传，取消不再作为错误通知。
 - 扩展原有回归现在从无参数 `/login` 覆盖完整方式/provider/复制码流程，并检查 logout scope：5 tests / 26 assertions 退出 0。没有新增协议或 renderer；最终 native PTY 仍随 P3 收尾。
+
+### 2026-10-03：实际 Subagent SDK 兼容修复
+
+- 隔离系统 Pi + production Subagents extension 复现旧 child `createAgentSession` 未继承父 provider 注册，报 `No API key found for pi-child-fixture`。使用官方 `ModelRuntime.create` 和公开注册 getter 继承 provider，显式传入 SDK；未新增 runtime 层或修改 injector/Pi core。
+- `pi_subagent_sdk_smoke.py` 退出 0：live UDS 4 messages 与 official load replay 5 messages 都有同一实际 child body。13 个已有 Runtime source unit tests 通过；该条证据尚不等于 ACP/native open-close 验收，其新 fixture 继续排队。
+- 另外完成 ConfigTypes 66 tests、Shared 312 tests；共享配置保完整 15 字段和真实双锁/原子写入，独立 child fixture 验证缓存隔离及硬 IO/语法错误。真实 no-stock profile 诊断从 629 降到 60（含级联），剩余 stock/profile 接缝仍在修复，未标整体完成。

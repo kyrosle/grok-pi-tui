@@ -3,6 +3,7 @@
 import { dirname, join } from "node:path";
 import {
   createAgentSession,
+  ModelRuntime,
   DefaultResourceLoader,
   getAgentDir,
   SessionManager,
@@ -413,11 +414,27 @@ export class SubagentRuntime {
     const customTools = options.customTools ?? [];
     const businessTools = definition?.tools ?? [...CAPABILITY_TOOLS[profile.capabilityMode]];
     const activeTools = [...new Set([...businessTools, ...customTools.map((tool) => tool.name)])];
+    // Pi 1.0 SDK children need the parent's public provider registrations in their runtime.
+    const modelRuntime = await ModelRuntime.create({
+      authPath: join(agentDir, "auth.json"),
+      modelsPath: join(agentDir, "models.json"),
+      modelsStorePath: join(agentDir, "models-store.json"),
+      refreshOnCreate: false,
+    });
+    for (const id of ctx.modelRegistry.getRegisteredProviderIds()) {
+      const native = ctx.modelRegistry.getRegisteredNativeProvider(id);
+      if (native) modelRuntime.registerNativeProvider(native);
+      else {
+        const config = ctx.modelRegistry.getRegisteredProviderConfig(id);
+        if (config) modelRuntime.registerProvider(id, config);
+      }
+    }
     const { session } = await createAgentSession({
       cwd: ctx.cwd,
       agentDir,
       sessionManager: SessionManager.create(ctx.cwd, join(dirname(parentSessionFile), "subagent")),
       settingsManager,
+      modelRuntime,
       model,
       tools: activeTools,
       customTools,
