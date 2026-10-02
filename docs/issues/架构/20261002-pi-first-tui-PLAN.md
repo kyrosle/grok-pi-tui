@@ -127,3 +127,9 @@ category: "architecture"
 - 实际反向 Cargo 图发现 `xai-grok-update` 默认重新启用 Shell stock runtime。Stock 自动更新/managed-config 执行保持默认 feature；Pi 更新与真实 `UpdateAvailable` 通知数据独立编译，原 stock 数据路径兼容 re-export。
 - Home/env/process helpers 直接引用原 canonical 实现，更新地址、下载/安装校验和配置保存语义保持。`test -p xai-grok-update --no-default-features --lib` 22 tests 退出 0。
 - Stock Update check 由并行 Workspace 迁移中的3个缺失 helper 中止，未计通过；最终 stock check 与 composition feature 传播验证在其源码冻结后执行。
+- Workspace helper 闭合后重跑：stock Update check 退出 0，1m28s；Shared permissions 25 tests 退出 0。前述中止是历史失败，composition 最终隔离仍未完成。
+
+### Auth 初始选择器生命周期闭合
+
+- 只读追踪发现登录方式/provider 选择与 logout 仍未经过已有 auth scope helper，Pi EOF/session close 时可能遗留初始选择框。三处均改用同一个 `promptAuth`；logout 按原 provider ID 回传，取消不再作为错误通知。
+- 扩展原有回归现在从无参数 `/login` 覆盖完整方式/provider/复制码流程，并检查 logout scope：5 tests / 26 assertions 退出 0。没有新增协议或 renderer；最终 native PTY 仍随 P3 收尾。

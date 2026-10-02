@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { logoutProviders } from "./providers.ts";
-import { resolveRuntime } from "./runtime.ts";
+import { promptAuth, resolveRuntime } from "./runtime.ts";
 
 export function registerLogoutCommand(pi: ExtensionAPI): void {
  pi.registerCommand("logout", {
@@ -10,14 +10,15 @@ export function registerLogoutCommand(pi: ExtensionAPI): void {
     const runtime = resolveRuntime(ctx);
     const providers = await logoutProviders(runtime);
     if (!providers.length) { ctx.ui.notify("No stored Pi credentials", "info"); return; }
-    const selected = await ctx.ui.select("Log out of Pi provider", providers.map(provider => provider.name));
-    const provider = providers.find(provider => provider.name === selected);
+    const selected = await promptAuth(ctx, { type: "select", message: "Log out of Pi provider", options: providers.map(provider => ({ id: provider.id, label: provider.name })) });
+    const provider = providers.find(provider => provider.id === selected);
     if (!provider) return;
     await runtime.logout(provider.id);
     await ctx.modelRegistry.refresh();
     ctx.ui.notify(`Logged out of ${provider.name}`, "info");
    } catch (error) {
-    ctx.ui.notify(`Logout failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+    const message = error instanceof Error ? error.message : String(error);
+    if (message !== "Login cancelled") ctx.ui.notify(`Logout failed: ${message}`, "error");
    }
   },
  });

@@ -13,7 +13,7 @@ test("native login handles provider method selection and copy code without custo
  const statuses: unknown[] = [];
  const notices: string[] = [];
  const runtime = {
-  getProviders: () => [{ id: "anthropic", name: "Anthropic", auth: { oauth: { login() {} } } }],
+  getProviders: () => ["anthropic", "other"].map(id => ({ id, name: id === "anthropic" ? "Anthropic" : "Other", auth: { oauth: { login() {} } } })),
   getProviderAuthStatus: () => ({ configured: false }),
   async login(provider: string, method: string, interaction: any) {
    expect(provider).toBe("anthropic"); expect(method).toBe("oauth");
@@ -31,8 +31,8 @@ test("native login handles provider method selection and copy code without custo
   },
  };
  registerLoginCommand({ registerCommand(name: string, command: any) { commands.set(name, command); } } as any);
- await commands.get("login").handler("anthropic", ctx);
- expect(statuses.length).toBe(2);
+ await commands.get("login").handler("", ctx);
+ expect(statuses.length).toBe(4);
  expect((statuses[0] as string[])[0]).toBe(AUTH_DIALOG_DONE_STATUS);
  expect(notices).toEqual(["Logged in to Anthropic"]);
 });
@@ -74,12 +74,14 @@ test("Radius config keeps an existing config symlink", () => {
  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
-test("logout uses native selection and Pi runtime", async () => {
+test("logout uses a scoped native selection and Pi runtime", async () => {
  let handler: any; let loggedOut: string | undefined;
+ const statuses: unknown[] = [];
  registerLogoutCommand({ registerCommand(_name: string, command: any) { handler = command.handler; } } as any);
  await handler("", {
   modelRegistry: { runtime: { login() {}, async listCredentials() { return [{ providerId: "test", type: "oauth" }]; }, getProvider() { return { name: "Test" }; }, async logout(id: string) { loggedOut = id; } }, async refresh() {} },
-  ui: { async select() { return "Test"; }, notify() {} },
+  ui: { async select(title: string) { expect(title.startsWith(AUTH_DIALOG_PREFIX)).toBe(true); return "Test"; }, setStatus(...args: unknown[]) { statuses.push(args); }, notify() {} },
  });
  expect(loggedOut).toBe("test");
+ expect(statuses).toHaveLength(1);
 });

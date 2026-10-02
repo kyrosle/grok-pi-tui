@@ -17,7 +17,7 @@ export function registerLoginCommand(pi: ExtensionAPI): void {
      const methods = ["Sign in with an account", "Sign in with an API key"];
      const radius = providers.find(provider => provider.id === "radius" && provider.authType === "oauth");
      if (radius) methods.push("Sign in with Radius");
-     const method = await ctx.ui.select("Select authentication method", methods);
+     const method = await promptAuth(ctx, { type: "select", message: "Select authentication method", options: methods.map(label => ({ id: label, label })) });
      if (!method) return;
      const authType: AuthType = method === methods[1] ? "api_key" : "oauth";
      providers = method === "Sign in with Radius" ? [radius!] : providers.filter(provider => provider.authType === authType);
@@ -25,7 +25,7 @@ export function registerLoginCommand(pi: ExtensionAPI): void {
     let provider: ProviderOption | undefined = providers[0];
     if (providers.length > 1) {
      const label = (item: ProviderOption) => `${item.name} · ${item.authType}${item.status ? " · configured" : ""}`;
-     const selected = await ctx.ui.select("Select Pi provider", providers.map(label));
+     const selected = await promptAuth(ctx, { type: "select", message: "Select Pi provider", options: providers.map(item => ({ id: label(item), label: label(item) })) });
      provider = providers.find(item => label(item) === selected);
     }
     if (!provider) return;
