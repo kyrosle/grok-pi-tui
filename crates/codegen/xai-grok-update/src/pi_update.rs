@@ -12,7 +12,7 @@ use anyhow::{Context, Result, anyhow};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use serde_json::Value;
 
-use crate::auto_update::UpdateAvailable;
+use crate::UpdateAvailable;
 
 /// grok-pi's independent GitHub release channels.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -374,7 +374,7 @@ fn http_client() -> Result<reqwest::Client> {
 /// Read `[update].channel` from grok-pi's isolated `$GROK_HOME/config.toml`.
 /// Missing or invalid values fail closed to stable.
 pub fn load_pi_update_channel() -> PiUpdateChannel {
-    let path = xai_grok_shell::util::grok_home::grok_home().join("config.toml");
+    let path = xai_grok_config::grok_home().join("config.toml");
     let Ok(raw) = std::fs::read_to_string(&path) else {
         return PiUpdateChannel::Stable;
     };
@@ -410,7 +410,7 @@ fn render_pi_update_channel_config(raw: &str, channel: PiUpdateChannel) -> Resul
 }
 
 fn persist_pi_update_channel(channel: PiUpdateChannel) -> Result<()> {
-    let home = xai_grok_shell::util::grok_home::grok_home();
+    let home = xai_grok_config::grok_home();
     std::fs::create_dir_all(&home)
         .with_context(|| format!("create grok-pi home {}", home.display()))?;
     let path = home.join("config.toml");
@@ -606,7 +606,7 @@ async fn install_pi_unix_sh(tag: &str) -> Result<()> {
     ));
     cmd.env("GROK_PI_VERSION", tag);
     cmd.stdin(std::process::Stdio::null());
-    xai_grok_tools::util::detach_command(&mut cmd);
+    xai_tty_utils::detach_command(&mut cmd);
     let status = cmd.status().await.context("spawn install.sh via curl|sh")?;
     if !status.success() {
         anyhow::bail!("install.sh exited with {status}");
@@ -628,7 +628,7 @@ async fn install_pi_windows_ps1(tag: &str) -> Result<()> {
         &script,
     ]);
     cmd.stdin(std::process::Stdio::null());
-    xai_grok_tools::util::detach_command(&mut cmd);
+    xai_tty_utils::detach_command(&mut cmd);
     let status = cmd.status().await.context("spawn install.ps1")?;
     if !status.success() {
         anyhow::bail!("install.ps1 exited with {status}");

@@ -6,8 +6,8 @@ use serde_json::Value;
 use tokio::fs;
 use tokio::process::Command;
 
-use xai_grok_shell::env::GrokBuildEnvironment;
-use xai_grok_shell::util::grok_home::grok_home;
+use xai_grok_config::grok_home;
+use xai_grok_shell_base::env::GrokBuildEnvironment;
 
 const TTL_SECONDS_BEFORE_AUTO_UPDATE: Duration = Duration::from_secs(60 * 30);
 const NPM_PACKAGE: &str = "@xai-official/grok";
@@ -173,8 +173,8 @@ async fn fetch_npm_tag(tag: &str, npm_registry: Option<&str>) -> Result<String> 
     }
     let mut cmd = Command::new("npm");
     cmd.args(&args).stdin(std::process::Stdio::null());
-    xai_grok_tools::util::detach_command(&mut cmd);
-    cmd.envs(xai_grok_tools::util::pager_env());
+    xai_tty_utils::detach_command(&mut cmd);
+    cmd.envs(xai_tty_utils::pager_env());
     let output = cmd.output().await?;
 
     if !output.status.success() {
@@ -229,8 +229,8 @@ async fn fetch_gh_release_latest(exclude_pre: bool) -> Result<String> {
     }
     let mut cmd = Command::new("gh");
     cmd.args(&args).stdin(std::process::Stdio::null());
-    xai_grok_tools::util::detach_command(&mut cmd);
-    cmd.envs(xai_grok_tools::util::pager_env());
+    xai_tty_utils::detach_command(&mut cmd);
+    cmd.envs(xai_tty_utils::pager_env());
     let output = cmd.output().await?;
 
     if !output.status.success() {
@@ -427,7 +427,7 @@ pub use xai_grok_version::installed as get_installed_grok_version;
 pub fn installed_on_disk_version() -> Option<String> {
     #[cfg(unix)]
     {
-        let app = xai_grok_shell::util::grok_home::grok_application();
+        let app = xai_grok_config::grok_application();
         let target = std::fs::read_link(&app).ok()?;
         // metadata() follows the symlink: Err means the target is gone (dangling link) and the version it names is not actually on disk
         std::fs::metadata(&app).ok()?;

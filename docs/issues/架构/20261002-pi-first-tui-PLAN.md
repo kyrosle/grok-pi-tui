@@ -16,12 +16,12 @@ category: "architecture"
 | 阶段 | 工作 | 验收与状态 |
 |---|---|---|
 | P0 | 修复 E0425；统一 Pi 1.0 基线；记录现状与准确 repo 路径；恢复相关测试入口 | 已完成构建基线：adapter 193 / bin 96 tests、check、build PASS；全量 verifier 的剩余 identity 失败归 P6 |
-| P1 | 迁移 Eval v2 到官方嵌套执行；保留结果、并发、background 与 native task/replay 语义 | 待实施：生产 Eval 回归及真实 Pi 上下文 fixture；删除不再需要的私有 bridge 调用 |
-| P2 | 接入 Pi MCP opt-in、callable/exposure/CLI 约束、Eval-only；完善 `clear_queue` 取消 | 待实施：本地 MCP RPC smoke、队列回归、嵌入扩展完整性测试 |
-| P3 | Codemode 图片原生呈现；Pi 鉴权原生对话框与新登录语义；收敛核心 Remote TUI 耦合 | 待实施：live/replay 组件检查、无凭据交互/取消与 PTY fixture |
-| P4 | config/manifest/UI DTO 和 Workflow 契约迁移；逐项隔离 stock runtime；用依赖图证明实际裁剪 | 待实施：每条依赖边完成后测量；保持发行包现有可选能力；Pi 与 stock 检查 |
-| P5 | 记录 7 个上游 commit 的 Changes；按终端、输入/剪贴板、图像、minimal/Markdown 等 TUI 功能组选择性吸收 | 待实施：记录来源/取舍/依赖；不引入 Grok backend 语义；不更新完整 base 为部分导入 |
-| P6 | 修复 verifier 的递归模块/实际 Pi 契约/声明源码接缝；清理确认不可达成员；同步产品文档与验收证据 | 待实施：完整 diff 检查、目标测试、生产构建、架构验证；人工/真实账号边界独立记录 |
+| P1 | 迁移 Eval v2 到官方嵌套执行；保留结果、并发、background 与 native task/replay 语义 | 已完成并提交：生产 Eval 回归及实际 Pi/MCP 8 场景通过；正常路径使用官方 executeTool，显式外部 Eval MCP 兼容边界保留 |
+| P2 | 接入 Pi MCP opt-in、callable/exposure/CLI 约束、Eval-only；完善 `clear_queue` 取消 | 已完成并提交：实际本地 MCP 8 场景、clear_queue 回归、bin manifest/injector 检查通过，默认关闭 |
+| P3 | Codemode 图片原生呈现；Pi 鉴权原生对话框与新登录语义；收敛核心 Remote TUI 耦合 | 集成收尾：鉴权已提交；实际 Pi→ACP live/replay、auth scope 检查通过；Codemode 原生图片按钮修复待重建/PTY |
+| P4 | config/manifest/UI DTO 和 Workflow 契约迁移；逐项隔离 stock runtime；用依赖图证明实际裁剪 | 进行中：中性契约/Workflow 已提交，adapter 231 packages 且无 stock runtime；composition 残边和最终 Pi/stock profile 检查待完成 |
+| P5 | 记录 7 个上游 commit 的 Changes；按终端、输入/剪贴板、图像、minimal/Markdown 等 TUI 功能组选择性吸收 | 已记录并选择性落代码：输入/显示/link 通过；terminal/clipboard/repaint 联动组定向验收、阶段提交待完成 |
+| P6 | 修复 verifier 的递归模块/实际 Pi 契约/声明源码接缝；清理确认不可达成员；同步产品文档与验收证据 | 收尾中：精确分层 source/tamper 检查通过检查点；最终源码冻结、Pager 测试目标、生产 profile 构建/文档待完成 |
 
 阶段可以因真实依赖顺序交错，不能跳过完成要求或把失败标记为通过。每次完成阶段后在下方记录实际结果；保留原始失败和其修复说明。
 
@@ -121,3 +121,9 @@ category: "architecture"
 
 - F2 `pi_mcp` 默认关闭；启用时显式加载 Pi 的 `builtin:mcp`、tool-search 与所需 Codemode，沿用 Pi exposure/CLI exclusions。配置读取改用中性产品配置层，不使用 stock agent config loader。
 - 最新 grok-pi bin 96 tests 退出 0；包含 manifest/injector/runtime config 与资源政策回归。真实系统 Pi + 本地 MCP 的8场景已通过；禁用时不启动 server、目标被排除时不执行 tools/call。取消路径先 clear_queue 的 adapter 检查已随契约阶段通过。
+
+### Update runtime 断边检查点
+
+- 实际反向 Cargo 图发现 `xai-grok-update` 默认重新启用 Shell stock runtime。Stock 自动更新/managed-config 执行保持默认 feature；Pi 更新与真实 `UpdateAvailable` 通知数据独立编译，原 stock 数据路径兼容 re-export。
+- Home/env/process helpers 直接引用原 canonical 实现，更新地址、下载/安装校验和配置保存语义保持。`test -p xai-grok-update --no-default-features --lib` 22 tests 退出 0。
+- Stock Update check 由并行 Workspace 迁移中的3个缺失 helper 中止，未计通过；最终 stock check 与 composition feature 传播验证在其源码冻结后执行。
