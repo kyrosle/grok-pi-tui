@@ -77,7 +77,7 @@ fn open_voice_tier_upsell(app: &mut AppView) -> Vec<Effect> {
 /// A build without audio capture (only the Bazel test build; every shipped binary compiles `audio` in)
 /// The matching Ctrl+Space release (see [`dispatch_voice_stop`]) then ends *this* session and only this one.
 pub(super) fn dispatch_enable_voice_mode(app: &mut AppView, from_hold: bool) -> Vec<Effect> {
-    if !app.voice_mode_enabled {
+    if app.external_agent || !app.voice_mode_enabled {
         return vec![];
     }
     // Tier gate: free / X Basic personal users can't use voice (the server zero-limits these tiers)

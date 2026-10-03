@@ -1,20 +1,19 @@
-# grok-pi — Pi 与 Grok Build 的 Remote TUI 桥接
+# grok-pi — 面向 Pi 的 Grok Build 风格 TUI
 
-当前架构：**Grok 提供原生 TUI，Pi 1.0 管理 agent 功能语义**。
-本次本地适配与选择性上游迁移记录在
-[SPEC](issues/架构/20261002-pi-first-tui-SPEC.md)、
-[PLAN](issues/架构/20261002-pi-first-tui-PLAN.md) 和
-[验证报告](VERIFICATION.md)。生产 Pi profile 的 normal/build 图已断开七个 stock agent/runtime 包；
-最终构建、原生 PTY 与冻结来源证据分项记录。本次仍是选择性 TUI 导入。
+当前产品：**Pi Agent Core + Grok Build 风格原生 TUI**。
+本轮产品入口裁剪记录在
+[SPEC](issues/架构/20261003-pi-product-surface-SPEC.md)、
+[PLAN](issues/架构/20261003-pi-product-surface-PLAN.md) 和
+[验证报告](VERIFICATION.md)。先前 Pi-first 与深度适配的构建、原生 PTY 和来源证据保留为独立检查点。
 
 
-> 在 Grok Build 原生终端 UI 中运行 Pi Agent Core。
+> 在 Grok Pager 原生终端 UI 中使用 Pi 模型、工具与会话。
 
 [下载最新版本](https://github.com/Dwsy/grok-pi/releases/latest) · [English](../README.md) · [功能矩阵](FEATURE_MATRIX.md) · [架构说明](NATIVE_GROK_TUI_ALIGNMENT.md) · [验证记录](VERIFICATION.md) · [更新日志](CHANGELOG.zh-CN.md) · [Changelog (EN)](../CHANGELOG.MD)
 
-> **Remote TUI 桥接。** Pi 的交互式组件通过 Grok Build 原生 Pager 渲染，在保留 Grok 终端体验的同时接入 Pi 的扩展生态。Pi 用户获得 Grok Build 的原生 UI；Grok Build 用户获得 Pi 的模型、工具、会话和扩展能力。
+> **Pi core、原生 Pager UI、可配置扩展。** Grok Pager 提供终端体验；Pi 提供模型、Provider 鉴权、工具、会话和运行控制。Todo、Subagents 等由 bundled Pi 扩展提供，分别标注默认值与能力边界。
 
-`grok-pi` 将 Pi Agent Runtime 接入 Grok Build 原生 Pager。Pi 负责模型、工具、扩展、会话和 Agent 执行；Grok Pager 负责终端 UI，且是唯一的可见终端界面。
+`grok-pi` 将 Pi Agent Runtime 接入 Grok Pager。external 产品入口不提供 Grok voice/STT/TTS、账号/计费、训练/retention 或 stock agent/plugin/MCP 控制；F2、命令面板与 Web 宿主设置目录共用这一边界。Provider 鉴权使用 Pi `/login`、`/logout`，无需 Grok 账号。
 
 ## 安装
 
@@ -105,21 +104,32 @@ grok-pi update --channel stable  # 切回 stable；默认即 stable
 | Agent Runtime | Pi 模型、Provider、工具、扩展、skills、会话、重试和压缩 |
 | Provider 鉴权 | 原生 UI 薄桥委托 Pi ModelRuntime login/logout；provider methods、凭据与 MCP 配置由 Pi 所有。Radius 保留通用登录，桥内不写 `mcp.json`、不维护 provider 专用配置流程。 |
 | 模型管理 | `/pi-models` 提供原生 Provider → Model → Details 编辑器，含安全 `models.json` 事务、备份/恢复、Pi 热重载和 typed 激活；`/model` 保留为快速切换器 |
-| 浏览器配置工作台 | `/pi-config web` / `/pi-models web`：完整中英界面、全局搜索、模型/服务商复制与高级参数、四类资源路径管理、Grok/Pi 设置草稿与批量保存、外部修改冲突提示、深浅主题和手机布局。由 Pi 扩展提供带 token 的本地回环服务。 |
+| 浏览器配置工作台 | `/pi-config web` / `/pi-models web`：模型/Provider、资源路径、Pi 设置及过滤后的 Pager UI 设置目录，提供中英界面。由 Pi 扩展提供带 token 的本地回环服务。 |
 | 终端 UI | Grok Pager 输入、斜杠补全、Markdown、工具卡片、diff、对话框和 scrollback |
-| 产品教程 | `/tutorial`（别名 `/tour`、`/onboarding`）展示 18 个 grok-pi 能力域：Pager 原生工作流、Pi Provider/模型/工具/会话、扩展/Skill/Package 生态、产品桥接、可选自动化与明确边界 |
-| **Remote TUI 桥接** | Pi `ctx.ui.custom` 组件通过 Grok Build 原生 Pager 渲染，不创建第二套 TUI |
-| Shell 执行 | Bash 集成、后台任务、输出限制、超时和进程树清理 |
-| 并行工作 | Pi 子代理，支持前台/后台执行和原生任务视图；`/subagents` 维护产品隔离的项目/全局 agent 定义。可选 Subagents V2（F2 → Agent →「Pi subagents V2」开关，或 `PI_GROK_SUBAGENTS_V2=1`）增加在当前 root session 内稳定的 `/root/...` agent path、主/子与子/子消息、嵌套 spawn，以及 `.grok-pi/teams` / `~/.grok-pi/teams` 外置 team preset |
-| Rhai Workflow | 上游 `xai-workflow` 宿主（F2 **Pi workflows**）；`/workflow`、`/workflows`、`/create-workflow`；脚本目录 `~/.grok-pi/workflows` 与 `<repo>/.grok-pi/workflows` |
+| 产品教程 | `/tutorial`（别名 `/tour`、`/onboarding`）展示 18 个能力域：Pager 原生控制、Pi Provider/模型/工具/会话、扩展/Skill/Package 与可选自动化，分别说明边界 |
+| Remote TUI 兼容 | 实验 host 在 Pager 中承载受支持的 Pi `ctx.ui.custom` 交互；默认开启，兼容性仍按组件验证 |
+| 增强 Shell 执行 | Bundled Pi Bash/Eval 扩展提供后台任务、输出限制、超时和进程树清理 |
+| 并行工作 | Bundled Subagents 扩展使用 Pi child session，默认开启，提供原生任务视图与产品隔离 agent 定义。可选 Subagents V2 增加稳定 `/root/...` path、peer messaging、nested spawn 和 `.grok-pi/teams` / `~/.grok-pi/teams` preset |
+| Rhai Workflow | 使用 Pi worker 的可选 `xai-workflow` 宿主，默认关闭（F2 **Pi workflows**）；脚本目录 `~/.grok-pi/workflows` 与 `<repo>/.grok-pi/workflows`。编排语义尚未迁入 Pi core。 |
 | 会话流程 | Resume、树导航、标签、回顾、上下文查看和会话选择器 |
 | 资源管理 | `/pi-config` 管理 Pi 资源并通过当前 Pi 官方 CLI 安装、移除和更新 package，随后重载并显示实际运行 registry。Global/Project 信任、filters 和 pins 保持 Pi 所有；移除 local 声明不删源目录。 |
 | Pi 运行控制 | `/pi-runtime` 查看运行状态、切换自动 retry/compaction，并取消 retry 等待；实际 compaction 状态与配置中的 retry policy 分开标注。 |
 | 更新 | 产品隔离的 `stable` / `beta` GitHub Release 通道；持久化到 `~/.grok-pi/config.toml`，后台检查、`grok-pi update`、`--check --json` 与目标 tag 安装器下载均感知通道 |
 
-最终自动build/verify与4nativePTY通过；一次配置default的真实SDKchat返回OK且credential/config字节未改。真人provider的nativeUI、OAuth、真实图片及目标终端体验仍独立pending。
+先前深度适配检查点通过自动 build/verify 与四次原生 PTY；一次配置 default 的真实 SDK chat 返回 OK，credential/config 字节未改。这些属于历史结果，本轮产品入口验证独立记录在[VERIFICATION](VERIFICATION.md)。真人 Provider 原生 UI、OAuth、真实图片和目标终端体验保持独立验收层。
 
-按最新用户所有权澄清，Agent/provider 业务及鉴权交给 Pi，Grok Pager 只呈现对话和结果。TUI 开发以 UI 委托、响应、取消及生命周期合同验收；Pi/provider 真人流程保留为补充集成体验记录，不再作为本轮开发交付前置。已记录 binary/build 早于这次独立 auth 桥裁剪，不冒称该扩展新修订已构建。
+Provider/model 行为、鉴权、工具、会话、retry 与 compaction 以 Pi 为权威，Pager 呈现控制和结果。Todo、Plan、Goal、增强 Bash/Eval 与 Subagents 属于 grok-pi 扩展或集成，并非 Pi 内置功能。adapter queue interception、Plan/Goal 状态和可选 Rhai 编排仍是当前 PLAN 记录的所有权工作，本轮 UI 裁剪不宣称它们已迁移。
+
+命令按职责组织：
+
+| 领域 | grok-pi 入口 |
+|---|---|
+| Pi 模型与 Provider | `/model`、`/effort`、`/login`、`/logout`、`/pi-models` |
+| Pi 会话与上下文 | `/new`、`/resume`、`/rename`、`/session`、`/tree`、`/fork`、`/clone`、`/compact` |
+| Pi 资源与运行控制 | `/pi-config`、`/reload`、`/pi-runtime`；已加载的 extension、prompt 与 `/skill:name` 命令 |
+| 原生终端 UI | `/settings` / F2、`/theme`、`/hotkeys`、`/tutorial`、`/copy`、`/find`、`/transcript` |
+
+集成参考 Pi interactive 的命令和设置组织，保留 `/effort`、`/rename` 等 Pager 名称。F2 使用原生 Pager 设置面，不复制 Pi interactive settings 组件。
 
 详细行为和有意边界见[功能矩阵（中文）](FEATURE_MATRIX.zh-CN.md) / [English](FEATURE_MATRIX.md)。
 
@@ -145,7 +155,7 @@ flowchart LR
 - **Pi** 负责 Agent loop、模型、Provider、工具、扩展和会话。
 - **`pi-grok-adapter`** 是 headless JSONL RPC ↔ ACP 桥接层，不拥有终端，也不渲染第二套 UI。
 
-不修改 Pi 源码。Remote TUI 通过官方扩展 API 接入 Pi RPC 未暴露的能力，并将其投影到原生 Pager 承载面。
+不修改 Pi 源码。主要集成使用公开 RPC 与 Extension API；实验 Remote TUI compatibility host 对 stock RPC 未暴露的能力还使用有界 host hooks。
 
 `/pi-ui-capabilities` 列出标准原生映射、有界映射、实验 Remote TUI 与 unsupported 方法。Working message/visibility/indicator 映射到原生 status；动画 indicator、持久 header/footer/widget factory 和 raw input/editor replacement 仍受 Pi RPC 边界限制。实验 mode facade 仅在实际 Remote TUI host 存在时启用，不保证全部第三方组件兼容。
 

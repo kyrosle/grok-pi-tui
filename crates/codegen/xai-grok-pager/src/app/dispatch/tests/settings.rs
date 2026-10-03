@@ -3733,3 +3733,37 @@ fn mouse_reporting_toggle_enqueues_capture_escapes_on_the_writer_queue() {
         "toggle-on queues exactly one payload"
     );
 }
+
+#[test]
+fn external_stock_settings_actions_do_not_mutate_or_persist() {
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    let original = serde_json::to_value(&app.current_ui).unwrap();
+    let original_consent = app.coding_data_retention_opt_out;
+    for action in [
+        Action::SetVoiceKeybindEnabled(false),
+        Action::SetVoiceCaptureMode("toggle".into()),
+        Action::SetVoiceSttLanguage("zh".into()),
+        Action::SetRememberToolApprovals(false),
+        Action::SetDefaultSelectedPermission("deny".into()),
+        Action::SetAskUserQuestionTimeoutEnabled(false),
+        Action::SetPromptSuggestions(false),
+        Action::SetConfirmBeforeRewind(false),
+        Action::SetAutoUpdate(false),
+        Action::SetHunkTrackerMode("all_dirty".into()),
+        Action::ClearForkSecondaryModel,
+        Action::SetCodingDataSharing { opted_in: true },
+        Action::SetPermissionMode(crate::app::actions::PermissionModeKind::AlwaysApprove),
+        Action::ToggleYolo,
+    ] {
+        assert!(dispatch(action, &mut app).is_empty());
+        assert_eq!(serde_json::to_value(&app.current_ui).unwrap(), original);
+    }
+    assert_eq!(app.coding_data_retention_opt_out, original_consent);
+    let effects = dispatch(Action::SetPiBash(false), &mut app);
+    assert!(
+        effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::PersistSetting { key: "pi_bash", .. }))
+    );
+}

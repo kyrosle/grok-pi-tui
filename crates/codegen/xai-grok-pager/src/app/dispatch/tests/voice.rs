@@ -2,6 +2,47 @@
 
 use super::*;
 
+#[test]
+fn external_profile_never_enables_or_dispatches_voice() {
+    use crate::app::app_view::InputOutcome;
+    use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    app.apply_voice_mode_enabled(true);
+    assert!(!app.voice_mode_enabled);
+
+    // A stale flag must not bypass the external profile's dispatch guard.
+    app.voice_mode_enabled = true;
+    for action in [Action::EnableVoiceMode, Action::VoiceToggle] {
+        assert!(dispatch(action, &mut app).is_empty());
+        assert!(!app.voice_listening());
+        assert!(!app.voice_state.pending_cold_start());
+        assert!(!app.voice_ui_active);
+        assert!(app.voice_cmd_tx.is_none());
+    }
+
+    app.active_view = ActiveView::Welcome;
+    let agent_count = app.agents.len();
+    assert!(dispatch(Action::EnableVoiceMode, &mut app).is_empty());
+    assert_eq!(app.agents.len(), agent_count);
+    assert!(matches!(app.active_view, ActiveView::Welcome));
+    for (code, modifiers) in [
+        (KeyCode::Char(' '), KeyModifiers::CONTROL),
+        (KeyCode::F(8), KeyModifiers::NONE),
+    ] {
+        let outcome = app.handle_input(&Event::Key(KeyEvent::new(code, modifiers)));
+        assert!(!matches!(
+            outcome,
+            InputOutcome::Action(Action::EnableVoiceMode | Action::VoiceToggle)
+        ));
+    }
+
+    app.external_agent = false;
+    app.apply_voice_mode_enabled(true);
+    assert!(app.voice_mode_enabled, "stock voice availability is preserved");
+}
+
 /// Plan mode must not gate voice.
 /// Typing `/voice` and Enter through the real input path (prompt keys, then the slash registry, then dispatch) starts recording.
 /// With `plan_mode_active` set it behaves exactly like normal mode.

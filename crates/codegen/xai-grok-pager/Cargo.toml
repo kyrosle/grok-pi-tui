@@ -112,11 +112,11 @@ xai-grok-config = { workspace = true }
 xai-grok-feedback = { workspace = true }
 xai-dirs = { workspace = true }
 xai-grok-dashboard-store = { workspace = true }
-# Voice dictation. `audio` (mic capture) is enabled on every target. On
+# Stock voice dictation. `audio` (mic capture) is enabled by stock-runtime. On
 # macOS/Windows it links cpal; on Linux it compiles a subprocess-recorder
 # backend instead, so cpal -> alsa-sys never reaches the static musl binary
 # (cpal is target-gated to non-Linux inside xai-grok-voice).
-xai-grok-voice = { path = "../xai-grok-voice", default-features = false, features = ["audio"] }
+xai-grok-voice = { path = "../xai-grok-voice", default-features = false }
 xai-grok-login = { workspace = true }
 xai-grok-shell = { path = "../xai-grok-shell", default-features = false, optional = true }
 # The status-line contract: the config the user writes and the payload the
@@ -244,7 +244,7 @@ workspace = true
 
 [features]
 default = ["stock-runtime", "jemalloc", "sandbox-enforce"]
-stock-runtime = ["xai-grok-update/stock-runtime", "xai-grok-shell/stock-runtime", "dep:xai-grok-workspace", "dep:xai-grok-tools", "dep:xai-grok-agent", "dep:xai-grok-plugin-marketplace"]
+stock-runtime = ["xai-grok-update/stock-runtime", "xai-grok-shell/stock-runtime", "xai-grok-voice/audio", "dep:xai-grok-workspace", "dep:xai-grok-tools", "dep:xai-grok-agent", "dep:xai-grok-plugin-marketplace"]
 default-bazel = [
     "jemalloc",
     "sandbox-enforce",

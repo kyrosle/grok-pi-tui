@@ -1,19 +1,11 @@
 	function hostLabel(entry) { return I18N[lang]["host_label_"+entry.key] || entry.label || entry.key; }
 	function hostDescription(entry) { return I18N[lang]["host_desc_"+entry.key] || entry.description || ""; }
 	function hostSectionLabel(value) { return I18N[lang]["host_section_"+value] || (value === "Pi features" ? t("host_features") : value || t("host_section_other")); }
-	function hostCatalog() { return [...new Map([...(UI_CONFIG.host?.catalog || []), ...(state?.host?.catalog || [])].map(entry=>[entry.key,entry])).values()]; }
+	function hostCatalog() { return state?.host?.catalog || []; }
 	function isScalar(value) {
 		return ["boolean", "number", "string"].includes(typeof value);
 	}
 
-	function hostExtras() {
-		if (!state?.host) return [];
-		const covered = new Set(hostCatalog().map((entry) => entry.key));
-		return Object.entries(state.host.ui || {})
-			.filter(([key, value]) => !covered.has(key) && isScalar(value))
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([key, value]) => ({ key, default: value }));
-	}
 
 	function renderHost() {
 		const host = state.host || { ui: {}, uiTables: {}, catalog: [] };
@@ -23,17 +15,11 @@
 		const matches = (entry) => !query || [entry.key, hostLabel(entry), hostDescription(entry), hostSectionLabel(entry.section), entry.source].some((value) => String(value || "").toLowerCase().includes(query));
 		const filtered = (entry) => matches(entry) && (!view.hostCustomized || host.ui?.[entry.key] !== undefined || Object.hasOwn(view.hostDraft,entry.key));
 		const catalog = hostCatalog().filter(filtered);
-		const extras = hostExtras().filter(filtered);
 		const sections = new Map();
 		for (const entry of catalog) {
 			const section = hostSectionLabel(entry.section);
 			if (!sections.has(section)) sections.set(section, []);
 			sections.get(section).push(entry);
-		}
-		if (extras.length) {
-			const name = t("host_section_other");
-			if (!sections.has(name)) sections.set(name, []);
-			sections.get(name).push(...extras);
 		}
 
 		const nav = $("#host-section-nav");
@@ -47,7 +33,7 @@
 			body.appendChild(hostSection(id, section, entries, host));
 		}
 
-		const tableKeys = Object.keys(host.uiTables || {}).filter((key) => !query || key.toLowerCase().includes(query));
+		const tableKeys = Object.keys(host.uiTables || {}).filter((key) => hostCatalog().some((entry) => entry.key.startsWith(key + ".")) && (!query || key.toLowerCase().includes(query)));
 		if (tableKeys.length > 0) body.appendChild(readonlyTables(host.uiTables, tableKeys));
 		if (sections.size === 0 && tableKeys.length === 0) body.appendChild(emptyState(t("host_no_results")));
 	}

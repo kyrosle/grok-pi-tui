@@ -290,6 +290,14 @@ pub fn build_entries_with_extension_shortcuts(
             entry_count: 0,
         });
         for def in defs {
+            if crate::app::external_agent_active()
+                && matches!(
+                    def.id,
+                    ActionId::ToggleYolo | ActionId::DashboardToggleAutoApprove
+                )
+            {
+                continue;
+            }
             // Slash-only actions with no real keybinding (e.g. `/voice`'s EnableVoiceMode) don't belong in a keyboard cheatsheet.
             if def.default_key == crate::key!(Null) && def.alt_keys.is_empty() {
                 continue;
@@ -298,7 +306,9 @@ pub fn build_entries_with_extension_shortcuts(
             // do nothing `Ctrl+Space` decodes the same with or without the Kitty keyboard protocol (it just
             // toggles instead of hold-to-talk). It is therefore shown on every terminal once the gates are on.
             if def.id == crate::actions::ActionId::VoiceToggle
-                && (!crate::app::voice_mode_enabled() || !crate::app::voice_keybind_enabled())
+                && (crate::app::external_agent_active()
+                    || !crate::app::voice_mode_enabled()
+                    || !crate::app::voice_keybind_enabled())
             {
                 continue;
             }

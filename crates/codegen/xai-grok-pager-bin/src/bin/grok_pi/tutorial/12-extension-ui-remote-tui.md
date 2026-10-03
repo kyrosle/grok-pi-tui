@@ -15,3 +15,7 @@ and keys into Pager—it does not give the child a real TTY.
 `/pi-shortcut-manager` manages shortcuts registered by Pi extensions without
 claiming Pager's built-in keys. Raw terminal hooks and arbitrary custom
 header/footer factories remain unsupported boundaries.
+
+Use `/pi-ui-capabilities` to inspect standard mappings, limited mappings,
+experimental support and observed diagnostics. The custom-component host uses
+scoped compatibility hooks; it does not guarantee every Pi TUI component.

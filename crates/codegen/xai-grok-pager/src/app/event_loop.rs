@@ -1180,10 +1180,6 @@ pub(crate) async fn run(
     // product commands that their protocol cannot satisfy are omitted.
     let ui_profile = connection.ui_profile.clone();
     let external_agent = ui_profile.is_external();
-    let external_voice_dictation_enabled = matches!(
-        &ui_profile,
-        crate::acp::UiProfile::External(profile) if profile.enable_voice_dictation
-    );
     match &ui_profile {
         crate::acp::UiProfile::Grok => {
             crate::slash::set_builtin_command_profile(crate::slash::BuiltinCommandProfile::Grok);
@@ -1218,7 +1214,6 @@ pub(crate) async fn run(
                     "welcome_brand_override": profile.welcome_brand.is_some(),
                     "hide_new_worktree": profile.hide_new_worktree,
                     "changelog_url": profile.changelog_url,
-                    "voice_dictation_enabled": profile.enable_voice_dictation,
                 })),
             );
         }
@@ -1541,12 +1536,12 @@ pub(crate) async fn run(
         if app.is_api_key_auth || app.has_external_auth_provider {
             app.usage_visible = false;
             app.sync_billing_surface_to_agents();
-            // Pi: enable voice for API keys (reuses local Grok STT bearer).
             app.ensure_voice_for_api_key();
         }
     }
     // After auth so API-key + managed policy resolve correctly.
-    let voice_mode_enabled = (!external_agent || external_voice_dictation_enabled)
+    let voice_mode_enabled = !external_agent
+        && connection.auth_manager.is_some()
         && crate::app::resolve_voice_mode_live(
             remote_settings.as_ref().and_then(|s| s.voice_mode_enabled),
             app.is_api_key_auth,
@@ -1888,7 +1883,7 @@ pub(crate) async fn run(
     // Seed the Voice shortcut gate's process-global mirror for key-routing and view code without an `AppView`
     // The chord intercept reads `current_ui` live and the settings setter updates both
     crate::app::VOICE_KEYBIND_ENABLED.store(
-        app.current_ui.voice_keybind_enabled.unwrap_or(true),
+        !external_agent && app.current_ui.voice_keybind_enabled.unwrap_or(true),
         std::sync::atomic::Ordering::Release,
     );
     // Seed the F2-configurable running-turn cancellation gesture. Unset and
@@ -2452,8 +2447,12 @@ pub(crate) async fn run(
         // Lazy voice pipeline: only after `/voice` or Ctrl+Space while gates allow
         // Consume the queued cold-start, carrying its hold-ownership and bound target forward into the live recording it spawns
         if let VoiceState::ColdStart { hold, target } = app.voice_state {
-            if app.voice_cmd_tx.is_none() && app.voice_can_start_pipeline() {
-                let voice_auth = crate::voice::build_voice_auth(voice_auth_factory.clone());
+            if !external_agent
+                && app.voice_cmd_tx.is_none()
+                && app.voice_can_start_pipeline()
+                && let Some(auth_manager) = voice_auth_factory.as_ref()
+            {
+                let voice_auth = crate::voice::build_voice_auth(auth_manager.clone());
                 let (cmd_tx, cmd_rx) = tokio::sync::mpsc::channel(32);
                 let (event_tx, event_rx) = tokio::sync::mpsc::channel(128);
                 let voice_config = app.voice_config.clone();
@@ -3983,6 +3982,7 @@ async fn drain_and_process(
         // A release is only ours when a hold session owns it
         // A bare Space release (Ctrl lifted first) thus stops hold-to-talk without eating every Space release during normal typing
         if let Event::Key(ke) = ev
+            && !app.external_agent
             && app.voice_mode_enabled
             && xai_grok_voice::AUDIO_SUPPORTED
             && is_voice_chord(ke)

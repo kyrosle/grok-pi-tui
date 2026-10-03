@@ -10,8 +10,9 @@ Pi in a second shell.
   text or images; responses use native Markdown, code blocks and scrollback.
 - `/hotkeys` shows the active profile's keys. Appearance controls include
   `/theme`, `/timestamps`, `/timeline` and mouse reporting.
-- `/voice` inserts Pager STT text into the prompt. Its xAI speech credential is
-  separate from the provider Pi uses for the coding model.
+- F2 or `/settings` opens the native Pager settings surface for terminal UI,
+  integrated Pi controls and bundled extension options. The command palette
+  and Web host-settings catalog use the same product filter.
 
 Use `Tab` to move between prompt and scrollback, then search, select, copy or
 export without leaving the native Pager.

@@ -219,7 +219,7 @@ mod tests {
             "default off",
             "restart",
             "experimental",
-            "does not install",
+            "does not migrate",
         ] {
             assert!(
                 content.contains(required_boundary),

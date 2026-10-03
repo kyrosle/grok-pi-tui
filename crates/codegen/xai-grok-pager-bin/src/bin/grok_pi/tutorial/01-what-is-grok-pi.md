@@ -1,7 +1,7 @@
 # What Is grok-pi?
 
-grok-pi is not stock Grok. It combines the **Pi agent core** with Grok Pager
-through three deliberately separate layers:
+grok-pi is a **Grok Build-style native TUI for Pi**.
+It combines the Pi agent core with Grok Pager through three layers:
 
 - **Pi is the agent core.** Pi owns providers, models, the agent loop, tools,
   extensions, compaction and local session files.
@@ -10,8 +10,12 @@ through three deliberately separate layers:
 - **The adapter stays headless.** It translates Pi RPC events into Pager-native
   surfaces and never draws a second terminal interface.
 
-Some product features—Plan mode, background Bash, subagents and workflows—are
-built-in grok-pi bridge extensions. They are not fixed Pi kernel features, and
-Pi remains replaceable and extensible underneath them.
+Todo, Plan mode, background Bash/Eval and Subagents are bundled grok-pi
+extensions or integrations. Each has its own defaults and capability limits;
+they are not Pi built-ins. Optional Rhai workflows use Pi workers but retain
+their own orchestration runtime.
+
+Queue interception and Plan/Goal state still have adapter ownership. The
+current product-surface cut does not migrate those mechanisms.
 
 Your models and sessions belong to Pi, not a Grok cloud account.

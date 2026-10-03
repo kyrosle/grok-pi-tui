@@ -519,6 +519,7 @@ function loadHostCatalog(catalogPath: string | undefined): {
 					label: typeof setting.label === "string" ? setting.label : undefined,
 					description: typeof setting.description === "string" ? setting.description : undefined,
 					kind: typeof setting.kind === "string" ? setting.kind : undefined,
+					options: Array.isArray(setting.options) ? setting.options.filter((value): value is string => typeof value === "string") : undefined,
 					default: setting.default,
 					restartRequired: setting.restartRequired === true,
 					category: typeof f2.category === "string" ? f2.category : undefined,
@@ -569,7 +570,9 @@ export function collectHostState(): HostConfigState {
 
 /** Apply a validated `[ui]` update; values must be TOML scalars. */
 export function saveHostUi(configPath: string, updates: JsonObject): void {
+	const supported = new Set(loadHostCatalog(process.env[HOST_CATALOG_ENV]).catalog.map((entry) => entry.key));
 	for (const [key, value] of Object.entries(updates)) {
+		if (!supported.has(key)) throw new Error(`setting "${key}" is unavailable for Pi`);
 		if (!/^[A-Za-z0-9_-]+$/.test(key)) throw new Error(`invalid setting key "${key}"`);
 		if ((typeof value === "number" && !Number.isFinite(value)) || (typeof value !== "boolean" && typeof value !== "number" && typeof value !== "string")) {
 			throw new Error(`setting "${key}" must be a boolean, number or string`);

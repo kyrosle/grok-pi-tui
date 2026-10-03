@@ -85,6 +85,7 @@ export type HostSettingEntry = {
 	label?: string;
 	description?: string;
 	kind?: string;
+	options?: string[];
 	default?: unknown;
 	restartRequired?: boolean;
 	category?: string;

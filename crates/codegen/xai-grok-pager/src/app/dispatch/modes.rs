@@ -339,6 +339,10 @@ fn capture_prev_permission_canonical(app: &AppView, prev_yolo: bool) -> &'static
 /// SHELL-owned, emits `Effect::PersistPermissionMode` with rollback.
 /// The drain runs unconditionally when YOLO turns ON (even duplicate dispatches) because a permission could arrive between dispatches.
 pub(super) fn set_yolo_mode(app: &mut AppView, new: bool) -> Vec<Effect> {
+    if app.external_agent {
+        app.show_toast("Grok permission modes are unavailable for Pi");
+        return vec![];
+    }
     // Managed policy pins always-approve off: no state change, no persist
     if let Some(blocked) = refuse_if_yolo_locked(app, new) {
         return blocked;
@@ -393,6 +397,10 @@ pub(super) fn set_permission_mode(
     app: &mut AppView,
     kind: crate::app::actions::PermissionModeKind,
 ) -> Vec<Effect> {
+    if app.external_agent {
+        app.show_toast("Grok permission modes are unavailable for Pi");
+        return vec![];
+    }
     // Feature gate: a commit to Auto is inert when the auto permission-mode feature is disabled
     // Reading `app.auto_mode_gate` here (the same source the Shift+Tab cycle uses) keeps the settings modal and the cycle in lockstep
     // Both degrade Auto to Ask when the gate is off
@@ -531,6 +539,9 @@ pub(super) fn dispatch_cycle_mode(app: &mut AppView) -> Vec<Effect> {
 /// Returns `None` when the ring should run alone (Normal, absent nudge, already-in-plan, or no session).
 /// Agent-view only; peek never calls this.
 fn collapse_to_ask_for_nudge_jump(app: &mut AppView) -> Option<Vec<Effect>> {
+    if app.external_agent {
+        return None;
+    }
     let ActiveView::Agent(id) = app.active_view else {
         return None;
     };

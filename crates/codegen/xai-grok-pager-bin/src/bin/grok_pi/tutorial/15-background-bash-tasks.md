@@ -1,7 +1,8 @@
 # Background Bash & Tasks
 
-grok-pi's built-in Bash bridge keeps Pi's tool semantics while adding native
-background-task control.
+grok-pi's bundled Bash/Eval extension extends Pi's Bash tool with native
+background-task control. This is an extension capability with its own task
+lifecycle, rather than a built-in Pi background-task API.
 
 - Start Bash normally, then press `Ctrl+B` to send the same subprocess to the
   background instead of launching a replacement command.

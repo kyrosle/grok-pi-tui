@@ -188,6 +188,10 @@ pub(super) fn dispatch_show_session_info(app: &mut AppView) -> Vec<Effect> {
 /// Also lists config knobs that `/privacy` does not change (technical
 /// pointers only; no policy claims).
 pub(super) fn dispatch_show_privacy_info(app: &mut AppView) -> Vec<Effect> {
+    if app.external_agent {
+        app.show_toast("This Grok account setting is unavailable for Pi");
+        return vec![];
+    }
     let mut lines = Vec::new();
 
     if app.is_zdr {
@@ -277,6 +281,10 @@ pub(super) fn set_coding_data_sharing(
     opted_in: bool,
     source: xai_grok_telemetry::events::CodingDataConsentSource,
 ) -> Vec<Effect> {
+    if app.external_agent {
+        app.show_toast("This Grok account setting is unavailable for Pi");
+        return vec![];
+    }
     // ── Guard 1: Enterprise ZDR ──────────────────────────────────────
     if app.is_zdr {
         app.show_toast("\u{2717} Cannot change: Zero Data Retention enabled");
@@ -497,6 +505,10 @@ pub(super) fn append_consumer_billing_surface(app: &mut AppView, agent_id: Agent
 
 /// `/usage manage`: open consumer billing. No-op when the surface is hidden.
 pub(super) fn dispatch_manage_billing(app: &mut AppView) -> Vec<Effect> {
+    if app.external_agent {
+        app.show_toast("This Grok account setting is unavailable for Pi");
+        return vec![];
+    }
     if !app.usage_visible {
         return vec![];
     }

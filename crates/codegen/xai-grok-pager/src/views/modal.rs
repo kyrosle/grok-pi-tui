@@ -717,6 +717,23 @@ pub enum PaletteCommand {
     InsertFeedbackSlash,
 }
 /// Build the default set of palette entries with section grouping.
+/// Remove stock product entries while keeping native UI and Pi command surfaces.
+fn external_palette_command_supported(command: &PaletteCommand) -> bool {
+    use crate::views::extensions_modal::ExtensionsTab;
+    match command {
+        PaletteCommand::SlashCommand(text) if text.trim() == "/always-approve" => false,
+        PaletteCommand::OpenExtensionsTab(
+            ExtensionsTab::Hooks
+            | ExtensionsTab::Plugins
+            | ExtensionsTab::Marketplace
+            | ExtensionsTab::McpServers,
+        ) => false,
+        #[cfg(feature = "stock-runtime")]
+        PaletteCommand::OpenAgentsModal => false,
+        _ => true,
+    }
+}
+
 pub(crate) fn default_palette_entries(
     sharing_enabled: bool,
     slash: &crate::slash::SlashController,
@@ -936,6 +953,11 @@ pub(crate) fn default_palette_entries(
         },
     ];
     entries.retain(|entry| {
+        if crate::app::external_agent_active()
+            && !external_palette_command_supported(&entry.command)
+        {
+            return false;
+        }
         if !sharing_enabled
             && matches!(&entry.command, PaletteCommand::SlashCommand(s) if s.trim() == "/share")
         {
@@ -2260,6 +2282,40 @@ mod palette_sharing_tests {
         controller.set_screen_mode(mode);
         controller
     }
+    #[test]
+    fn external_palette_retains_ui_and_pi_entries_and_hides_stock_products() {
+        let entries = default_palette_entries(true, &slash(crate::app::ScreenMode::Fullscreen));
+        let filtered = entries
+            .iter()
+            .filter(|entry| external_palette_command_supported(&entry.command))
+            .collect::<Vec<_>>();
+        assert!(
+            filtered
+                .iter()
+                .any(|entry| matches!(entry.command, PaletteCommand::OpenSettings))
+        );
+        assert!(filtered.iter().any(|entry| entry.label == "Switch Model"));
+        assert!(filtered.iter().any(|entry| entry.label == "Switch Theme"));
+        assert!(
+            filtered
+                .iter()
+                .any(|entry| matches!(entry.command, PaletteCommand::Quit))
+        );
+        for label in [
+            "Always Approve Mode",
+            "Hooks",
+            "Plugins",
+            "Marketplace",
+            "MCP Servers",
+            "Manage Agents",
+        ] {
+            assert!(
+                !filtered.iter().any(|entry| entry.label == label),
+                "external hides {label}"
+            );
+        }
+    }
+
     #[test]
     fn default_palette_includes_share_when_enabled() {
         let entries = default_palette_entries(true, &slash(crate::app::ScreenMode::Fullscreen));

@@ -17,9 +17,9 @@ base     37949780c144e37df692e3d669051a21fec24f20
 - Pi host default is **system `pi` >= 1.0.0** (`npm i -g @earendil-works/pi-coding-agent`). Override with `--pi-bin` / `PI_BIN`.
 - Optional Pi source checkout is the git submodule [`pi-main`](https://github.com/earendil-works/pi) (not a vendored copy). Follow [`pi-main/AGENTS.md`](pi-main/AGENTS.md) when working inside the submodule.
 
-The current product spec and execution record are [Pi-first TUI SPEC](docs/issues/架构/20261002-pi-first-tui-SPEC.md) and [PLAN](docs/issues/架构/20261002-pi-first-tui-PLAN.md). Grok Build is absorbed as TUI; functionality always follows Pi semantics.
+The current product spec and execution record are [Pi product surface SPEC](docs/issues/架构/20261003-pi-product-surface-SPEC.md) and [PLAN](docs/issues/架构/20261003-pi-product-surface-PLAN.md): Pi agent core with a Grok Build-style native TUI and configurable Pi extensions. The external profile excludes Grok voice, account, billing, training/retention and stock agent/plugin/MCP product controls.
 
-That Pi-first record is the completed baseline at `84174917`. The current increment follows [Pi deep adaptation SPEC](docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md), and the [exact source review](docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md). Keep prior verification separate from new source/fixture/build/real-provider acceptance.
+The [Pi-first TUI record](docs/issues/架构/20261002-pi-first-tui-PLAN.md) is the completed baseline at `84174917`; [Pi deep adaptation SPEC](docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md), and [exact source review](docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md) describe the following checkpoint. Keep their prior verification separate from current source/fixture/build acceptance. Adapter-owned queue, Plan/Goal and optional Rhai Workflow ownership remain recorded debts; this product-surface cut does not migrate them.
 
 ## Upstream sync workflow
 

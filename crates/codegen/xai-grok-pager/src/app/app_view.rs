@@ -1951,6 +1951,7 @@ impl AppView {
     /// `false` is a kill switch. Mirrors `apply_session_recap_available` for
     /// `/recap`.
     pub fn apply_voice_mode_enabled(&mut self, enabled: bool) {
+        let enabled = enabled && !self.external_agent;
         self.voice_mode_enabled = enabled;
         crate::app::VOICE_MODE_ENABLED.store(enabled, std::sync::atomic::Ordering::Release);
         for agent in self.agents.values_mut() {
@@ -4255,7 +4256,7 @@ impl AppView {
             },
             ActionId::OpenDashboard => Action::OpenDashboard,
             ActionId::VoiceToggle => {
-                if !self.current_ui.voice_keybind_enabled.unwrap_or(true) {
+                if self.external_agent || !self.current_ui.voice_keybind_enabled.unwrap_or(true) {
                     return InputOutcome::Unchanged;
                 }
                 Action::VoiceToggle

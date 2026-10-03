@@ -1,14 +1,26 @@
-# Native Grok TUI Alignment
+# Pi Core + Grok Build-style Native TUI Alignment
 
-## 2026-10-03 deep adaptation automatic evidence
+## Current product surface
+
+The current [SPEC](issues/架构/20261003-pi-product-surface-SPEC.md) and [PLAN](issues/架构/20261003-pi-product-surface-PLAN.md) define a native Grok Build-style TUI for Pi. Pi supplies models, providers, authentication, tools, sessions, retry and compaction; Pager presents controls and results. The external profile removes Grok voice/STT/TTS, account/billing, training/retention and stock agent/plugin/MCP controls across F2, palette and the Web host-settings catalog. Existing user configuration and credentials are retained; stock Grok keeps its own profile.
+
+Bundled Todo, Subagents, Plan, Goal and enhanced Bash/Eval are extension/integration capabilities with explicit defaults. Adapter queue interception and Plan/Goal state, plus the optional Rhai Workflow runtime, remain ownership debts in the PLAN. Their migration is outside this product-surface cut.
+
+The reference is the installed `@earendil-works/pi-coding-agent` 1.0.0 package: `docs/slash-commands.md` groups model/settings, session/context, export and runtime/resource commands; `docs/settings.md` separates model/thinking, interaction, tools, sessions, display and resources. `dist/modes/interactive/interactive-mode.js` routes `/settings` to `SettingsSelectorComponent`, uses `AgentSession` for compaction/queue controls and `SettingsManager` for persistent preferences. grok-pi follows those responsibilities while retaining native Pager controls and names such as `/effort` and `/rename`; it does not transplant Pi's interactive renderer or claim complete settings/command parity.
+
+Pi's `docs/tui.md` recommends standard extension dialogs before custom components. `docs/rpc-extension-ui.md` defines the narrower stock RPC surface. Native QuestionView, status and toast mappings use that boundary; experimental Remote TUI remains a scoped compatibility host with per-component limits.
+
+Current validation is recorded in [VERIFICATION](VERIFICATION.md). The following completed checkpoints are historical evidence, not proof of the current product-surface revision.
+
+## Historical 2026-10-03 deep adaptation automatic evidence
 
 Latest user clarification assigns agent/provider business and authentication to Pi, with Grok owning native presentation. The standalone auth bridge delegates generic login/logout and maps prompts, notifications, responses and cancellation; its Radius MCP writer, special selection and post-login configuration confirmation were removed. Generic Radius provider login remains, while MCP configuration uses Pi's supported entry points. The earlier tested binary is a pre-cut checkpoint; this TypeScript-only cut is checked as an extension without Cargo/build. Real provider/OAuth/image/terminal experience stays supplementary, not a new TUI-development closing prerequisite.
 
-The current increment follows [deep adaptation SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md) and [exact source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md). The latest measured production dependency graph has **806** packages with all seven prohibited stock runtimes absent. Final corrected-source build, four native PTYs and combined verification pass; the preceding 805-package result and completed verify below certify the Pi-first checkpoint at `84174917` only.
+That increment follows [deep adaptation SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md) and [exact source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md). Its measured production dependency graph has **806** packages with all seven prohibited stock runtimes absent. Corrected-source build, four native PTYs and combined verification passed at that checkpoint; the preceding 805-package result and completed verify below certify the Pi-first checkpoint at `84174917` only.
 
 Fresh native package PTY exposed fixed startup resource admission: installing a declaration did not load its new extension during the old reload path. The correction recomputes policy admission from official SDK-resolved resources, retains user CLI restrictions/trust, and uses official child shutdown/restart with public session/leaf/model/thinking restoration when startup inputs change. Unsafe in-memory restoration is deferred rather than rewriting Pi session JSONL. Actual restore/build/PTY proof now passes the named paths; public-API restoration boundaries remain saved/deferred and supplementary Pi/provider human experience stays pending. Hidden loader errors and simultaneous external Web writes remain explicit boundaries in [VERIFICATION](VERIFICATION.md).
 
-## 2026-10-03 Pi-first checkpoint at 84174917
+## Historical 2026-10-03 Pi-first checkpoint at 84174917
 
 The accepted [SPEC](issues/架构/20261002-pi-first-tui-SPEC.md) keeps Grok native TUI and Pi 1.0 as the only agent core. Question/Workflow contracts, host-feature metadata, complete configuration/session DTOs and pure permission helpers have canonical neutral owners with stock compatibility re-exports. The production Pi profile uses `--no-default-features --features jemalloc,sandbox-enforce`; its `normal,build` graph has 805 unique packages and none of the seven prohibited stock execution runtimes. Both the isolated Pi and default stock profiles compile.
 
@@ -32,7 +44,6 @@ The current entry point is not a self-drawn Ratatui shell. `grok-pi` lives insid
 | Tools and diffs | `acp/tracker`, native `RenderBlock`/`EditToolCallBlock` | Pi tool lifecycle converted to ACP `ToolCall`/`ToolCallUpdate`; an external-only F2 opt-in (default off) delegates edit rows to a sibling side-by-side layout renderer when wide enough, while disabled/narrow layouts stay on the native unified renderer |
 | Q&A overlay | `views/question_view` | `select`/`confirm`/`input`/`editor` converted to `x.ai/ask_user_question` |
 | Status and notifications | native toast / sticky surface | `notify`/`setStatus`/`setWidget` converted to narrow ACP notifications |
-| Voice dictation | native Pager Voice pipeline | opt-in external profile captures speech through xAI STT and inserts text into PromptWidget; Pi receives only the user-submitted prompt |
 | Scroll and transcript | native scrollback / transcript | both historical and live events are ACP `SessionUpdate` |
 | Model selection | native model selector | Pi models / thinking levels converted to `SessionModelState` |
 
@@ -58,7 +69,7 @@ The ACP standard does not cover all of Pi's UI/command semantics, so narrow seam
 6. slash profile: only selects existing Grok commands that are meaningful for Pi and fully work under the external ACP composition; Pi dynamic commands remain managed by the native registry.
 7. `/compact <instructions>`: passes the optional text from the native Grok command to Pi `customInstructions`.
 8. screen-mode boundary: Grok's native minimal/fullscreen renderer is retained, but the original slash re-exec would rebuild Grok's own `--resume` argv and cannot carry `grok-pi`'s Pi startup arguments, so only the startup option is exposed, not the broken `/minimal`/`/fullscreen` re-exec.
-9. voice dictation: the Pi external profile explicitly opts into the existing Pager-only `/voice` / Ctrl+Space/F8 flow. Its STT bearer comes from the local Grok login or API key; it inserts transcript text into PromptWidget and never changes Pi's model, session, or agent ownership.
+9. product settings and voice boundary: the external settings filter retains terminal UI and integrated Pi/extension controls; it removes stock product settings and voice entry points. External ACP connections do not create a Grok AuthManager. Stock retains its own voice and settings behavior.
 10. tutorial copy profile: stock Grok retains its default onboarding content; grok-pi installs 18 static product-specific capability topics while reusing the native `TutorialState`, modal, picker, Markdown renderer and input routing.
 
 Selective native terminal/reader/fence, clipboard/repaint, Minimal/Inline semantic rows, Swift syntax and Mermaid SVG/PNG groups update the existing native implementations. They preserve Pi ownership and use the same PromptWidget, QuestionView, scrollback, cards and image consumers. These seams do not create a second TUI or scrollback pipeline. The optional sibling EditTool layout renderer reuses native diff data, highlighting helpers, output rows, unified fallback, selection, and fullscreen viewer behavior.

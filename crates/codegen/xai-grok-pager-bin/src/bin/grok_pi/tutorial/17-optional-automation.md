@@ -7,9 +7,11 @@ restart because their Pi extensions are injected only at startup:
 - **Pi BTW** adds side questions and optional multi-model chains without
   interrupting the primary turn.
 - **Pi workflows** hosts Rhai scripts; use `/workflows` to browse and
-  `/workflow <name> [args]` to launch one.
+  `/workflow <name> [args]` to launch one. The Rhai runtime owns orchestration;
+  Pi SDK sessions provide its workers.
 - **Pi goal** is a legacy MVP goal loop with native status projection, not a
-  full autonomous multi-agent planner.
+  full autonomous multi-agent planner. Its state and continuation still have
+  adapter ownership; it is not a built-in Pi Goal mode.
 - **Pi loop** schedules recurring prompts for the current process; it is
   session-only rather than a durable external scheduler.
 

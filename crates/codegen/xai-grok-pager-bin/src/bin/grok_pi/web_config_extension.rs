@@ -134,15 +134,59 @@ pub(super) fn write_web_config_extension() -> Result<WebConfigExtension> {
 /// `BUNDLED_HOST_UI_SOURCES`, so the web F2 surface maps the registered
 /// extension settings one-to-one with the native F2 modal.
 fn host_catalog_json() -> String {
-    let items = crate::bundled_host_ui::BUNDLED_HOST_UI_SOURCES
+    use xai_grok_pager::settings::{SettingKind, SettingsRegistry};
+
+    let registry = SettingsRegistry::defaults_with_host_features(
+        &xai_grok_shared::host_features::HostFeatureManifest::default(),
+    );
+    // Keep the existing Web scalar-editor subset. Native metadata and support
+    // come from the same registry as F2/palette; groups and Pi's model settings
+    // continue using their existing dedicated surfaces.
+    let ui: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../extensions/pi-grok-web-config/web/ui-config.json"
+    ))
+    .expect("valid baked Web UI config");
+    let native = ui["host"]["catalog"]
+        .as_array()
+        .expect("Web native catalog")
+        .iter()
+        .filter_map(|entry| {
+            let key = entry["key"].as_str()?;
+            let meta = registry.all().iter().find(|meta| meta.key == key)?;
+            let mut setting = entry.clone();
+            setting["label"] = meta.label.into();
+            setting["description"] = meta.description.into();
+            setting["restartRequired"] = meta.restart_required.into();
+            setting["f2"] = serde_json::json!({
+                "category": meta.category.tab_label(),
+                "section": entry["section"],
+            });
+            setting["default"] = match &meta.kind {
+                SettingKind::Bool { default } => (*default).into(),
+                SettingKind::String { default, .. }
+                | SettingKind::Enum { default, .. }
+                | SettingKind::DynamicEnum { default, .. } => (*default).into(),
+                SettingKind::Int { default, .. } => (*default).into(),
+                _ => return None,
+            };
+            Some(setting)
+        })
+        .collect::<Vec<_>>();
+    let mut items = crate::bundled_host_ui::BUNDLED_HOST_UI_SOURCES
         .iter()
         .map(|(source, json)| {
-            let escaped = source.replace('\\', "\\\\").replace('"', "\\\"");
-            format!("{{\"source\": \"{escaped}\", \"manifest\": {json}}}")
+            serde_json::json!({
+                "source": source,
+                "manifest": serde_json::from_str::<serde_json::Value>(json)
+                    .expect("valid baked host manifest"),
+            })
         })
-        .collect::<Vec<_>>()
-        .join(",\n");
-    format!("[\n{items}\n]\n")
+        .collect::<Vec<_>>();
+    items.push(serde_json::json!({
+        "source": "native/Pi settings registry",
+        "manifest": { "settings": native },
+    }));
+    serde_json::to_string_pretty(&items).expect("serializable host catalog")
 }
 
 #[cfg(test)]
@@ -252,6 +296,26 @@ mod tests {
                 .all(|item| item["manifest"]["settings"].is_array()),
             "every catalog entry carries a settings array"
         );
+        let native = sources
+            .iter()
+            .find(|item| item["source"] == "native/Pi settings registry")
+            .expect("shared native settings catalog")["manifest"]["settings"]
+            .as_array()
+            .unwrap();
+        assert!(native.iter().any(|entry| entry["key"] == "pi_bash"));
+        assert!(native.iter().any(|entry| entry["key"] == "session_recap"));
+        for entry in native {
+            assert!(xai_grok_pager::settings::external_setting_supported(
+                entry["key"].as_str().unwrap()
+            ));
+        }
+        for key in [
+            "coding_data_sharing",
+            "voice_keybind_enabled",
+            "permission_mode",
+        ] {
+            assert!(!native.iter().any(|entry| entry["key"] == key));
+        }
         assert_eq!(
             extension
                 .source_path()

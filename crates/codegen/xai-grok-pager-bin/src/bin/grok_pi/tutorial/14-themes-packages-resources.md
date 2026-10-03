@@ -12,8 +12,13 @@ Inside grok-pi:
 - `/pi-config` discovers Pi resources, previews README/package metadata and
   manages user or trusted-project enable/disable overrides.
 - The same modal can filter, search, refresh and set source allow/block policy.
+- `i` installs a package, `d` removes its declaration, `u` updates the selected
+  package and `U` updates all packages through the selected official Pi CLI.
+  Removing a local declaration retains its source directory.
 - Native feature conflict rules block known duplicate packages while an
   equivalent grok-pi bridge is enabled; explicit user allow still wins.
 
-`/pi-config` does not install, remove or update packages. Use Pi's package CLI
-for that, then `/reload` or restart when the changed resource requires it.
+Package changes reread Pi declarations and reload or restart the host when
+startup admission changes. Unsafe session restoration is deferred. Command
+completion and actual resource loading are separate states; Pi 1.0 RPC does
+not expose every loader error, so package load status remains unverified.

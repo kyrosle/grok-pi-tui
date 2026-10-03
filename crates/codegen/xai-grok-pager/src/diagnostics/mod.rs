@@ -44,9 +44,10 @@ pub use model::{
 };
 pub use view::{DiagnosticSnapshot, view};
 
-/// Passive input-device probe for `grok doctor` / `/doctor`. The TUI passes true only while voice mode is enabled.
+/// Passive input-device probe for `grok doctor` / `/doctor`. External profiles skip audio probing.
+/// The stock TUI passes true only while voice mode is enabled.
 pub fn apply_voice_probe(report: &mut DiagnosticReport, emit_missing_issue: bool) {
-    if !xai_grok_voice::AUDIO_SUPPORTED {
+    if crate::app::external_agent_active() || !xai_grok_voice::AUDIO_SUPPORTED {
         return;
     }
     match xai_grok_voice::input_device_info() {

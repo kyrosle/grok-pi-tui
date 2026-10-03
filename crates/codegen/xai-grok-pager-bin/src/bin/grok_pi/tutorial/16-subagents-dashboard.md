@@ -1,7 +1,8 @@
 # Subagents & Dashboard
 
-grok-pi includes a bridge extension for child Pi AgentSession work without
-creating another terminal UI.
+grok-pi includes a bundled Subagents extension using child Pi AgentSession
+instances. F2 `Pi subagents` is on by default and requires restart when changed.
+Subagents is an extension capability, not a built-in Pi agent-loop feature.
 
 - A subagent appears as a native SubagentBlock, Tasks Pane row and child
   AgentView, with cancellation routed back to the owning Pi child session.

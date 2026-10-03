@@ -6,7 +6,10 @@ import { tmpdir } from "node:os";
 import vm from "node:vm";
 const dir=mkdtempSync(join(tmpdir(),"pi-web-config-tests-"));
 const previousHome=process.env.GROK_HOME, previousCatalog=process.env.PI_GROK_WEB_CONFIG_CATALOG;
-process.env.GROK_HOME=dir; delete process.env.PI_GROK_WEB_CONFIG_CATALOG;
+process.env.GROK_HOME=dir;
+const hostCatalogPath=join(dir,"host-catalog.json");
+writeFileSync(hostCatalogPath,JSON.stringify([{source:"native/Pi settings registry",manifest:{settings:[{key:"pi_bash",kind:"bool",default:true}]}}]));
+process.env.PI_GROK_WEB_CONFIG_CATALOG=hostCatalogPath;
 mock.module("@earendil-works/pi-coding-agent",()=>({
  getAgentDir:()=>dir,
  DefaultResourceLoader:class { async reload(){} getSkills(){return {skills:[]}} getPrompts(){return {prompts:[]}} getThemes(){return {themes:[]}} }
@@ -55,6 +58,18 @@ test("TOML inline comments do not turn booleans into strings",()=>{
  const result=readFileSync(join(dir,"config.toml"),"utf8");
  expect(result).toContain('label = "value#kept" # comment');expect(result).toContain('[voice]\nlanguage = "en"');
  expect(()=>store.saveHostUi(join(dir,"config.toml"),{bad:NaN})).toThrow();
+});
+test("host writes reject unsupported keys before touching existing configuration",()=>{
+ const path=join(dir,"config.toml");
+ const original='[ui]\npi_bash = true\nvoice_keybind_enabled = true\ncoding_data_sharing = "opt-out"\nfuture_setting = "keep"\n';
+ writeFileSync(path,original);
+ for(const key of ["voice_keybind_enabled","coding_data_sharing","permission_mode","future_setting"]){
+  expect(()=>store.saveHostUi(path,{pi_bash:false,[key]:false})).toThrow("unavailable for Pi");
+  expect(readFileSync(path,"utf8")).toBe(original);
+ }
+ store.saveHostUi(path,{pi_bash:false});
+ expect(readFileSync(path,"utf8")).toContain('future_setting = "keep"');
+ expect(readFileSync(path,"utf8")).toContain('voice_keybind_enabled = true');
 });
 test("conditional settings save rejects an external package edit and preserves unknown fields",async()=>{
  const path=join(dir,"settings.json");

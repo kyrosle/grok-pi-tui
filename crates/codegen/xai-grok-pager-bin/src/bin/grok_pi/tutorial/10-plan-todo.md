@@ -2,14 +2,19 @@
 
 Use `/plan-mode` to toggle grok-pi Plan mode for the current Pi session. The keyboard shortcut is `Ctrl+Shift+T` on macOS/Linux and `Ctrl+Alt+T` on Windows.
 
+Plan is a grok-pi integration, not a built-in Pi mode. Pi 1.0 has no public
+Plan/read-only mode API; the adapter still owns its state, reminders and
+approval continuation.
+
 - Pi can read and search the real repository before proposing an approach.
-- The built-in grok-pi plan extension blocks normal `edit`, `write` and `bash`
-  mutations except for the session-private plan file.
+- The bundled plan extension blocks `bash` and permits `edit`/`write` only for
+  the session-private plan file. This gate does not cover arbitrary mutation
+  tools supplied by other extensions or MCP servers.
 - The mode state is stored beside the Pi session and survives resume.
-- Pi's `exit_plan_mode` bridge opens the native approval view so you can accept
+- The extension's `exit_plan_mode` tool opens the native approval view so you can accept
   the plan or request changes before implementation.
 
-Todo is a separate structured projection. grok-pi injects a built-in `todo`
+Todo is a separate bundled Pi extension. grok-pi injects its `todo`
 tool by default; F2 `[ui].pi_todo` controls it and requires a restart. Its
 `details.tasks` snapshots map to the native TodoPane, badge and ACP Plan instead
 of rendering a duplicate tool card.

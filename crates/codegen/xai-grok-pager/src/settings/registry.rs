@@ -2,9 +2,9 @@
 //!
 //! See the module-level docs in `mod.rs` for the architectural rationale.
 
+use crate::settings_config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
 use agent_client_protocol as acp;
 use xai_grok_shared::ui_config::UiConfig;
-use crate::settings_config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
 use xai_tool_types::questions as ask_user_question;
 
 // ---------------------------------------------------------------------------
@@ -411,6 +411,14 @@ impl SettingsRegistry {
         manifest: &xai_grok_shared::host_features::HostFeatureManifest,
     ) -> Self {
         let mut entries = crate::settings::defs::default_settings();
+        entries.retain(|meta| external_setting_supported(meta.key));
+        // Pi owns the active model and its persisted defaults. This row only
+        // switches the current Pi session through the existing ACP pipeline.
+        if let Some(meta) = entries.iter_mut().find(|meta| meta.key == "default_model") {
+            meta.label = "Model";
+            meta.description =
+                "Switch the active Pi session model; manage persisted defaults in Pi settings.";
+        }
         entries.extend(manifest.iter().map(host_feature_setting_meta));
         assert_unique_keys(&entries);
         Self { entries }
@@ -455,6 +463,103 @@ impl SettingsRegistry {
             })
             .collect()
     }
+}
+
+/// External hosts expose only native UI preferences and controls with Pi handlers.
+/// Ownership describes persistence, not backend support: many supported rows are Shell-owned.
+/// New stock settings stay hidden until explicitly reviewed here.
+pub fn external_setting_supported(key: &str) -> bool {
+    xai_grok_shared::host_features::feature_spec_by_setting_key(key).is_some()
+        || matches!(
+            key,
+            "compact_mode"
+                | "screen_mode"
+                | "show_timestamps"
+                | "show_timeline"
+                | "page_flip_on_send"
+                | "combine_queued_prompts"
+                | "follow_up_behavior"
+                | "cancel_turn_key"
+                | "simple_mode"
+                | "vim_mode"
+                | "theme"
+                | "auto_dark_theme"
+                | "auto_light_theme"
+                | "render_mermaid"
+                | "multiline_mode"
+                | "default_model"
+                | "max_thoughts_width"
+                | "show_thinking_blocks"
+                | "thinking_border_colors"
+                | "prompt_cursor"
+                | "respect_manual_folds"
+                | "group_tool_verbs"
+                | "collapsed_edit_blocks"
+                | "side_by_side_edit"
+                | "ctrl_o_tool_expansion"
+                | "pi_bash_run_display"
+                | "pi_bash_command_format"
+                | "write_edit_hover_popups"
+                | "display_refresh_auto_cadence"
+                | "scroll_speed"
+                | "scroll_mode"
+                | "scroll_lines"
+                | "invert_scroll"
+                | "keep_text_selection"
+                | "plan_mode"
+                | "show_tips"
+                | "contextual_hints"
+                | "contextual_hints.undo"
+                | "contextual_hints.plan_mode"
+                | "contextual_hints.image_input"
+                | "contextual_hints.send_now"
+                | "contextual_hints.small_screen"
+                | "contextual_hints.word_select"
+                | "contextual_hints.export_copy"
+                | "contextual_hints.ssh_wrap"
+                | "pi_bash"
+                | "pi_eval"
+                | "pi_eval_v2_language"
+                | "pi_eval_v2_display_mode"
+                | "pi_eval_v2_only"
+                | "pi_eval_mcp"
+                | "pi_builtin_tools"
+                | "pi_builtin_tools.read"
+                | "pi_builtin_tools.bash"
+                | "pi_builtin_tools.powershell"
+                | "pi_builtin_tools.edit"
+                | "pi_builtin_tools.write"
+                | "pi_builtin_tools.grep"
+                | "pi_builtin_tools.find"
+                | "pi_builtin_tools.ls"
+                | "pi_builtin_tools.eval"
+                | "pi_builtin_tools.codemode"
+                | "psm_resume_index"
+                | "pi_tree_file_rollback"
+                | "pi_tree_skip_summary_prompt"
+                | "pi_ask_user_question_notifications"
+                | "pi_cache_graph"
+                | "pi_config_skill"
+                | "pi_user_markdown"
+                | "pi_at_search_hidden"
+                | "pi_keep_multi_agent"
+                | "show_other_tool_args"
+                | "review_file_tree"
+                | "review_include_reads"
+                | "pi_config"
+                | "session_recap"
+                | "recap_mermaid"
+                | "progress_bar"
+                | "remote_tui_footer"
+                | "recap_models"
+                | "btw_models"
+                | "recap_model"
+                | "recap_model_2"
+                | "recap_model_3"
+                | "btw_model"
+                | "btw_model_2"
+                | "btw_model_3"
+        )
 }
 
 /// Panic if `entries` contains duplicate keys.
@@ -1705,6 +1810,55 @@ mod tests {
                 spec.section,
             );
         }
+    }
+
+    #[test]
+    fn external_registry_exposes_supported_ui_and_pi_controls_only() {
+        let manifest = xai_grok_shared::host_features::HostFeatureManifest::default();
+        let external = SettingsRegistry::defaults_with_host_features(&manifest);
+        let stock = SettingsRegistry::defaults();
+        let stock_only = [
+            "coding_data_sharing",
+            "voice_keybind_enabled",
+            "voice_capture_mode",
+            "voice_stt_language",
+            "permission_mode",
+            "remember_tool_approvals",
+            "default_selected_permission",
+            "toolset.ask_user_question.timeout_enabled",
+            "prompt_suggestions",
+            "confirm_before_rewind",
+            "auto_update",
+            "hunk_tracker_mode",
+            "fork_secondary_model",
+        ];
+        for key in stock_only {
+            assert!(stock.find(key).is_some(), "stock retains {key}");
+            assert!(external.find(key).is_none(), "external hides {key}");
+            assert!(external.search(key).iter().all(|meta| meta.key != key));
+        }
+        for key in [
+            "theme",
+            "scroll_speed",
+            "cancel_turn_key",
+            "pi_builtin_tools",
+            "pi_eval",
+            "pi_eval_mcp",
+            "session_recap",
+            "recap_model",
+            "default_model",
+        ] {
+            assert!(external.find(key).is_some(), "external retains {key}");
+        }
+        for meta in stock.all() {
+            assert!(
+                external_setting_supported(meta.key) || stock_only.contains(&meta.key),
+                "classify new setting {} explicitly",
+                meta.key
+            );
+        }
+        assert!(!external_setting_supported("future_stock_backend_setting"));
+        assert_eq!(external.find("default_model").unwrap().label, "Model");
     }
 
     /// Every PAGER-owned setting's default must match `PagerLocalSnapshot::default()`.

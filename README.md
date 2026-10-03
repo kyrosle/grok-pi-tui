@@ -1,24 +1,23 @@
 <img width="1920" height="981" alt="file-79543f229c432ee6b8b1b7c402a9851b" src="https://github.com/user-attachments/assets/27ff0124-c1e1-4948-8c2c-9880e6a38732" />
 
-Current architecture: **Grok supplies the native TUI; Pi 1.0 owns agent behavior**.
-The ongoing local adaptation and selective upstream imports are tracked in
-[the SPEC](docs/issues/架构/20261002-pi-first-tui-SPEC.md),
-[PLAN](docs/issues/架构/20261002-pi-first-tui-PLAN.md) and
-[verification report](docs/VERIFICATION.md). The production Pi profile now excludes the seven stock agent/runtime packages
-from its normal/build graph; final build, native PTY and frozen-source evidence
-are recorded separately. These imports remain a selective TUI update.
+Current product: **Pi agent core with a Grok Build-style native TUI**.
+The current product-surface cut is tracked in
+[the SPEC](docs/issues/架构/20261003-pi-product-surface-SPEC.md),
+[PLAN](docs/issues/架构/20261003-pi-product-surface-PLAN.md) and
+[verification report](docs/VERIFICATION.md). Earlier Pi-first and deep-adaptation
+build, native PTY and source evidence remain separate checkpoints.
 
 <img width="1042" height="888" alt="file-78b1898685afe0e47d0cee01e9efcc62" src="https://github.com/user-attachments/assets/83abc999-08fe-459e-ab06-935eeb0780e6" />
 
-# grok-pi — Remote TUI bridge for Pi and Grok Build
+# grok-pi — A Grok Build-style TUI for Pi
 
-> Pi agent core in Grok Build's native terminal UI.
+> Pi models, tools and sessions in Grok Pager's native terminal UI.
 
 [Download latest release](https://github.com/Dwsy/grok-pi/releases/latest) · [ZH](docs/README.zh-CN.md) · [Feature matrix](docs/FEATURE_MATRIX.md) · [Architecture](docs/NATIVE_GROK_TUI_ALIGNMENT.md) · [Verification](docs/VERIFICATION.md) · [Changelog](CHANGELOG.MD) · [更新日志](docs/CHANGELOG.zh-CN.md)
 
-> **Remote TUI bridge.** Pi's interactive components render through Grok Build's native Pager, preserving the Grok terminal experience while exposing Pi's extension ecosystem. Pi users get Grok Build's native UI; Grok Build users get Pi's models, tools, sessions, and extensions.
+> **Pi core, native Pager UI, configurable extensions.** Grok Pager supplies the terminal experience; Pi supplies models, provider authentication, tools, sessions and runtime controls. Bundled Pi extensions add features such as Todo and Subagents, with their own defaults and capability boundaries.
 
-`grok-pi` combines Pi's agent runtime with Grok Build's native Pager. Pi remains responsible for models, tools, extensions, sessions, and agent execution. Grok Pager remains the only terminal UI.
+`grok-pi` connects Pi's agent runtime to Grok Pager. The external product surface excludes Grok voice/STT/TTS, account/billing, training/retention and stock agent/plugin/MCP controls. F2, the command palette and the Web host-settings catalog share that boundary. Provider authentication uses Pi's `/login` and `/logout`; no Grok account is required.
 
 ## Install
 
@@ -112,21 +111,32 @@ Update channels are product-local and persisted in `~/.grok-pi/config.toml` unde
 | Agent runtime | Pi models, providers, tools, extensions, skills, sessions, retries, and compaction |
 | Provider authentication | Thin native UI bridge to Pi ModelRuntime login/logout. Pi owns provider methods, credentials and MCP configuration; generic Radius login stays available, with no bridge-written `mcp.json` or provider-specific setup. |
 | Model management | `/pi-models` provides a native Provider → Model → Details editor with safe `models.json` transactions, backup/restore, live Pi reload, and typed activation; `/model` remains the fast switcher |
-| Web config workbench | `/pi-config web` / `/pi-models web`: responsive zh/en workbench with global search, model/provider duplication and advanced options, four resource path lists, staged Grok/Pi settings, conflict feedback, and light/dark themes. Served by the Pi extension on a token-gated loopback port. |
+| Web config workbench | `/pi-config web` / `/pi-models web`: zh/en workbench for model/provider configuration, resource paths, Pi settings and the filtered Pager UI settings catalog. Served by the Pi extension on a token-gated loopback port. |
 | Terminal UI | Grok Pager input, slash completion, Markdown, tool cards, diffs, dialogs, and scrollback |
-| Product tutorial | `/tutorial` (aliases `/tour`, `/onboarding`) opens 18 grok-pi capability areas: native Pager workflows, Pi providers/models/tools/sessions, the extension/Skill/Package ecosystem, product bridges, optional automation and explicit boundaries |
-| **Remote TUI bridge** | Pi `ctx.ui.custom` components rendered through Grok Build's native Pager, without a second TUI |
-| Shell execution | Bash integration, background tasks, output limits, timeouts, and process-tree cleanup |
-| Parallel work | Pi sub-agents with foreground/background execution and native task views; `/subagents` exposes built-ins plus product-isolated project/global overrides. Optional Subagents V2 (F2 → Agent → "Pi subagents V2", or `PI_GROK_SUBAGENTS_V2=1`) adds root-session-scoped stable `/root/...` agent paths, parent/child + peer messaging, nested spawn, and external team presets under `.grok-pi/teams` / `~/.grok-pi/teams` |
-| Rhai workflows | Upstream `xai-workflow` host (F2 **Pi workflows**); `/workflow`, `/workflows`, `/create-workflow`; scripts under `~/.grok-pi/workflows` and `<repo>/.grok-pi/workflows` |
+| Product tutorial | `/tutorial` (aliases `/tour`, `/onboarding`) covers 18 areas: native Pager controls, Pi providers/models/tools/sessions, extensions/Skills/Packages and optional automation with explicit boundaries |
+| Remote TUI compatibility | Experimental host for supported Pi `ctx.ui.custom` interactions in Pager; enabled by default, with per-component compatibility limits |
+| Extended shell execution | Bundled Pi Bash/Eval extension for background tasks, output limits, timeouts and process-tree cleanup |
+| Parallel work | Bundled Subagents extension using Pi child sessions, enabled by default; native task views and product-isolated agent definitions. Optional Subagents V2 adds stable `/root/...` agent paths, peer messaging, nested spawn and team presets under `.grok-pi/teams` / `~/.grok-pi/teams` |
+| Rhai workflows | Optional `xai-workflow` host using Pi workers, off by default (F2 **Pi workflows**); scripts under `~/.grok-pi/workflows` and `<repo>/.grok-pi/workflows`. This orchestration has not migrated to Pi core. |
 | Session workflow | Resume, tree navigation, labels, recap, context inspection, and session picker |
 | Resource management | `/pi-config` manages Pi resources and package install/remove/update through the selected official Pi CLI, then reloads and shows the live registry. Global/Project trust, filters and pins remain Pi-owned; local removal retains source directories. |
 | Pi runtime controls | `/pi-runtime` inspects runtime status, configures automatic retry/compaction, and cancels a retry delay. Live compaction and configured retry policy are identified separately. |
 | Updates | Isolated `stable` / `beta` GitHub Release channels, persisted under `~/.grok-pi/config.toml`; channel-aware background checks, `grok-pi update`, `--check --json`, and target-tag installer downloads |
 
-The final automatic build/verify and four native PTYs pass. One configured-default real SDK chat returned OK with unchanged credential/config bytes; real-provider native UI, human OAuth, real image generation and target-terminal acceptance remain separate pending layers.
+The earlier deep-adaptation checkpoint passed automatic build/verify and four native PTYs. One configured-default real SDK chat returned OK with unchanged credential/config bytes. These are historical results; current product-surface validation is recorded separately in [VERIFICATION](docs/VERIFICATION.md). Real-provider native UI, human OAuth, real image generation and target-terminal acceptance remain separate layers.
 
-The latest ownership clarification keeps agent/provider business and authentication in Pi; Grok Pager presents dialogs and results. TUI development acceptance uses UI delegation, responses, cancellation and lifecycle contracts. Real Pi/provider flows remain optional integration-experience records and are not a prerequisite for this development delivery. The recorded binary/build predates the standalone auth-bridge cut; it is not a new build of that extension revision.
+Pi is the authority for provider/model behavior, authentication, tools, sessions, retry and compaction; Pager presents their controls and results. Todo, Plan, Goal, extended Bash/Eval and Subagents are grok-pi extensions or integrations, rather than Pi built-ins. Adapter queue interception, Plan/Goal state and optional Rhai orchestration remain ownership work tracked in the current PLAN; this UI cut does not report them as migrated.
+
+Commands are organized by responsibility:
+
+| Area | grok-pi entry points |
+|---|---|
+| Pi models and providers | `/model`, `/effort`, `/login`, `/logout`, `/pi-models` |
+| Pi sessions and context | `/new`, `/resume`, `/rename`, `/session`, `/tree`, `/fork`, `/clone`, `/compact` |
+| Pi resources and runtime | `/pi-config`, `/reload`, `/pi-runtime`; loaded extension, prompt and `/skill:name` commands |
+| Native terminal UI | `/settings` / F2, `/theme`, `/hotkeys`, `/tutorial`, `/copy`, `/find`, `/transcript` |
+
+Pi's interactive command names and settings guide the integration; grok-pi retains Pager names such as `/effort` and `/rename`. Its F2 panel is the native Pager settings surface, not a copy of Pi's interactive settings component.
 
 For field-level behavior and intentional omissions, see the [feature matrix](docs/FEATURE_MATRIX.md).
 
@@ -152,7 +162,7 @@ The integration has three boundaries:
 - **Pi** owns the agent loop, models, providers, tools, extensions, and sessions.
 - **`pi-grok-adapter`** is a headless JSONL RPC ↔ ACP bridge. It does not own a terminal or render a second UI.
 
-Pi source is not modified. The Remote TUI bridge connects capabilities unavailable in Pi RPC through the official extension API and projects them onto native Pager surfaces.
+Pi source is not modified. Public RPC and extension APIs provide the primary integration; the experimental Remote TUI compatibility host also uses scoped host hooks for capabilities unavailable in stock RPC.
 
 `/pi-ui-capabilities` lists standard native mappings, limited mappings, experimental Remote TUI and unsupported methods. Working-message visibility/indicator changes map to the native status surface; animated indicators, persistent header/footer/widget factories and raw input/editor replacement remain bounded by Pi RPC. The experimental mode facade only activates with the actual Remote TUI host; it does not establish compatibility with every third-party component.
 

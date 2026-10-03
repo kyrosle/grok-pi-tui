@@ -5,6 +5,16 @@ use crate::app::actions::{Effect, PiBuiltinTool};
 use crate::app::app_view::{ActiveView, AppView};
 use agent_client_protocol as acp;
 
+/// Reject legacy actions before state mutation or persistence in the Pi profile.
+fn reject_external_setting(app: &mut AppView, key: &str) -> bool {
+    if app.external_agent && !crate::settings::external_setting_supported(key) {
+        app.show_toast("This setting is unavailable for Pi");
+        true
+    } else {
+        false
+    }
+}
+
 /// Set multiline input mode: swap Enter and Shift+Enter behavior.
 /// PAGER-OWNED: ephemeral, no `Effect::PersistSetting`.
 /// On the agent view this is per-session (`AgentView::multiline_mode`); on the dashboard it lives on `DashboardState::multiline_mode`.
@@ -135,6 +145,9 @@ pub(in crate::app::dispatch) fn set_hunk_tracker_mode(
     app: &mut AppView,
     value: String,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "hunk_tracker_mode") {
+        return vec![];
+    }
     let canonical = crate::settings::canonical_hunk_tracker_mode(Some(&value));
     let prev =
         crate::settings::canonical_hunk_tracker_mode(app.current_ui.hunk_tracker_mode.as_deref());
@@ -167,6 +180,9 @@ pub(in crate::app::dispatch) fn set_voice_capture_mode(
     app: &mut AppView,
     value: String,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "voice_capture_mode") {
+        return vec![];
+    }
     let canonical = crate::settings::canonical_voice_capture_mode(Some(&value));
     let prev =
         crate::settings::canonical_voice_capture_mode(app.current_ui.voice_capture_mode.as_deref());
@@ -199,6 +215,9 @@ pub(in crate::app::dispatch) fn set_voice_keybind_enabled(
     app: &mut AppView,
     new: bool,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "voice_keybind_enabled") {
+        return vec![];
+    }
     let prev_state = app.current_ui.voice_keybind_enabled;
     let prev_effective = prev_state.unwrap_or(true);
     if prev_effective == new && prev_state.is_some() {
@@ -244,6 +263,9 @@ pub(in crate::app::dispatch) fn set_voice_stt_language(
     app: &mut AppView,
     value: String,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "voice_stt_language") {
+        return vec![];
+    }
     let canonical = crate::settings::canonical_voice_stt_language(Some(&value));
     // `prev` is the live effective language so a failed persist rolls back to what's actually in effect
     let prev = crate::settings::canonical_voice_stt_language(Some(&app.voice_config.language));
@@ -320,6 +342,9 @@ pub(in crate::app::dispatch) fn set_remember_tool_approvals(
     app: &mut AppView,
     new: bool,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "remember_tool_approvals") {
+        return vec![];
+    }
     let prev_state = app.current_ui.remember_tool_approvals;
     let prev_effective = prev_state.unwrap_or(false);
     if prev_effective == new && prev_state.is_some() {
@@ -355,6 +380,9 @@ pub(in crate::app::dispatch) fn set_ask_user_question_timeout_enabled(
     app: &mut AppView,
     new: bool,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "toolset.ask_user_question.timeout_enabled") {
+        return vec![];
+    }
     use xai_tool_types::questions as ask_user_question;
     let prev_state = app.ask_user_question_timeout_enabled;
     let prev_effective =
@@ -699,6 +727,9 @@ pub(in crate::app::dispatch) fn set_prompt_suggestions(
     app: &mut AppView,
     new: bool,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "prompt_suggestions") {
+        return vec![];
+    }
     let prev = crate::appearance::cache::load_prompt_suggestions();
     if prev == new {
         return vec![];
@@ -954,6 +985,9 @@ pub(in crate::app::dispatch) fn set_default_selected_permission(
     app: &mut AppView,
     new: String,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "default_selected_permission") {
+        return vec![];
+    }
     use crate::appearance::permission_cursor::DefaultSelectedPermission;
     // All callers pass a registry canonical; parsing is total (unknown becomes `Default`), so a garbage input degrades to the safe "no preselection" value
     // `debug_assert` catches a dispatch bug in tests without a parallel validator on the hot path
@@ -1139,6 +1173,9 @@ pub(in crate::app::dispatch) fn set_confirm_before_rewind(
     app: &mut AppView,
     new: bool,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "confirm_before_rewind") {
+        return vec![];
+    }
     let prev = app.current_ui.confirm_before_rewind_enabled();
     if prev == new {
         return vec![];
@@ -2091,6 +2128,9 @@ pub(in crate::app::dispatch) fn set_fork_secondary_model(
     app: &mut AppView,
     new_id: acp::ModelId,
 ) -> Vec<Effect> {
+    if reject_external_setting(app, "fork_secondary_model") {
+        return vec![];
+    }
     let ActiveView::Agent(aid) = app.active_view else {
         tracing::error!(
             target: "settings",
@@ -2152,6 +2192,9 @@ pub(in crate::app::dispatch) fn set_fork_secondary_model(
 /// Outer dispatcher for `Action::ClearForkSecondaryModel`.
 /// Resets the persisted override to the built-in baseline (`xai_grok_models::default_model()`).
 pub(in crate::app::dispatch) fn clear_fork_secondary_model(app: &mut AppView) -> Vec<Effect> {
+    if reject_external_setting(app, "fork_secondary_model") {
+        return vec![];
+    }
     let baseline = xai_grok_models::default_model().to_string();
     let prev_id_str = app.current_ui.fork_secondary_model.clone();
     if prev_id_str == baseline {
@@ -3003,6 +3046,9 @@ pub(super) fn set_auto_update_inner(app: &mut AppView, value: bool) {
 
 /// Outer dispatcher for `Action::SetAutoUpdate`.
 pub(in crate::app::dispatch) fn set_auto_update(app: &mut AppView, new: bool) -> Vec<Effect> {
+    if reject_external_setting(app, "auto_update") {
+        return vec![];
+    }
     let prev_state = app.auto_update;
     let prev_effective = prev_state.unwrap_or(true);
     if prev_effective == new && prev_state.is_some() {

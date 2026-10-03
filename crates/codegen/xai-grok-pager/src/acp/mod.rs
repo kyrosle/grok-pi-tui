@@ -118,9 +118,6 @@ pub struct ExternalUiProfile {
     /// When set, the welcome "Changelog" row opens this https URL in the
     /// system browser instead of Grok's CDN release-notes viewer.
     pub changelog_url: Option<&'static str>,
-    /// Allow Pager-owned voice dictation while retaining the external agent's
-    /// ownership of prompts, sessions, and model selection.
-    pub enable_voice_dictation: bool,
     /// Declarative settings/startup features supported by this host.
     pub host_features: xai_grok_shared::host_features::HostFeatureManifest,
 }
@@ -134,7 +131,6 @@ impl Default for ExternalUiProfile {
             welcome_brand: None,
             hide_new_worktree: false,
             changelog_url: None,
-            enable_voice_dictation: false,
             host_features: xai_grok_shared::host_features::HostFeatureManifest::default(),
         }
     }
@@ -213,7 +209,8 @@ pub struct AcpConnection {
     /// `AuthManager` for pager-side authenticated channels (voice STT and TTS).
     /// In-process mode shares the agent's instance (single token cache); leader mode builds a dedicated one off the same local `auth.json`.
     /// Either way it resolves a fresh bearer per request via the refresh chain.
-    pub auth_manager: std::sync::Arc<xai_grok_login::AuthManager>,
+    /// External agents do not use Grok authentication or voice services.
+    pub auth_manager: Option<std::sync::Arc<xai_grok_login::AuthManager>>,
 }
 
 impl AcpConnection {
@@ -229,12 +226,6 @@ impl AcpConnection {
         cancel: CancellationToken,
         profile: ExternalUiProfile,
     ) -> Self {
-        let auth_manager = std::sync::Arc::new(
-            xai_grok_login::AuthManager::new_without_startup_diagnostics(
-                &xai_grok_config::grok_home(),
-                xai_grok_login::GrokComConfig::default(),
-            ),
-        );
         Self {
             tx,
             rx,
@@ -256,7 +247,7 @@ impl AcpConnection {
             cancel_rewind_enabled: false,
             session_recap_available: false,
             feedback_trace_offer: false,
-            auth_manager,
+            auth_manager: None,
         }
     }
 }
@@ -414,7 +405,7 @@ pub(in crate::acp) async fn initialize_connection(
         cancel_rewind_enabled: agent.cancel_rewind_enabled,
         session_recap_available: agent.session_recap_available,
         feedback_trace_offer: agent.feedback_trace_offer,
-        auth_manager,
+        auth_manager: Some(auth_manager),
     })
 }
 /// Connect to a leader process and return an `AcpConnection`. The leader provides the ACP transport via IPC (raw
@@ -887,6 +878,22 @@ pub fn select_eager_auth_method(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn external_connection_has_no_grok_auth_manager() {
+        let (client, _agent) = xai_acp_lib::acp_channels();
+        let connection = AcpConnection::external(
+            client.tx,
+            client.rx,
+            None,
+            Vec::new(),
+            CancellationToken::new(),
+            ExternalUiProfile::default(),
+        );
+        assert!(connection.ui_profile.is_external());
+        assert!(connection.auth_manager.is_none());
+        assert!(connection.auth_methods.is_empty());
+        assert!(!connection.needs_login);
+    }
     #[test]
     fn is_session_update_ext_method_covers_both_carriers() {
         assert!(is_session_update_ext_method("x.ai/session_notification"));

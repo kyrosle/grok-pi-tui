@@ -11,6 +11,7 @@ STOCK = {
     "xai-grok-agent", "xai-grok-tools", "xai-grok-workspace", "xai-grok-mcp",
     "xai-grok-sampler", "xai-grok-shell", "xai-grok-plugin-marketplace",
 }
+AUDIO = {"cpal", "alsa-sys", "coreaudio-rs", "coreaudio-sys"}
 
 
 def main():
@@ -29,8 +30,12 @@ def main():
                 for line in result.stdout.splitlines() if " v" in line}
     retained = sorted(package for package in packages
                       if package.split()[0] in STOCK)
-    print(json.dumps({"packages": len(packages), "stock_runtime": retained}, indent=2))
+    audio = sorted(package for package in packages
+                   if package.split()[0] in AUDIO)
+    print(json.dumps({"packages": len(packages), "stock_runtime": retained,
+                      "audio_backends": audio}, indent=2))
     assert packages and not retained, "Pi production profile still links stock runtime"
+    assert not audio, "Pi production profile still links a microphone backend"
 
 
 if __name__ == "__main__":

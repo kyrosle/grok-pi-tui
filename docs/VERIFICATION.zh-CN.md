@@ -1,6 +1,30 @@
 # Grok Native TUI × Pi 验证报告
 
-## 2026-10-03 深度适配：已交付自动证据
+## 2026-10-03 Pi 产品入口：本轮增量
+
+范围：[SPEC](issues/架构/20261003-pi-product-surface-SPEC.md) / [PLAN](issues/架构/20261003-pi-product-surface-PLAN.md)；实现 base `13697f9c5d6f48fe742f2b64361dd039e99277c2`，spec commit `76e7a5a87b9b6fb9a292021d7877666a69471cce`。P0–P3 产品入口范围已完成，Root 执行本地实现提交，hash 以 Git log 为准；扩大扫描失败独立保留。
+
+| 证据层 | 结果 | 证据与边界 |
+|---|---|---|
+| 产品入口 | PASS，有界 | external voice/auth-manager 路径及 stock 产品设置/action 已裁剪；F2、palette 和 Web 宿主目录保留 UI/Pi 控制。保留已有配置/凭据，本轮 native guards 与四个 PTY cases 通过；最终 Pi/stock profile checks 通过。 |
+| Pi 参考与文案 | 已审阅 | 安装 Pi 1.0.0 的命令、设置、TUI/RPC UI 文档与 interactive settings 实现；bundled 附加功能和 Remote TUI 兼容边界明确。 |
+| Web 回归 | PASS | `bun test extensions/pi-grok-web-config/tests/config-store.test.ts extensions/pi-grok-web-config/tests/settings-conflict.test.ts`：8 pass、0 fail、205 expect、exit 0。Root 工具 session 92332 回执，未单独保存日志。 |
+| 精确来源 / negative | PASS | sourceguard 21/21、negative exit 0；47 个本轮审阅文件、743 phase pins、696 无关旧 entries 不变。祖先 3797、历史 4479、native 830 与旧 review base `84174917` 保持，errors/unfrozen 为空。报告 `/tmp/grok-pi-product-sourceguard-20261003.json`、`/tmp/grok-pi-product-negative-20261003.log`、`/tmp/grok-pi-product-identity-review-20261003.json`；仅 self metadata 采用 canonical omit-self-SHA。 |
+| Rust syntax | PASS | rustfmt 解析 1670 个 Rust 文件，failures 为空、exit 0；`/tmp/grok-pi-product-syntax-20261003.json` 与 `.log`，不改 source。 |
+| Pi production check（audio 裁剪前） | PASS，检查点 | no-default `jemalloc,sandbox-enforce`，exit 0，37.42s；`/tmp/grok-pi-product-check-20261003.log`。 |
+| Binary tests 首次运行 | 97 pass / 1 fail | 98 个测试中的 tutorial 字面量 `Pi agent core` 被文案行折拆开；Root 只修正 tutorial 01 行折。第二次仍 97/1，tutorial 14 已如实说明官方 Pi package 操作，旧 `does not install` 断言过时；仅改为现有 `does not migrate` 边界，其他断言保留。第三次 98/0 通过；两次为文案合同修正。 |
+| Binary tests（audio 裁剪前） | PASS，检查点 | 98 pass、0 fail、exit 0；`/tmp/grok-pi-product-bin-tests-final2-20261003.log`。 |
+| 本轮新增 external guards | PASS（5 项） | no-Grok-auth connection、voice、registry、settings actions、palette assertions 均在 Pager lib passing 项中。 |
+| 扩大 external_ 扫描 | FAIL，49 pass / 5 fail | 54 个 tests，正常与单线程复验相同：Ctrl+O 两项、dashboard toast prefix 一项、foreign session 两项。7 个相关 test/调用链文件与 `13697f9c` 完整字节相同；源码归因为空 hunks 不可折叠、已有 toast prefix 与 Pi PSM filter 语义差异，未跑 baseline runtime。proof `/tmp/grok-pi-product-existing-test-failures-20261003.json`；`/tmp/grok-pi-product-external-tests-20261003.log`、`/tmp/grok-pi-product-external-serial-tests-20261003.log`。 |
+| Production audio feature | 源码完成 | `voice/audio` 仅由 stock-runtime 启用；Pi 保留 shared types，不启用 microphone backend。依赖图新增 cpal/alsa-sys/coreaudio-rs/coreaudio-sys 禁止名单，原七项 stock guard 保持。最终 profile/build 使用新 feature 图复验；此前 stock check 27.72s 仅属检查点。 |
+| 正式 build | PASS | 新 audio feature 下 `./build.sh` exit 0、40.67s；`/tmp/grok-pi-product-build-20261003.log`。artifact 181,618,712 bytes，SHA-256 `210efc228712895125cd1082e07878f61aeafa220775c0579e397eb0dffa5e2d`；`76e7a5a8` + dirty frozen source，不是未来 clean HEAD。proof `/tmp/grok-pi-product-artifact-20261003.json`。 |
+| Production graph | PASS | normal/build 796 packages（前一检查点 806），stock_runtime=[]、audio_backends=[]；`/tmp/grok-pi-product-graph-20261003.json`、exit 0。数量不证明 cold build 或跨平台运行。 |
+| 原生 PTY | PASS（4 cases） | product-surface 与 settings-save/reopen/rollback 全部 nativeExit 0，binary SHA `210efc…` 前后不变；`/tmp/grok-pi-product-pty-20261003/report.json`。强制 GROK_VOICE_MODE=1 + legacy voice config 仍无 voice/retention F2 入口，保留 UI；原 config bytes 不变、无 Grok auth.json。 |
+| 最终组合 verify | PASS（本轮范围） | 新 audio feature 图下 `./verify.sh` exit 0，结束 `All verification passed.`；`/tmp/grok-pi-product-verify-final-20261003.log`。Pi check 24.32s、stock check 1.38s、graph 796/双空；adapter lib 207 + 非 ignored 的 disposition 1 / reloadACK 1 / EOF 2、bin 98、两项指定 native 单 tests 通过。sourceguard 21/743/errors 与 unfrozen 空、syntax 1670、mock 8 checks/33 lines/stderr 空通过。其他实际 integration tests 保持 ignored，未在本轮重跑；artifact SHA `210efc…` 不变。 |
+
+queue interception、adapter Plan/Goal 状态、可选 Rhai 编排和增强 Bash/Eval 边界保留，本轮入口裁剪不宣称已迁移。验收不调用真实 STT、OAuth、模型或账号服务。范围完成不代表扩大 54-test scan 或全部 Pager tests 通过；其 5 项失败保留在上表。
+
+## 历史检查点：2026-10-03 深度适配
 
 本轮从干净 `main@84174917511690447ba32915571e9748b5e10ad4` 开始；[SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md)、[PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md)、[source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md) 保留范围、检查点与失败 captures。修正后的 shipping source/fixtures 已冻结，最新 build、4 native PTY、组合 verify 均通过；一个明确委任的集成 runner 运行 Cargo/build/commit。按最新用户所有权澄清，功能/鉴权交给Pi，TUI开发以原生委托/响应/取消/生命周期合同验收。真人OAuth/image/provider/目标终端体验仍补充pending，不再作为开发关闭前置。下方已构建binary/PTY/combinedverify早于独立auth裁剪，保留为checkpoint，不冒称新auth源码已构建。
 

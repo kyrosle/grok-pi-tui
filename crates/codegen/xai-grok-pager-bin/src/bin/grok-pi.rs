@@ -1,4 +1,4 @@
-//! Native Grok Build TUI backed by the Pi agent core.
+//! A Grok Build-style terminal UI for Pi.
 //!
 //! This binary is intentionally part of `xai-grok-pager-bin`, Grok Build's
 //! production TUI composition package. The Pi crate is a protocol adapter only;
@@ -201,9 +201,6 @@ const PI_GROK_NATIVE_COMMANDS: &[&str] = &[
     "timestamps",
     "timeline",
     "toggle-mouse-reporting",
-    // Pager-owned dictation writes to the native prompt; Pi still receives the
-    // resulting prompt only when the user submits it.
-    "voice",
     // Pager-native terminal diagnostics (`/doctor` + terminal-setup aliases).
     "doctor",
     // Pager debug overlays: `/debug [scroll|fps|log]`.
@@ -232,7 +229,7 @@ const PI_LOGO: &str = "\
 /// Product version for `grok-pi --version` (release tag / git describe).
 /// Not the upstream workspace crate version (`0.1.220-alpha.*`).
 const GROK_PI_VERSION: &str = env!("GROK_PI_VERSION");
-const PI_WELCOME_SUBTITLE: &str = "Pi agent core in Grok Build's native terminal UI";
+const PI_WELCOME_SUBTITLE: &str = "A Grok Build-style terminal UI for Pi";
 
 fn main() -> Result<()> {
     // Isolate grok-pi state from stock Grok (`~/.grok`) before any library
@@ -1351,7 +1348,6 @@ async fn run(mut args: Args) -> Result<()> {
                 // Grok worktree product flow is not wired for Pi yet.
                 hide_new_worktree: true,
                 changelog_url: Some("https://github.com/Dwsy/grok-pi/blob/main/CHANGELOG.MD"),
-                enable_voice_dictation: true,
                 host_features: host_feature_manifest.clone(),
             },
         );
@@ -1524,7 +1520,7 @@ mod env_flag_tests {
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"jump"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"review-session"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"review-message"));
-        assert!(PI_GROK_NATIVE_COMMANDS.contains(&"voice"));
+        assert!(!PI_GROK_NATIVE_COMMANDS.contains(&"voice"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"doctor"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"debug"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"hotkeys"));

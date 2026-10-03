@@ -485,7 +485,6 @@ def main() -> int:
         "timestamps",
         "timeline",
         "toggle-mouse-reporting",
-        "voice",
         "doctor",
         "debug",
         "pi-config",
@@ -509,6 +508,7 @@ def main() -> int:
         "memory",
         "workspace",
         "share",
+        "voice",
     ]
     local_command_hits = [name for name in forbidden_local_commands if name in builtins]
     check(

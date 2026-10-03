@@ -16,4 +16,6 @@ Pager surfaces.
   terminal checks, overlays and command discovery.
 
 This product does not expose stock Grok cloud history, worktree creation or
-chat rewind as Pi capabilities.
+chat rewind as Pi capabilities. Grok voice/STT/TTS, account/billing and
+training/retention controls are also excluded. Existing user configuration and
+credentials are preserved; provider login remains Pi-owned.

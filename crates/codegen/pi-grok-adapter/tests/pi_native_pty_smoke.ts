@@ -29,6 +29,8 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
  const configPath = join(grok, "config.toml");
  if (mode !== "settings-reopen" && mode !== "settings-rollback")
   writeFileSync(configPath, `[ui]\npi_subagents = false\npi_todo = false\npi_workflows = false\npi_bash = false\npi_eval = "v2"\npi_eval_v2_only = ${evalOnly}\ngroup_tool_verbs = false\n[ui.pi_builtin_tools]\ncodemode = ${codemode}\n`);
+ if (mode === "product-surface")
+  writeFileSync(configPath, readFileSync(configPath, "utf8").replace("[ui]\n", "[ui]\nvoice_keybind_enabled = true\nvoice_stt_language = 'en'\n"));
  const fixture = mode === "models" ? "pi_models.ts" : controls ? "pi_pty_controls.ts" : "pi_render_tools.ts";
  const provider = mode === "models" ? "pi-router-fixture" : controls ? "pi-pty" : "pi-render";
  const argv = [binary, "--offline", "--no-approve", "--no-session", "--no-extensions", "--no-skills", "--no-context-files",
@@ -41,6 +43,7 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
   PI_GROK_EVAL_V2_ONLY: evalOnly ? "1" : "0", PI_GROK_EVAL_MCP: "0", PI_GROK_RPC_WATCHDOG: "0", PI_NATIVE_RENDER_TRACE: join(directory, "render-tools.jsonl"),
   TERM: "xterm-256color", TERM_PROGRAM: "xterm", COLORTERM: "truecolor" };
  env["PI_PTY_CONTROL_TRACE"] = join(directory, "control-registry.jsonl");
+ if (mode === "product-surface") env["GROK_VOICE_MODE"] = "1";
  const packageSource = join(directory, "local-package");
  if (mode === "packages") {
   // The host recomputes admission on reload. Persist Pi's session so an official
@@ -109,7 +112,30 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
  try {
   await wait(text => text.includes("grok-pi") || text.includes("local") || text.includes("What"), "native startup");
   await new Promise(done => setTimeout(done, 1000));
-  if (controls) {
+  if (mode === "product-surface") {
+   send("/new\r");
+   await wait(text => text.includes("Native render fixture") && !text.includes("New worktree"), "Pi session for product-surface checks");
+   const before = readFileSync(configPath, "utf8");
+   const searchSettings = async (query: string) => {
+    send("\x1bOQ");
+    await wait(text => text.includes("Settings"), "native F2 open");
+    send("/");
+    await wait(text => text.includes("type to filter"), "native F2 search");
+    send("\x1b[200~" + query + "\x1b[201~");
+   };
+   for (const query of ["voice", "retention"]) {
+    await searchSettings(query);
+    save("no-" + query, await wait(text => text.includes("No matches for") && text.includes(query), "removed product setting " + query));
+    send("\x1bOQ");
+    await wait(text => !text.includes("Settings"), "native F2 close");
+   }
+   await searchSettings("group tool calls");
+   save("ui-retained", await wait(text => text.includes("Group tool calls") && !text.includes("No matches for"), "retained terminal UI setting"));
+   send("\x1bOQ");
+   await wait(text => !text.includes("Settings"), "native F2 close");
+   if (readFileSync(configPath, "utf8") !== before) throw new Error("Product surface inspection changed existing configuration");
+   if (existsSync(join(grok, "auth.json"))) throw new Error("External Pi startup created Grok auth state");
+  } else if (controls) {
    send("/new\r");
    let readySince = 0;
    await wait(text => {
@@ -333,7 +359,7 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
 
 const selected = process.argv.slice(2);
 const modes = selected.length ? selected : ["eval", "codemode", "signal", "timeout", "eof"];
-if (modes.some(mode => ["runtime", "packages", "models", "remote-ui"].includes(mode))) {
+if (modes.some(mode => ["runtime", "packages", "models", "remote-ui", "product-surface"].includes(mode))) {
  if (!process.env.PI_NATIVE_EXPECTED_SHA256 || process.env.PI_NATIVE_EXPECTED_SHA256 !== binarySha256)
   throw new Error("New Pi deep-adaptation PTY cases require the root-verified fresh binary SHA in PI_NATIVE_EXPECTED_SHA256");
 }
@@ -344,7 +370,7 @@ for (const mode of modes) {
   await run("settings-rollback", directory);
   continue;
  }
- if (!["eval", "codemode", "signal", "timeout", "eof", "minimal", "runtime", "packages", "models", "remote-ui"].includes(mode)) throw new Error("Unknown PTY fixture: " + mode);
+ if (!["eval", "codemode", "signal", "timeout", "eof", "minimal", "runtime", "packages", "models", "remote-ui", "product-surface"].includes(mode)) throw new Error("Unknown PTY fixture: " + mode);
  await run(mode);
 }
 const finalHash = createHash("sha256");
