@@ -3,7 +3,7 @@ id: "2026-10-02-pi-first-tui-spec"
 title: "Grok 原生 TUI 吸收与 Pi 1.0 功能适配 Spec"
 status: "accepted"
 created: "2026-10-02"
-updated: "2026-10-02"
+updated: "2026-10-03"
 category: "architecture"
 ---
 
@@ -23,8 +23,8 @@ category: "architecture"
 
 - 工作目录：`/Users/kyros/WorkStation/grok-pi-tui`；实施起点 `main@222d614d`，工作树干净。实际 origin 为 `Dwsy/grok-pi-tui`。
 - 系统 Pi `1.0.0`；采用 Pi 1.0 作为本次实现基线，不修改 Pi core。可选 `pi-main` 子模块未初始化，运行和契约核查使用实际系统包。
-- Grok 完整已吸收基线 `37949780`，`SOURCE_REV=c4ea71cfdbcdb21e32e41bc25a0043d7d4836714`。调查时上游 tip 为 `2bdd1d6a`，待审阅 7 个 sync commit；选择性导入不等于整仓同步。
-- 当前生产 normal/build 图：adapter 909、composition package 1013 个唯一 package；计数包含根 package，是依赖指标，不是耗时或体积收益。
+- Git 共同祖先为 `37949780`，`SOURCE_REV=c4ea71cfdbcdb21e32e41bc25a0043d7d4836714`；这不代表当前所有原生文件与该 commit 字节相同，历史集成差异在精确 source inventory 中单独声明。调查时上游 tip 为 `2bdd1d6a`，待审阅 7 个 sync commit；选择性导入不等于整仓同步。
+- 起点生产 normal/build 图：adapter 909、composition package 1013 个唯一 package；计数包含根 package，是依赖指标，不是耗时或体积收益。当前图和最终验证见 [VERIFICATION](../../VERIFICATION.md)，不将起点计数视为交付状态。
 - 起点存在 `replay.rs` 漏导入导致的 E0425。Verifier 的旧哈希、只扫描顶层 Rust 文件、Pi 源码路径等假设失效；不能把这些失效检查作为运行通过。
 
 ## 功能要求

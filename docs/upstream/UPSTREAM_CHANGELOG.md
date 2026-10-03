@@ -33,9 +33,488 @@ Each entry records:
 
 <!-- entries below this line -->
 
+## [2bdd1d6a] — 2026-10-02
+
+> **Status:** Recorded before selective TUI absorption. No full upstream merge is claimed. Grok supplies native TUI; all functional semantics remain Pi-owned. Adopted groups and rejected backend changes are tracked in [Pi-first PLAN](../issues/架构/20261002-pi-first-tui-PLAN.md).
+
+- **Sync range:** `37949780..2bdd1d6a` (`37949780c144e37df692e3d669051a21fec24f20` → `2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8`)
+- **Upstream commits:** 7
+- **Upstream SOURCE_REV:** `559751fdcec02d413e4c57c8832ab275e4f44980`; the fork's complete baseline stays `c4ea71cfdbcdb21e32e41bc25a0043d7d4836714`.
+- **Diff size:** 2484 files changed, 335380 insertions(+), 101458 deletions(-)
+
+### Summary
+
+The pending range includes terminal restoration and keyboard fencing, clipboard/image delivery and repaint fixes, minimal layout/resize, model-picker and question-view changes, plus substantial stock Agent Host/Remote Control, workspace, permission, memory and MCP backend work. Only applicable native TUI groups and their necessary contracts will be adopted for grok-pi.
+
+### Areas touched
+
+| Area | Files | Added | Deleted |
+|---|---:|---:|---:|
+| xai-grok-shell | 510 | 55624 | 21677 |
+| xai-grok-pager | 506 | 60221 | 28203 |
+| xai-grok-tools | 202 | 21500 | 5813 |
+| xai-grok-workspace | 127 | 41712 | 7799 |
+| xai-grok-telemetry | 99 | 7729 | 5504 |
+| xai-grok-sandbox | 85 | 22550 | 128 |
+| xai-grok-test-support | 74 | 17684 | 3779 |
+| xai-grok-config | 63 | 16282 | 439 |
+| xai-grok-pager-pty-harness | 60 | 3179 | 1075 |
+| xai-grok-pager-render | 48 | 2955 | 712 |
+| xai-fast-worktree | 40 | 1463 | 6481 |
+| xai-grok-memory | 40 | 14933 | 430 |
+| xai-grok-agent | 27 | 2587 | 934 |
+| xai-grok-login | 27 | 1785 | 289 |
+| xai-grok-lifecycle | 25 | 3891 | 0 |
+| xai-grok-markdown | 24 | 2828 | 923 |
+| xai-grok-workspace-types | 22 | 532 | 371 |
+| xai-grok-permission-rules | 20 | 3567 | 0 |
+| xai-grok-cloud-config | 19 | 2830 | 0 |
+| xai-grok-egress-proxy | 19 | 4612 | 0 |
+| {xai-grok-workspace | 18 | 2242 | 1889 |
+| xai-grok-sampler | 18 | 1087 | 327 |
+| xai-tool-protocol | 18 | 13700 | 4546 |
+| root / other | 17 | 965 | 207 |
+| xai-chat-state | 17 | 1621 | 504 |
+| xai-grok-mcp | 16 | 3141 | 520 |
+| xai-grok-sampling-types | 16 | 1251 | 508 |
+| xai-grok-pager-minimal | 15 | 1446 | 453 |
+| xai-grok-voice | 15 | 2014 | 84 |
+| xai-grok-external-agent-migration | 13 | 1806 | 0 |
+| xai-computer-hub-sdk | 13 | 2368 | 328 |
+| xai-grok-hooks | 12 | 1953 | 737 |
+| xai-grok-config-types | 11 | 1205 | 2600 |
+| xai-grok-update | 11 | 1661 | 227 |
+| xai-codebase-graph | 10 | 188 | 87 |
+| xai-grok-file-lock | 9 | 1175 | 0 |
+| xai-grok-plugin-marketplace | 9 | 323 | 128 |
+| xai-grok-shell-terminal | 9 | 559 | 57 |
+| xai-hunk-tracker | 9 | 250 | 868 |
+| xai-file-utils | 7 | 216 | 58 |
+| xai-grok-foreign-sessions | 7 | 76 | 42 |
+| xai-grok-shell-base | 7 | 35 | 24 |
+| xai-ratatui-inline | 7 | 986 | 159 |
+| xai-tool-runtime | 7 | 404 | 20 |
+| xai-tool-types | 7 | 793 | 162 |
+| xai-acp-lib | 6 | 248 | 14 |
+| {xai-grok-shell => xai-grok-cloud-config} | 6 | 166 | 120 |
+| xai-grok-feedback | 6 | 26 | 14 |
+| xai-grok-otel | 6 | 155 | 42 |
+| xai-grok-shared | 6 | 726 | 367 |
+| xai-ratatui-textarea | 6 | 738 | 262 |
+| xai-tty-utils | 6 | 200 | 65 |
+| xai-crash-handler | 5 | 109 | 55 |
+| xai-fsnotify | 4 | 24 | 20 |
+| {xai-grok-shell | 4 | 216 | 208 |
+| xai-grok-gboom | 4 | 214 | 90 |
+| xai-grok-pager-bin | 4 | 382 | 159 |
+| xai-grok-subagent-resolution | 4 | 116 | 55 |
+| xai-workflow | 4 | 17 | 8 |
+| xai-grok-active-sessions | 3 | 91 | 107 |
+| xai-grok-announcements | 3 | 16 | 73 |
+| xai-grok-dashboard-store | 3 | 16 | 10 |
+| xai-grok-extra-ca | 3 | 32 | 20 |
+| {xai-grok-workspace => xai-grok-permission-rules} | 3 | 43 | 28 |
+| xai-grok-session-events | 3 | 109 | 52 |
+| xai-grok-workspace-daemon | 3 | 9 | 4 |
+| ptyctl | 2 | 145 | 0 |
+| xai-agent-lifecycle | 2 | 7 | 2 |
+| xai-grok-auth | 2 | 3 | 1 |
+| xai-grok-image | 2 | 85 | 40 |
+| xai-grok-mermaid | 2 | 86 | 0 |
+| xai-grok-secrets | 2 | 11 | 3 |
+| xai-grok-session-search | 2 | 76 | 24 |
+| xai-grok-shell-session-support | 2 | 33 | 29 |
+| xai-grok-status-line | 2 | 6 | 4 |
+| xai-grok-tools-api | 2 | 13 | 0 |
+| xai-grok-version | 2 | 3 | 1 |
+| xai-mixpanel | 2 | 137 | 17 |
+| xai-prompt-queue | 2 | 37 | 11 |
+| xai-computer-hub-core | 2 | 142 | 20 |
+| xai-computer-hub-mcp-adapter | 2 | 191 | 227 |
+| xai-grok-compaction | 2 | 55 | 4 |
+| xai-interjection-core | 2 | 7 | 6 |
+| xai-message-delivery-core | 2 | 11 | 0 |
+| xai-compaction-transcript | 1 | 14 | 7 |
+| xai-dirs | 1 | 2 | 0 |
+| xai-fuzzy-file-search | 1 | 14 | 4 |
+| xai-gix-status | 1 | 2 | 0 |
+| xai-grok-bundle | 1 | 10 | 2 |
+| xai-grok-diag-server | 1 | 130 | 48 |
+| xai-grok-env | 1 | 1 | 0 |
+| xai-grok-http | 1 | 2 | 0 |
+| xai-grok-markdown-core | 1 | 15 | 5 |
+| xai-grok-models | 1 | 2 | 0 |
+| xai-grok-pager-diff | 1 | 251 | 115 |
+| xai-grok-paths | 1 | 2 | 0 |
+| {xai-grok-otel | 1 | 167 | 0 |
+| xai-grok-workspace-client | 1 | 1 | 0 |
+| xai-hooks-plugins-types | 1 | 22 | 14 |
+| xai-sqlite-journal | 1 | 8 | 2 |
+| xai-system-power | 1 | 2 | 0 |
+| xai-token-estimation | 1 | 2 | 0 |
+| xai-tracing-macros | 1 | 2 | 0 |
+| xai-circuit-breaker | 1 | 40 | 0 |
+| xai-test-utils | 1 | 61 | 7 |
+
+### Added
+
+- Support deleting memories (`48271133`)
+- Add DA1 pop fence and deadline-bounded tty probe primitives (`a28ee2b2`)
+- Add grok-workspace:serve OAuth2 scope mapped to tool-serving only (`a28ee2b2`)
+- Support feedback drafts on the daemon path (`a28ee2b2`)
+- Add a daemon client routed to another machine (`a28ee2b2`)
+- Add an opt-in max_output_bytes budget to read_file with a continuation marker (`a28ee2b2`)
+- Add the workflow client for the Grok daemon (`4247f661`)
+- Add dispatch and PTY coverage for image chip re-bind and unsent-image notices (`4247f661`)
+- Add memory flush, dream, and rewrite on the local daemon (`4247f661`)
+- Add memory list, toggle, and forget on the local daemon (`4247f661`)
+- Support file-backed MCP invocations (`4247f661`)
+- Add a daemon parity lane and subagent spawning to end-to-end tests (`4247f661`)
+- Add allow_managed_hooks_only to skip every hook outside managed policy (`4247f661`)
+- Add a dashboard preview setting (`4247f661`)
+- Add a bounded file-lock helper with a local acquire slot (`07e35a3d`)
+- Add auth.refresh method and frames to the tool protocol (`07e35a3d`)
+- Add daemon route model and header to the pager (`f0e3be11`)
+- Add an end-to-end test builder with headless and terminal modes, shared fixtures, and model scripting (`97f190f6`)
+
+### Changed
+
+- Drop the previous agent view on a minimal `/new` so `/resume` reloads (`48271133`)
+- Typed PlanKept and PlanCleared session notifications (`48271133`)
+- Request AvailableModels in the variant form (`48271133`)
+- In-place clone progress on a terminal, with JSON events under `--json` (`48271133`)
+- Clean up pager overlay panes and the settings modal (`48271133`)
+- Document the skill read cap and session sweep (`48271133`)
+- Post-turn plan review UI (`48271133`)
+- Typed tool-approval gate, on by construction for desktop and daemon hosts (`48271133`)
+- Remove the unclickable Done N completed Subagents dock row (`48271133`)
+- Show a background subagent as cancelled when its session is cut off (`48271133`)
+- `/memory` modal disabled and empty states (`48271133`)
+- Light the FsChanged producer per exposed root; notifications reach every bound session (`48271133`)
+- Session sweep judges sessions as a unit and keeps write-once artifacts (`48271133`)
+- Rewind requires only the base compaction checkpoint (`48271133`)
+- CreatePlan keep, review gate, and execute_plan (`48271133`)
+- Every workspace daemon stop has a typed reason — exit 0 / 77 / 78, a marker for detached hosts, and a plain last line (`48271133`)
+- Surface structuredContent from MCP tool results to the model (`48271133`)
+- Tell the MCP server when a tool call is abandoned (`48271133`)
+- Render directly listed MCP tool calls with a label and their error (`48271133`)
+- Hide the arguments line for an MCP tool called with none (`48271133`)
+- Open a new session after `/delete` in the minimal UI (`48271133`)
+- Cap skill markdown reads and skill body injection at the read token cap (`48271133`)
+- Relay the daemon's tool_approval_policy in the ToolPermission prompt (`48271133`)
+- Hub-only workspace for every non-sandbox host (workspace daemon and CLI leader) (`48271133`)
+- Turns authenticate against the current workspace daemon (`48271133`)
+- No auto recap while anything can wake a turn (`48271133`)
+- Document child takeover allowlist and MCP catalog names (`48271133`)
+- Mint the workspace device key once and name it by its RFC 7638 thumbprint (`48271133`)
+- Record how every MCP tool call ended (`48271133`)
+- Run slash commands typed into the plan-approval notes box (`48271133`)
+- Each active session carries its own daemon client (`48271133`)
+- Compress chat request bodies with zstd when the server advertises it (`48271133`)
+- Open the target subagent from the send_subagent_message row (`48271133`)
+- Name the target and delivery on the send_subagent_message row (`48271133`)
+- Use ring on Windows ARM64 and build aws-lc without jitterentropy there (`48271133`)
+- Document child transcripts and Remote Control relay (`48271133`)
+- Document GNU `--output` writes, plugin snapshot, and identity stamp (`48271133`)
+- Background subagent rows finish when the child completes (`48271133`)
+- Snapshot settings theme rows from the current screen mode (`48271133`)
+- Show a child agent's transcript in the subagent view (`48271133`)
+- `/btw` sends images; daemon errors read as sentences (`48271133`)
+- Read hub initial-connect hedge and deadline from the environment (`48271133`)
+- Hedge the initial hub transport and bound the connect by a deadline (`48271133`)
+- Build the shared plugin registry snapshot from disk config (`48271133`)
+- Interjections carry images (`48271133`)
+- Session prompt forwards image blocks (`48271133`)
+- Send images with a user message (`48271133`)
+- Release a rolled-back install's binding with one compare-and-unmap (`48271133`)
+- Raise the runtime thread stack to 8 MB (`48271133`)
+- Constrain memory dream generation to JSON Schema (`48271133`)
+- Reconcile the daemon's folders on desktop connect; the daemon records who added each (`48271133`)
+- Answer daemon approval cards through the TUI permission prompt (`48271133`)
+- Permission decision, approval dialog, and surface channel (`48271133`)
+- Require grounded person names in agent replies (`a28ee2b2`)
+- Use the nine-section prompt and grok-build carrier for two-pass compaction (`a28ee2b2`)
+- Clean up pager notifications, diagnostics, and dispatch (`a28ee2b2`)
+- Swallow the empty Enter that echoes a send in the dashboard (`a28ee2b2`)
+- Answer x.ai/task/kill on the daemon path with AbortBackgroundWork (`a28ee2b2`)
+- Name the shell a background command left running on the daemon (`a28ee2b2`)
+- Stamp assistant transcript entries with the row update sequence (`a28ee2b2`)
+- Drop the specialized-tools tool-calling rule from agent prompts (`a28ee2b2`)
+- Fence the kitty keyboard pop with DA1 before releasing the tty (`a28ee2b2`)
+- Move terminal teardown into a dedicated restore module (`a28ee2b2`)
+- Show web search results on the daemon path (`a28ee2b2`)
+- Show sampled reasoning effort on Slack /feedback cards (`a28ee2b2`)
+- Accept mixed-case reasoning_effort in config.toml (`a28ee2b2`)
+- Don't quit when folder trust can't be saved under a sandbox (`a28ee2b2`)
+- Drop interior-NUL environment variables before PTY spawn (`a28ee2b2`)
+- Balance nested parentheses in Swift string interpolation highlighting (`a28ee2b2`)
+- Document extra_skill_dirs, hub approval, computer-use, and the read_file budget (`a28ee2b2`)
+- Clean up pager settings, dashboard, and prompt widget (`a28ee2b2`)
+- Always send the write when a user opts out of coding-data sharing (`a28ee2b2`)
+- Name the step when session creation times out (`a28ee2b2`)
+- Trim pad cells and emit semantic newlines on minimal commit (`a28ee2b2`)
+- Reduce CLI syntax-highlighting memory with Oniguruma (`a28ee2b2`)
+- Remove the memory status feature (`a28ee2b2`)
+- Hand MCP tool results to the gateway as content blocks so images reach the model (`a28ee2b2`)
+- Improve /memory modal usability (`a28ee2b2`)
+- Show truthful headless MCP init statuses and drop the stale connecting reminder (`a28ee2b2`)
+- Show MCP tool search and MCP calls on the daemon path (`a28ee2b2`)
+- Show glob results on the daemon path (`a28ee2b2`)
+- Show Switching model… loader during family-switch compact (`a28ee2b2`)
+- Automatically carry over legacy MEMORY.md notes (`a28ee2b2`)
+- Emit root-relative file-change paths and drop off-root ones (`a28ee2b2`)
+- Treat a malformed tool_approval_policy as always_prompt (`a28ee2b2`)
+- Flush steered follow-ups when a blocking wait starts (`a28ee2b2`)
+- Show the file diff for edits and file lines for reads on the daemon path (`a28ee2b2`)
+- Box hub dial futures so debug Tokio workers stay inside their stack (`a28ee2b2`)
+- Drop eager codebase-index warm-up on hub connect (`a28ee2b2`)
+- Make /flush and /dream report progress and outcome (`a28ee2b2`)
+- Show grep results on the daemon path (`a28ee2b2`)
+- Deliver session images locally and keep desktop execution local (`a28ee2b2`)
+- Persist agent profile across session resume (`4247f661`)
+- Lighten the Oscura code block background (`4247f661`)
+- Latch subagent model selection from the effective catalog (`4247f661`)
+- Configurable hiding of the subagent model argument (`4247f661`)
+- Label idle-timeout errors (`4247f661`)
+- List and advertise workflows on the local daemon (`4247f661`)
+- Strip encrypted reasoning from the memory capture transcript (`4247f661`)
+- Smoke-test one tool round-trip per API backend (`4247f661`)
+- Hide use_tool file forms from Messages-backed models (`4247f661`)
+- Run the end-to-end suite on the daemon and record what differs (`4247f661`)
+- Make read_file whole-read exemptions a truncation policy (on by default) (`4247f661`)
+- Optional base-ref fetch and branch step when creating a synced worktree (`4247f661`)
+- Extend child-cancel tests (`4247f661`)
+- Wrap over-wide quoted arguments in the permission overlay (`4247f661`)
+- Use an empty regular file for GIT_CONFIG_GLOBAL instead of /dev/null (`4247f661`)
+- Measure CLI startup time end to end (`4247f661`)
+- Cover the features end-to-end tests used to skip (`4247f661`)
+- Clear Cancelling when a child turn ends (`4247f661`)
+- Align the prompt border title with the bottom info line (`4247f661`)
+- List other machines' sessions beside this one's on the local daemon (`4247f661`)
+- Session rows from another machine show a remote badge (`4247f661`)
+- Disable session folder TTL cleanup by default (`4247f661`)
+- Task rows for a subagent's background shell commands on the daemon (`4247f661`)
+- Document git prefix, nested AGENTS.md, two-pass, and use_tool forms (`4247f661`)
+- Shorten the send_feedback draft prompt (`4247f661`)
+- Apply configured Bash rules to unresolved filename arguments (`4247f661`)
+- Cover filename permission baselines (`4247f661`)
+- Extract configured Bash policy helpers (`4247f661`)
+- Upload per-turn grok trace artifacts (`4247f661`)
+- Reconstruct per-turn trace artifacts from a local session for gap-fill upload (`4247f661`)
+- Read project-instruction files whole in read_file (`4247f661`)
+- Drop the first-message git status prefix (`4247f661`)
+- Open the reasoning-effort menu on the model's default effort (`4247f661`)
+- Notify turn_complete on chatty monitor-wake EndTurn (`4247f661`)
+- Stamp the daemon's three-valued tool-approval policy at bind (`4247f661`)
+- Restore y-copy on queue rows (`4247f661`)
+- Respawn a bridged MCP server whose child died at the next bind (`4247f661`)
+- Report the computer-use helper's mount state to analytics (`4247f661`)
+- Treat hooks in the signed requirements cache as managed policy (`4247f661`)
+- Include hub-stamped host kind on the computer-use server list (`4247f661`)
+- Make the /context legend a partition of the window (`4247f661`)
+- Approve shell commands from background subagents and daemon wakeup turns (`4247f661`)
+- Publish a signed Grok computer-use helper (`4247f661`)
+- Show background shell commands as task rows on the daemon (`4247f661`)
+- Restore concise action safety guidance (`4247f661`)
+- Retry the billing seat lookup inside the subscription budget (`4247f661`)
+- List the console-synced copies in the config-locations table (`4247f661`)
+- Bind a workspace task to one registry entry for the sub-agent (`4247f661`)
+- The workspace daemon installs the computer-use helper from the desktop release channel (`07e35a3d`)
+- Generate durable titles for remote sessions (`07e35a3d`)
+- Report a lost lock from the workspace daemon launcher (`07e35a3d`)
+- Match the effort picker against the option label (`07e35a3d`)
+- Answer a blocking spawn_subagent honestly when send-now cancels the turn (`07e35a3d`)
+- Remove the disabled inline edit-and-resubmit feature (`07e35a3d`)
+- Route the leader lock through the bounded file-lock helper (`07e35a3d`)
+- Inject the long reasoning reminder after auto-compaction; emit the turn event on cancel (`07e35a3d`)
+- Expose a per-model max_request_bytes limit (`07e35a3d`)
+- Fork a session on the remote daemon route (`07e35a3d`)
+- Clean up pager question view and render banners (`07e35a3d`)
+- Name bundled workflows with a new bundled source kind (`07e35a3d`)
+- Long reasoning reminder settings table plus a dedicated feature flag (`07e35a3d`)
+- Settings toggle for automatic subagent model inheritance (`07e35a3d`)
+- Tell the model to reply to the user first on an interjection, then resume (`07e35a3d`)
+- Same subagent activation in `grok agent stdio` as in the TUI; partial `[subagents]` tables keep subagents enabled (`07e35a3d`)
+- Discover project hooks (`07e35a3d`)
+- Return focus to the composer after a queued-prompt edit (`07e35a3d`)
+- Collapsed edit blocks override expanded_by_default (`07e35a3d`)
+- Record turns the previous process never finished; keep leader crash evidence (`07e35a3d`)
+- Revert focusing [+ New Agent] when opening the dashboard (`07e35a3d`)
+- Fan out session inboxes so the owner's hook handler stays attached when a peer harness binds (`07e35a3d`)
+- Focus [+ New Agent] when opening the dashboard (`07e35a3d`)
+- Ctrl+Z right after a stash pops the composer stash (`07e35a3d`)
+- agent.md MCP headers take precedence over config.toml and persist on reload (`07e35a3d`)
+- Workspace daemon runs all tool calls without permission prompts (`07e35a3d`)
+- Record ordinary read caps on tool completion (`07e35a3d`)
+- The agent outlives the runtime local set in production entrypoints, fixing a teardown use-after-free (`07e35a3d`)
+- Resume idle remote sessions from durable checkpoints (`07e35a3d`)
+- Binary-safe staged writes for workspace files (`07e35a3d`)
+- Hide the per-activity timer on narrow turn-status rows (`07e35a3d`)
+- Remote Control works end to end from the web controller (`07e35a3d`)
+- Drop agent counts from workflow runs list rows (`07e35a3d`)
+- Blank row between workflow objective and phase rail (`07e35a3d`)
+- Drive the deduplicating uploader from a process-lifetime runtime (`07e35a3d`)
+- Hold a tracing span clone as the subagent spawn parent (`07e35a3d`)
+- Scope orphan-subagent heal to the loading session so forks show only their own children (`07e35a3d`)
+- A session id listed on two machines is refused (`07e35a3d`)
+- Open the command palette with Ctrl+P on the welcome screen (`07e35a3d`)
+- The ownership refusal names both accounts (`07e35a3d`)
+- Hide the [Dashboard] button in the subagent fullscreen view (`07e35a3d`)
+- Transient turn retry for headless root sessions; scale the episode window with the idle detector (`07e35a3d`)
+- Route built-in guidance through user rules (`07e35a3d`)
+- A session on another machine refuses what only this machine's daemon can run (`07e35a3d`)
+- A listed remote session opens on the machine it lives on (`07e35a3d`)
+- Inject a direct-prose startup user rule (`07e35a3d`)
+- Surface non-2xx and rejected analytics events as errors (`07e35a3d`)
+- Remote Control connects to the target (`07e35a3d`)
+- Bump tree-sitter 0.25.10 to 0.26.13 (Array strict-aliasing fix) (`07e35a3d`)
+- Bound the session registry lock so a stranded NFS lock cannot hang startup (`07e35a3d`)
+- Coerce unambiguous MCP argument mismatches (`07e35a3d`)
+- Remove subagent_type from the task tool (`07e35a3d`)
+- Record tool-call identity and grep source outcome (`07e35a3d`)
+- Guide scannable response formats (`07e35a3d`)
+- Improve communication clarity (`07e35a3d`)
+- Present a refreshed bearer in-band; widen OIDC refresh margin (`07e35a3d`)
+- Share the send-now stop path between prompt turns and wake turns (`f0e3be11`)
+- Hydrate the team capability for cached sessions (`f0e3be11`)
+- Gate the coding-data banner on the server capability (`f0e3be11`)
+- Sign remote Agent Host calls with a controller key (`f0e3be11`)
+- Hand WinGet installs to winget upgrade (`f0e3be11`)
+- Report Agent Host daemon turn starts to the pager (`f0e3be11`)
+- Delete idle dumps and retarget Agent Host docs (`f0e3be11`)
+- Remove hidden dashboard subagent rows (`f0e3be11`)
+- Remove the unreachable subagent catalog pane (`f0e3be11`)
+- Capture cancelled turns in memory (`f0e3be11`)
+- Reprint minimal-mode history on resize and fix live-region anchoring (`f0e3be11`)
+- Push the Agent Host daemon login when it changes (`f0e3be11`)
+- Cap chat sandbox task-output polls at 5k (`f0e3be11`)
+- Limit the grok-computer toolset to browser_execute (`f0e3be11`)
+- Upgrade the MCP SDK (rmcp) from 3.2.0 to 3.4.0 (`f0e3be11`)
+- Route Agent Host tabs by session ID (`f0e3be11`)
+- Classify a failed MCP auth retry by its own error (`f0e3be11`)
+- Surface daemon compaction on the pager banner (`f0e3be11`)
+- Anchor "Worked for" at every turn start so it never includes the idle gap (`f0e3be11`)
+- Skip clipboard image on non-clipboard bracketed pastes (`f0e3be11`)
+- Offer Agent mode alone for a session on another machine, with bounded replay (`f0e3be11`)
+- Map Agent Host Await and shell rows to the base path's UI (`f0e3be11`)
+- Clean fast-worktree artifacts offline on Windows (`f0e3be11`)
+- Retry a dropped relay longer, name it to the user, and age the listing out (`f0e3be11`)
+- Push Remote Control status once per failed daemon start and release the tunnel claim in one place (`97f190f6`)
+- Make the connection toast visible to the rest of the crate, matching session follow (`97f190f6`)
+- Apply queue actions to prompts held behind another device's turn (`97f190f6`)
+- Move the permission rule loader into its own crate (`97f190f6`)
+- Pre-stop lifecycle broker with a handler registry (`97f190f6`)
+- Take privacy mode from the daemon's auth update reply (`97f190f6`)
+- Move permission rule types, parser, and compiled policy into the permission-rules crate (`97f190f6`)
+- Merge MCP server config from multiple sources (`97f190f6`)
+- Move shell-parsing permission modules into the permission-rules crate (`97f190f6`)
+- Send a compact transcript for session recap on grok-4.5 at low effort (`97f190f6`)
+- Send only the last turn for the turn summary on grok-4.5 at low effort (`97f190f6`)
+- Record unpair requests in the mock Remote Control relay (`97f190f6`)
+- Send images to a session on another computer (`97f190f6`)
+- Move the remote settings cache into cloud config (`97f190f6`)
+- Answer questions from another device's turn on a remote session (`97f190f6`)
+- Tidy Remote Control layout and tests (`97f190f6`)
+- Leave oversized logs out of the per-turn session archive (`97f190f6`)
+- Send the session reasoning effort on compaction requests (`97f190f6`)
+- Publish every login change on a watch (`97f190f6`)
+- Show a per-model notice banner above the prompt (`97f190f6`)
+- Re-expose subagent type on spawn so plugin and user agent types can be selected (`97f190f6`)
+- Answer suggest requests so Tab completes in shell mode on the daemon route (`97f190f6`)
+- Let the workspace daemon own the per-folder sandbox, including proxy lifecycle, violation reporting, and sandbox control (`97f190f6`)
+- Move an approved device to the paired list immediately (`97f190f6`)
+- Hold network requests and ask before allowing egress, with per-call credentials (`97f190f6`)
+- Render an MCP result's structured content once when a text block already carries it (`97f190f6`)
+- Sync managed cloud config (`97f190f6`)
+- Re-read an HTTP MCP bearer token from a file on every request (`97f190f6`)
+- Mark Agent Host gaps on each end-to-end test and add a status command (`97f190f6`)
+- Let one Grok window per computer run the Remote Control tunnel (`97f190f6`)
+- Move the folder trust decision into shared config types (`97f190f6`)
+- Classify managed policy trust, including tamper (`97f190f6`)
+- Color the Ask mode composer flag and border green (`97f190f6`)
+- Move agent host inline tests into sibling test files (`97f190f6`)
+- Carry the model choice as one type (`97f190f6`)
+- Show "Waiting on N subagent(s)" while the parent turn is blocked (`97f190f6`)
+- Stub the project-directory classifier in upload tests (`97f190f6`)
+- Render Agent Host monitor rows as Poll (`97f190f6`)
+- Start the Agent Host daemon with the host server when that capability is enabled (`97f190f6`)
+- Return MCP server details for settings reads (`97f190f6`)
+- Hold a send while another device's turn runs on a remote session (`97f190f6`)
+- Answer headless questions the same way the shell does (`97f190f6`)
+- Run sandbox tests only where the sandbox applies, and say so when they are skipped (`97f190f6`)
+- Tag another device's turn updates with its prompt id (`97f190f6`)
+- Deliver sandbox violation cards through the permission hook, with one replay of an allowed result (`97f190f6`)
+- Show another device's turn as running on a remote session (`97f190f6`)
+- Tell a session refused for a missing key to reopen after pairing (`97f190f6`)
+- Run parallel tool calls in per-path lanes keyed by a server-advertised path (`97f190f6`)
+- Remove compact instructions from Grok Build (`97f190f6`)
+- Remove leftover unicode tables of contents and an empty terminal-sequence filter test (`97f190f6`)
+- Retarget agent keep-rules to the current source (`97f190f6`)
+- Delete month-old doc dumps and retarget living docs (`97f190f6`)
+- Clean up terminal helpers and leftover table-of-contents banners (`97f190f6`)
+- Pin the theme while asserting slash-command color (`97f190f6`)
+- Re-copy agent skill definitions, take names from the full path, and honor disable-user-invocation (`97f190f6`)
+- Cut per-user terminal VM start latency with faster mount polling, batched tokens, and parallel start mounts (`97f190f6`)
+- Chain a context-window step between model and effort in the model picker (`97f190f6`)
+- Import Claude settings (`2bdd1d6a`)
+- Parse requirements.toml sections into typed settings (`2bdd1d6a`)
+- Match relative permission rules against the physical working directory as well as the lexical path (`2bdd1d6a`)
+- Name the computer when it refuses a prompt as invalid (`2bdd1d6a`)
+- Word a remote prompt refusal that has no message by its status code (`2bdd1d6a`)
+- Word a blank prompt refusal without blaming the target (`2bdd1d6a`)
+- Word an empty remote prompt refusal for the user (`2bdd1d6a`)
+- Name the computer to update when an older Grok refuses images (`2bdd1d6a`)
+
+### Fixed
+
+- Stop Ctrl-V attaching the wrong clipboard image on the macOS osascript fallback (`48271133`)
+- Fix aarch64 musl CLI SIGILL on CPUs without SHA-512 (`48271133`)
+- Keep the identity stamp's readiness on whichever presence hosts the actor (`48271133`)
+- Honor config.toml [agent] on default TUI start (`a28ee2b2`)
+- Preserve config.toml symlink on save (`a28ee2b2`)
+- Keep pinned rows stable across activity changes (`a28ee2b2`)
+- Close Swift triple-quoted multiline strings in markdown highlighting (`a28ee2b2`)
+- Wait for the user on daemon prompts; show in-workspace write cards and re-pushed cards (`a28ee2b2`)
+- Fix memory deletion and enablement (`a28ee2b2`)
+- Keep every turn in the compaction segment store (`4247f661`)
+- Re-bind orphan image chips before send and report unsent images (`4247f661`)
+- Keep the newest Agent line under 24k with a [truncated] marker (`4247f661`)
+- Stop button on a subagent's background task row (`4247f661`)
+- Fix mermaid flowchart Open Image (`4247f661`)
+- Keep plugin OAuth client ids on the MCP auth-trigger rebuild (`4247f661`)
+- Stop upload queue sampler leaks (`07e35a3d`)
+- Keep a runtime-loaded API key out of the process environment (`07e35a3d`)
+- Keep subagents running through the full task (`07e35a3d`)
+- Handle signals in headless pager mode (`f0e3be11`)
+- Stop the Agent Host wake turn on send-now and announce the new prompt (`f0e3be11`)
+- Re-send inline images after a full repaint clears the screen (`f0e3be11`)
+- Keep cwd-local sessions (`f0e3be11`)
+- Wait for quit confirm before the second Ctrl+C (`f0e3be11`)
+- Wait for usage.json before the turn resolves (`f0e3be11`)
+- Cancel plan commenting with Ctrl+C on an empty comment (`f0e3be11`)
+- Keep the Remote Control tunnel claim through reconnects and pick up a record saved elsewhere (`97f190f6`)
+- Keep another device's turn and its question card together (`97f190f6`)
+- Close symlink-following sandbox paths and make Always-reject stick (`97f190f6`)
+- Stop pushing shell deny entries to the Agent Host daemon (`97f190f6`)
+- Recover batch memory consolidation from cleanup and plan conflicts, and keep search pages from repeating hits (`97f190f6`)
+- Wait out a busy fork parent instead of declining the fork (`97f190f6`)
+- Serialize clipboard operations on Windows (`97f190f6`)
+- Stop the session leader from dropping client messages, with leader-mode end-to-end coverage (`97f190f6`)
+- Keep the session's context window selection in the model picker (`97f190f6`)
+- Cancel every held prompt when a closed tab cancels its session (`2bdd1d6a`)
+- Keep a refused send-now prompt as the Esc target (`2bdd1d6a`)
+- Ignore a tunnel stop that was never requested (`2bdd1d6a`)
+
+### Merge risk for grok-pi
+
+- Pager App/dispatch, terminal restoration, image lifecycle and model/session UI overlap the Pi external-profile seams. Import related native changes as a group, retaining Pi ownership of sessions, commands, queues and tools.
+- Agent Host/Remote Control, stock memory, sampling, managed cloud config and Grok MCP client updates are backend changes; recording them does not adopt them.
+- Selective adoption does not advance the complete SOURCE_REV/base. Verifier metadata is reviewed per exact changed file.
+
+
 ## [37949780] — 2026-09-12
 
-> **Status:** Merged into grok-pi on isolated branch `merge/upstream-37949780`, pending merge back to `main`. This entry **supersedes the [9684fa3c] entry below**: that entry covered the first 3 commits of this same range; all 8 commits here were integrated together. Conflict resolution followed [`MERGE_ANALYSIS_37949780/REPORT.md`](MERGE_ANALYSIS_37949780/REPORT.md); the final index has 0 unresolved conflicts, `git diff --check` passes, and the manually merged Rust files pass `rustfmt --edition 2024 --check`. Cargo/build/test gates were intentionally not run in this integration session, so full verification is not claimed green; the existing verifier baseline blockers remain documented in [`docs/VERIFICATION.md`](../VERIFICATION.md) and no source-identity allowlist was broadened.
+> **Status:** Merged into `main` by `8541c842` on 2026-09-12; the original isolated integration branch was `merge/upstream-37949780`. This entry **supersedes the [9684fa3c] entry below**: that entry covered the first 3 commits of this same range; all 8 commits here were integrated together. Conflict resolution followed [`MERGE_ANALYSIS_37949780/REPORT.md`](MERGE_ANALYSIS_37949780/REPORT.md); the final index has 0 unresolved conflicts, `git diff --check` passes, and the manually merged Rust files pass `rustfmt --edition 2024 --check`. Cargo/build/test gates were intentionally not run in this integration session, so full verification is not claimed green; the existing verifier baseline blockers remain documented in [`docs/VERIFICATION.md`](../VERIFICATION.md) and no source-identity allowlist was broadened.
 
 - **Sync range:** `07b2f714..37949780` (`07b2f7144fd5c5c9d3dd1966937a87852d2dbdb8` → `37949780c144e37df692e3d669051a21fec24f20`)
 - **Upstream commits:** 8 (`Synced from monorepo`)

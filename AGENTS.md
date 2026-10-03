@@ -2,20 +2,22 @@
 
 ## Project root and Git
 
-`grok-build-main/` is the primary project checkout. Isolated integration work may use linked Git worktrees that share this checkout's Git common directory.
+This repository root (`grok-pi-tui/`) is the primary project checkout. Do not treat a parent directory as the project. Linked Git worktrees, when explicitly requested, share this checkout's Git common directory.
 
 ```text
-origin   https://github.com/Dwsy/grok-pi.git
+origin   https://github.com/Dwsy/grok-pi-tui.git
 upstream https://github.com/xai-org/grok-build.git
 base     37949780c144e37df692e3d669051a21fec24f20
 ```
 
 - Work from this directory; do not use its parent wrapper as a repository.
-- `origin/main` is the Pi-Grok integration branch; `upstream` is read-only Grok Build.
+- `origin/main` is the Pi-Grok integration branch. The Grok Build source is read-only; an `upstream` remote may be configured for fetching it.
 - Never directly merge an upstream root commit into this repository without a migration plan. Reapply the narrow integration seams and validate them instead.
 - Keep commits focused. Do not stage generated `pi-main` model catalog changes unless they are intentional.
-- Pi host default is **system `pi` >= 0.99.0** (`npm i -g @earendil-works/pi-coding-agent`). Override with `--pi-bin` / `PI_BIN`.
+- Pi host default is **system `pi` >= 1.0.0** (`npm i -g @earendil-works/pi-coding-agent`). Override with `--pi-bin` / `PI_BIN`.
 - Optional Pi source checkout is the git submodule [`pi-main`](https://github.com/earendil-works/pi) (not a vendored copy). Follow [`pi-main/AGENTS.md`](pi-main/AGENTS.md) when working inside the submodule.
+
+The current product spec and execution record are [Pi-first TUI SPEC](docs/issues/架构/20261002-pi-first-tui-SPEC.md) and [PLAN](docs/issues/架构/20261002-pi-first-tui-PLAN.md). Grok Build is absorbed as TUI; functionality always follows Pi semantics.
 
 ## Upstream sync workflow
 
@@ -114,15 +116,17 @@ Run from the project root:
 ```bash
 ./build.sh
 ./scripts/cargo-shared.sh test -p pi-grok-adapter
-./scripts/cargo-shared.sh test -p xai-grok-pager-bin --bin grok-pi
-./scripts/cargo-shared.sh check -p xai-grok-pager-bin --bin grok-pi
+./scripts/cargo-shared.sh test -p xai-grok-pager-bin --bin grok-pi --no-default-features --features jemalloc,sandbox-enforce
+./scripts/cargo-shared.sh check -p xai-grok-pager-bin --bin grok-pi --no-default-features --features jemalloc,sandbox-enforce
+./scripts/cargo-shared.sh check -p xai-grok-pager-bin --bin xai-grok-pager
+python3 crates/codegen/pi-grok-adapter/tests/pi_dependency_profile.py
 ```
 
-`./build.sh` builds `grok-pi`. When the optional `pi-main` submodule has workspace dependencies installed (`pi-main/node_modules/.bin/tsgo`), it rebuilds the coding-agent checkout first; a freshly initialized, unprovisioned submodule is skipped. Requires system Pi >= **0.99.0**, Node.js >= 22.19.0, and the repository Rust toolchain.
+`./build.sh` builds `grok-pi` with `--no-default-features --features jemalloc,sandbox-enforce`; stock Pager keeps its default features. Plain default-feature Cargo checks do not prove Pi production isolation. When the optional `pi-main` submodule has workspace dependencies installed (`pi-main/node_modules/.bin/tsgo`), it rebuilds the coding-agent checkout first; a freshly initialized, unprovisioned submodule is skipped. Requires system Pi >= **1.0.0**, Node.js >= 22.19.0, and the repository Rust toolchain.
 
 All linked worktrees share one Cargo output tree at `<git-common-dir>/pi-grok-cargo-target`. `./build.sh` and `./verify.sh` initialize the root `target` symlink automatically. Use `./scripts/cargo-shared.sh <cargo-args>` for project Cargo commands: it sets up the shared target, enables incremental compilation by default, caps generated target output at 128 GiB, and stops Cargo at the default 20 GiB free-space floor. Override the target cap with `CARGO_TARGET_MAX_GIB`; when a target is already over the cap, periodic maintenance clears incremental roots first and falls back to `cargo clean` if needed. Raise the free-space floor with `CARGO_MIN_FREE_GIB`; use `CARGO_DISK_GUARD_PATH` when output is on a custom filesystem; set `CARGO_MAINTENANCE=0` to skip one pre-command maintenance pass. The running disk guard continuously enforces the free-space floor; target-size maintenance runs on its configured cadence. An explicit `CARGO_TARGET_DIR` remains authoritative for CI or one-off isolation. Never copy `target/` between worktrees. Direct raw `cargo` remains available for deliberate recovery/maintenance, but is not protected by the project guard.
 
-`./verify.sh` additionally runs architecture, mock, syntax, and Pager checks. Current known blockers are documented in [`VERIFICATION.md`](docs/VERIFICATION.md): Python tree-sitter dependencies are not provisioned, and several source-identity/mock expectations require deliberate baseline maintenance. Focused Pager lib tests compile and pass after the `47348d1` integration. Do not claim full verification is green unless the remaining blockers are resolved.
+`./verify.sh` additionally checks both profiles, the normal/build dependency graph, native architecture, exact layered source identity, actual installed-Pi contracts, mock RPC and recursive Rust syntax. Syntax is parsed with the repository rustfmt without editing source; no Python tree-sitter package or initialized `pi-main` is required. Identity protects the complete `37949780` Git blobs, freezes historical changes to `222d614d`, and separately declares each current-phase file. Follow [`VERIFICATION.md`](docs/VERIFICATION.md) for current results; source identity, synthetic-provider transport and real model/OAuth/manual acceptance are separate proof layers.
 
 For a standalone change under `extensions/`, validate the extension source and diff only; do **not** run Cargo unless Rust code, the embedded-extension loader, or its Rust contract changed, or the user asks.
 

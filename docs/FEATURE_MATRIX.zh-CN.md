@@ -1,7 +1,7 @@
 # Grok Native TUI × Pi 功能矩阵
 
 
-**最小 Pi 版本：0.99.0**（系统 `pi` / `@earendil-works/pi-coding-agent`）。`pi-main` 为可选 git 子模块，非运行时必需。
+**最小 Pi 版本：1.0.0**（系统 `pi` / `@earendil-works/pi-coding-agent`）。`pi-main` 为可选 git 子模块，非运行时必需。
 
 状态定义：**原生**＝由 Grok Pager 组件实现；**适配**＝Pi 语义转换后进入 Grok 原生组件；**边界**＝Pi RPC 未暴露或与 Grok 产品后端绑定，刻意不实现。
 
@@ -39,14 +39,14 @@
 | Prompt | 适配 | ACP prompt → Pi `prompt` |
 | Mid-turn send now | 适配 | 输入框 send-now → 本地持有的 `Steering` 车道行（与 follow-up 同一隔离队列），在 assistant `message_end` 安全点 flush 时才以 `steer` 转发给 Pi —— 可观测的投递时机不变，但在此之前该行始终可移除/编辑；settle 时仍未转发的行作为下一 turn 的 prompt 派发。待执行行也可经 `x.ai/queue/interject` 立即发送，支持按版本原子移除后编辑重发；仅存在于 Pi 外部队列的行仍只读，因为 stock RPC 无法原子删除。 |
 | Follow-up queue | 适配 | turn 运行中来自客户端的 prompt，以及 extension 的 `sendUserMessage(..., { deliverAs: "followUp" })`，先进入 adapter 自有隔离队列，真正出队时才以 RPC source 发送给 Pi；extension 的 steer（`deliverAs: "steer"`）同样进入该隔离队列的 steering 车道本地持有，不再立即 interject。绕过拦截的 Pi `queue_update` 消息进入独立外部镜像通道。 |
-| Abort | 适配+边界 | ACP cancel 同步清空 adapter 自有的客户端/扩展队列并完成等待者；取消屏障期间 extension 新产生的续跑消息会被丢弃，随后以 fire-and-forget 通知 Pi `abort`（Bash 用 `abort_bash`）。`get_state` settle 探针只在 Pi 真正空闲后恢复调度。stock Pi 外部队列仍受 0.81.1 无 `clear_queue` 的 RPC 边界限制。 |
+| Abort | 适配+边界 | ACP cancel 同步清空 adapter 自有队列并完成等待者；先通知 Pi 1.0 `clear_queue`，再发 `abort`（Bash 为 `abort_bash`）。取消屏障期间丢弃 extension 续跑，并对重新启动的核心续跑重复 clear/abort 顺序。`get_state` settle 探针只在 Pi 真正空闲后恢复调度；本地可编辑队列保持既有语义。 |
 | Text stream | 适配 | `message_update` → AgentMessageChunk |
 | Thinking/reasoning stream | 适配 | `message_update` → AgentThoughtChunk |
 | Tool start/update/end | 适配 | ACP ToolCall/ToolCallUpdate |
 | Pi Codemode 渲染 | 原生+适配 | 可选（F2 `pi_builtin_tools.codemode`）加载 Pi 的 `builtin:codemode` 扩展。adapter 给 `raw_input.variant="Codemode"` 打标，投影规范的 `Codemode` raw output（嵌套调用记录、剥离 header 的脚本输出、完整输出落盘路径），并抑制携带 codemode `parentToolCallId` 的嵌套调用原生行，使实时会话与回放渲染同一张专属 `CodemodeToolCallBlock`（脚本高亮、嵌套调用列表（状态/耗时/费用）、输出预览）。见 `docs/issues/adapter/20260930-Codemode-原生渲染支持.md`。 |
 | Eval v2 host-tool bridge | 适配 | `pi-grok-bash` 负责 Node/Python Eval worker、`HostCallGate`（上限 4）、`EvalSessionToolBridge`、显式 `store/load`、`parallel/pipeline` 和原生 task 投影；Eval 是嵌套 Pi 能力，不是第二个 Agent Core。从未调用 host 工具的 cell 总是渲染为正常 Eval 卡，不受 effects-first 设置或 Eval-v2-only 隐藏影响（由结果 `details.toolCalls` 判定；旧 payload 保持原行为） |
 | Eval v2-only MCP facade | 适配+边界 | 可选的认证回环 Streamable HTTP 允许外部 MCP client 调用当前 Eval v2；binding ID/secret、resource 图片、tokenizer 计数和 shutdown 由 `eval-pi-mcp` 负责，不属于 Pi 的出站 MCP client |
-| Eval v2 复用 Pi Codemode/MCP | 边界 | 目前仅有方案：grok-pi 启动时使用 `--no-extensions` 与显式 bridge allowlist，因此 Pi 内置 `mcp`/`codemode` 默认未加载。这些 built-in 需要受支持的 Pi 基线 `0.99.0+`；计划通过 `EvalSessionToolBridge` 复用 Pi MCP Tool Registry，不在 Eval Worker 内新增 MCP client，也不替换 Node/Python runtime。见 `docs/issues/adapter/20260930-Eval v2 学习 Pi Codemode 并复用 MCP.md`。
+| Eval v2 复用 Pi Codemode/MCP | 适配+边界 | F2 `pi_mcp` 默认关闭，显式加载 Pi 1.0 内置 MCP、Codemode 与 tool search。连接、trust、exposure、OAuth 由 Pi 管理；Eval 通过 `ctx.executeTool` 调用 callable tools。`await tools.waitFor(pattern, timeout_ms)` 仅等待公开 registry 中异步注册的工具；hidden/CLI 排除保持，model-only 编排工具不能嵌套调用。外部 Eval MCP 仍保留无工具上下文的兼容边界。 |
 | Pi Bash 后台任务 / Send to Background | 原生+适配 | `grok-pi` 私有 Bash extension 持有前台与初始后台 Bash 子进程；前台仍复用 Pi `createBashToolDefinition` 的输出/渲染语义。Pager 原生 Send to Background 经 `x.ai/terminal/background` 以受控临时控制文件按 `toolCallId` 转交**同一**子进程，随后投影到既有 `x.ai/task_*` 卡片；原生任务卡 kill 经同一控制通道走 `x.ai/task/kill`（`op:kill` + 已发布 `runningTaskIds`）；`is_background` + `description`、`get_task_output` / `wait_tasks` / `kill_task` 保持可用。前台 Bash 达到共享可配置最大等待阈值后会自动转后台（默认 4.5 分钟）；每次阻塞式 task wait 也受同一阈值限制，让仍在运行的任务释放当前 agent turn，而不是持续占住 prompt cache 超过 TTL。最大等待配置为 `0` 或负数时同时关闭这两种行为。任务终态经私有 `__pi_grok_bash_task__` 状态通道带外发布，不受流式、ESC 取消与队列清空影响；对话侧 bridge 消息仍负责唤醒模型。适配器镜像任务生命周期，两条通道的同一终态只投影一次；Pi 子进程退出时对残留任务按 `signal: session_restart` 对账（行离开 running 过滤器，不新增失败块）。 |
 | Pi 子代理 | 原生+适配 | F2 `[ui].pi_subagents` 默认开、需重启。V1 保留 Pi child `AgentSession`、原生 `SubagentBlock`/Tasks Pane/child `AgentView` 投影、产品隔离 `.grok-pi/agents/*.md` + `~/.grok-pi/agents/*.md` 定义，以及 history/wait/cancel、主→子 follow-up/steer。可选 V2（F2 → Agent →「Pi subagents V2」开关，或 `PI_GROK_SUBAGENTS_V2=1`）增加在当前 root Pi session 内稳定的 Codex 风格 `/root/...` path、`spawn_team_agent`、不单独唤醒 idle recipient 的 `team_send_message`、触发新任务的 `team_followup_task`、`team_wait`、`team_list`、`team_interrupt`、nested spawn 和 `FINAL_ANSWER` 自动回传 parent。`spawn_team` 按项目 `.grok-pi/teams/*.json` > 全局 `~/.grok-pi/teams/*.json` > bundled `research`/`implementation`/`review` 发现 preset。V2 语义消息使用 `pi-grok-team-message/v2`；UI-only `pi-grok-subagent/v1` 仍只写有界 lifecycle，不承载 progress/child delta。完成后的 agent 进入 `IDLE`；重新激活会保留 Pi child session，但轮换 V1 run UUID 以兼容原生 terminal tombstone。后台并发上限 4，支持 cancellation-safe queue 与 atomic preset startup。产品指南：`docs/usage/subagents-v2.zh-CN.md`。模型驱动的手工端到端验收待执行。 |
 | Workflow（Rhai / `/workflow`） | 上游引擎 + Pi Spawn 接缝 | **会话宿主 + slash 表面：** 复用 `xai-workflow` + `ExternalWorkflowRuntime`；adapter `x.ai/workflow/{launch,pause,stop}` + `x.ai/workflows/list` + `workflow_updated`；注入 `/workflow`、`/workflows`、`/create-workflow`（及命名脚本）；隐藏 `__pi_workflow_*` 桥命令；Pager 本地处理 + F2 门控。deep-research 实机手测仍建议。`/create-workflow` 为 PassThrough 用户提示（非 Pi skill）。项目脚本目录默认 `<repo>/.grok-pi/workflows`。 |
@@ -65,7 +65,7 @@
 
 | 功能 | 状态 | 说明 |
 |---|---|---|
-| Provider/模型目录 | 原生+适配 | Pi 负责多 Provider registry、凭据、`models.json` 本地/自定义 endpoint 与 extension `registerProvider`；`get_available_models` → Grok 原生 model selector，裸 `/model` 打开且当前模型置顶。默认开启的 Pi auth bridge 在 Remote TUI 可用时提供 `/login`/`/logout`。 |
+| Provider/模型目录 | 原生+适配 | Pi 负责多 Provider registry、凭据、`models.json` 本地/自定义 endpoint 与 extension `registerProvider`；`get_available_models` → Grok 原生 model selector，裸 `/model` 打开且当前模型置顶。默认开启的 Pi auth bridge 通过原生 QuestionView 提供 `/login`/`/logout`，独立于 Remote TUI。 |
 | Thinking effort | 适配 | Pi levels → Grok effort selector；xhigh/max 做能力归一化 |
 | New session | 适配 | Grok `/new` → Pi `new_session` |
 | Rename | 适配 | Grok `/rename` → Pi `set_session_name` |
@@ -104,7 +104,7 @@
 | 原生 Q&A（`ask_user_question` 工具） | 适配 | F2 `[ui].pi_ask_user_question` **默认关**（需重启）。注入扩展注册工具；adapter 打开多题 `x.ai/ask_user_question` → 原生 QuestionView；control 目录回写答案。F2 `[ui].pi_ask_user_question_notifications` **默认开**，即时控制 grok-pi 失焦时 Q&A 抵达的原生桌面通知。文案：*Grok Build asks the right questions to nail the details.* 冲突包表：`assets/native_feature_conflicts.toml` — 开启时 host block 列表包（如 `@juicesharp/rpiv-ask-user-question`）；F2 描述会列出。 |
 | raw terminal hook | 边界 | Pi RPC 明确不支持 |
 | custom header/footer/component | 边界 | Pi RPC 明确不支持 component factory |
-| Remote TUI（实验） | 实验 | `PI_GROK_REMOTE_TUI` 默认开：**不改 Pi 源码**；npm/Node Pi 通过官方 `rpc-entry.js` 启动，因此仅检查 argv 的第三方 RPC guard 看不到外层 `--mode rpc`；最先注入的兼容扩展仅在 Remote TUI host 活跃时将 `ExtensionRunner` 暴露给扩展的 `ctx.mode` 从 `rpc` 投影为 `tui`。Pi core 与 JSONL transport 仍是真实 RPC。注入 `ctx.ui.custom` host + `setWidget` 帧投影；键经 tmp keyfile；Pager ANSI 解析。裸 `/login`/`/logout` 由 `pi-grok-auth` 默认开启（resume-x 风格）；更广的 `/pi-*` 选择器仍需 `PI_GROK_NATIVE_COMMANDS` |
+| Remote TUI（实验） | 实验 | `PI_GROK_REMOTE_TUI` 默认开：**不改 Pi 源码**；npm/Node Pi 通过官方 `rpc-entry.js` 启动，因此仅检查 argv 的第三方 RPC guard 看不到外层 `--mode rpc`；最先注入的兼容扩展仅在 Remote TUI host 活跃时将 `ExtensionRunner` 暴露给扩展的 `ctx.mode` 从 `rpc` 投影为 `tui`。Pi core 与 JSONL transport 仍是真实 RPC。注入 `ctx.ui.custom` host + `setWidget` 帧投影；键经 tmp keyfile；Pager ANSI 解析。裸 `/login`/`/logout` 由 `pi-grok-auth` 默认开启，使用 Pi ModelRuntime 与原生 QuestionView，独立于 Remote TUI；更广的 `/pi-*` 选择器仍需 `PI_GROK_NATIVE_COMMANDS` |
 | 原生 feature 包冲突 | 宿主策略 | 默认：`assets/native_feature_conflicts.toml`。运行时外挂（免 rebuild）：`$GROK_HOME/native-feature-conflicts.toml` → `$GROK_PROJECT_DIR/native-feature-conflicts.toml`（包列表 union）。由 `pi_ask_user_question` / `pi_goal` / `pi_workflows` / `pi_subagents` / `pi_btw` 的 F2/bridge 状态门控；关闭功能后重新放行其冲突包。用户 `allow` 可豁免。 |
 | `rpiv-btw` | 边界 | F2 `pi_btw` 开启时屏蔽；走原生 `/btw` + adapter `x.ai/btw` + `pi-grok-btw` 扩展（默认关） |
 
@@ -112,7 +112,7 @@
 
 ### 保留的 Grok 原生命令
 
-`exit`、`help`、`hotkeys`（别名 `shortcuts`/`keys`）、`tutorial`（别名 `tour`/`onboarding`）、`new`、`compact`、`model`、`effort`、`rename`、`resume`、`session-info`（别名 `session`）、`tree`、`tree-map`、`fork`、`clone`、`reload`、`notify`、`dashboard`、`recap`、`btw`、`copy`、`find`、`jump`、`review-session`、`review-message`、`transcript`、`export`、`expand`、`queue`、`multiline`、`compact-mode`、`vim-mode`、`theme`、`timestamps`、`timeline`、`toggle-mouse-reporting`、`voice`、`doctor`、`debug`、`pi-config`、`pi-models`、`pi-shortcut-manager`。各命令仍遵循自身 visibility/capability 门控。F2 `pi_btw` 开启时，Pi extension 另外提供直接、不调用模型的 `/btw-history`。
+`exit`、`help`、`hotkeys`（别名 `shortcuts`/`keys`）、`tutorial`（别名 `tour`/`onboarding`）、`new`、`compact`、`model`、`effort`、`rename`、`resume`、`session-info`（别名 `session`）、`tree`、`tree-map`、`fork`、`clone`、`reload`、`notify`、`dashboard`、`recap`、`btw`、`copy`、`find`、`jump`、`review-session`、`review-message`、`transcript`、`export`、`expand`、`queue`、`plan`、`plan-mode`、`view-plan`、`multiline`、`compact-mode`、`eval-display`、`vim-mode`、`theme`、`timestamps`、`timeline`、`toggle-mouse-reporting`、`voice`、`doctor`、`debug`、`pi-config`、`pi-models`、`pi-shortcut-manager`。各命令仍遵循自身 visibility/capability 门控。F2 `pi_btw` 开启时，Pi extension 另外提供直接、不调用模型的 `/btw-history`。
 
 ### 动态 Pi 命令
 
@@ -121,3 +121,7 @@ Pi 返回的 extension、Prompt Template 和 Skill 命令不硬编码在 Rust �
 ### 刻意排除
 
 stock Grok 产品或本地 session-store 命令——包括 Grok `/history`、Grok 账户 `/login`/`/logout`、`usage`、`plugins`、`mcp`、`memory`、`workspace`、`share`——均排除。同名 `/login`/`/logout` 可由 grok-pi 的 Pi auth extension 提供，此时认证的是 Pi 模型 Provider，而不是 Grok.com。原版 `/minimal`、`/fullscreen` re-exec 也不暴露；screen mode 应在启动时选择，以保留 Pi 进程参数。
+
+## 2026-10-03 Pi 1.0 适配状态
+
+Pi MCP 通过 F2 `pi_mcp` 显式 opt-in；Pi 拥有客户端、OAuth 和工具 exposure。Eval 正常工具路径使用 `ctx.executeTool`，Eval-only 通过 `prepareLoadout.hiddenDeclarations` 隐藏顶层声明、保留合法 callable tools；外部 Eval MCP 无工具上下文，暂保留其隔离兼容边界。取消补充 Pi `clear_queue`。登录/退出通过原生 QuestionView；Radius 全局 MCP 配置需产品内确认。Codemode 图片使用原生 gallery/viewer。实际安装 Pi + 本地 MCP 的 12 个 fixture 场景已通过，包括 abort、并发、后台任务与 new/switch/fresh load 后政策保持。7 个实际 Pi → ACP 场景覆盖 Eval、Codemode、child live/replay 与 auth signal/timeout/EOF 撤销。生产 Pi normal/build 图为 805 个唯一 package，stock agent/tools/workspace/MCP/sampler/Shell/plugin-marketplace runtime 均不可达。原生 PTY、源码冻结与真实账户/模型验收按证据层记录在 [VERIFICATION](VERIFICATION.md)。

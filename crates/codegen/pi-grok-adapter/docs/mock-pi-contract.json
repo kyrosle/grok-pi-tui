@@ -1,5 +1,11 @@
 {
   "passed": true,
+  "piContract": {
+    "kind": "installed_package",
+    "root": "/Users/kyros/.bun/install/global/node_modules/@earendil-works/pi-coding-agent",
+    "version": "1.0.0",
+    "rpcTypes": "/Users/kyros/.bun/install/global/node_modules/@earendil-works/pi-coding-agent/dist/modes/rpc/rpc-types.d.ts"
+  },
   "checks": {
     "mock_ui_methods": true,
     "mock_stream_events": true,

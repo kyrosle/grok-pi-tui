@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Prove that Pi is hosted by the uploaded Grok Build TUI, not a replacement TUI.
 
-The verifier intentionally checks architecture and source identity rather than
-visual strings. It verifies the complete uploaded Grok tree against a SHA-256
-baseline, allowing only declared ACP/state/dispatch seams, a library-only Pi
-adapter, and a second composition binary inside xai-grok-pager-bin.
+The verifier checks architecture and exact layered source identity. Original
+upstream Git blobs remain protected; committed integration deviations are
+frozen separately, and current-phase seams require exact file provenance.
+A Git merge or frozen integration snapshot is not semantic alignment proof.
 """
 from __future__ import annotations
 
@@ -12,9 +12,13 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from pi_contract_sources import load_pi_contract
 
 
 def sha256(path: Path) -> str:
@@ -30,12 +34,187 @@ def read(path: Path) -> str:
 
 
 def source_files(root: Path) -> set[str]:
-    output: set[str] = set()
-    for path in root.rglob("*"):
-        if not path.is_file() or "target" in path.parts or ".git" in path.parts:
-            continue
-        output.add(path.relative_to(root).as_posix())
-    return output
+    # Git defines source candidates; ignored dependencies and build artifacts
+    # are not native source. No native directory is exempted from identity checks.
+    candidates = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=root,
+    ).decode("utf-8").split("\0")
+    return {name for name in candidates if name and (root / name).is_file()}
+
+
+UPSTREAM_COMMIT = "37949780c144e37df692e3d669051a21fec24f20"
+INTEGRATION_COMMIT = "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+PHASE_MANIFEST_PATH = "crates/codegen/pi-grok-adapter/docs/grok_uploaded_baseline_sha256.json"
+PHASE_MANIFEST_HASH_MODE = "canonical-json-without-self-sha256"
+NATIVE_COMPONENT_PREFIXES = (
+    "crates/codegen/xai-grok-pager/",
+    "crates/codegen/xai-grok-pager-render/",
+    "crates/codegen/xai-grok-pager-minimal/",
+    "crates/codegen/xai-grok-pager-diff/",
+    "crates/codegen/xai-grok-markdown/",
+)
+
+
+def phase_sha256(root: Path, relative: str) -> str:
+    if relative != PHASE_MANIFEST_PATH:
+        return sha256(root / relative)
+    # The manifest cannot embed its own raw-byte SHA. Only this exact metadata
+    # path hashes canonical content, omitting its single self SHA field.
+    content = json.loads(read(root / relative))
+    content["phaseSeams"][relative].pop("sha256", None)
+    canonical = json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@lru_cache(maxsize=2)
+def git_source(root: Path, revision: str) -> tuple[str, dict[str, str]]:
+    """Hash source Git blobs, never accept working-tree bytes as a baseline."""
+    tree = subprocess.check_output(
+        ["git", "rev-parse", f"{revision}^{{tree}}"], cwd=root, text=True,
+    ).strip()
+    blobs: dict[str, str] = {}
+    for row in subprocess.check_output(["git", "ls-tree", "-rz", revision], cwd=root).split(b"\0"):
+        if row:
+            meta, path = row.split(b"\t", 1)
+            _mode, kind, oid = meta.decode().split()
+            if kind == "blob":
+                blobs[path.decode()] = oid
+    oids = sorted(set(blobs.values()))
+    result = subprocess.run(
+        ["git", "cat-file", "--batch"], cwd=root, check=True,
+        input=("\n".join(oids) + "\n").encode(), stdout=subprocess.PIPE,
+    ).stdout
+    hashes: dict[str, str] = {}
+    offset = 0
+    for oid in oids:
+        end = result.index(b"\n", offset)
+        actual, kind, size_text = result[offset:end].decode().split()
+        if (actual, kind) != (oid, "blob"):
+            raise ValueError(f"invalid Git blob response: {actual} {kind}")
+        size = int(size_text)
+        offset = end + 1
+        hashes[oid] = hashlib.sha256(result[offset:offset + size]).hexdigest()
+        offset += size + 1
+    return tree, {path: hashes[oid] for path, oid in blobs.items()}
+
+
+def verify_source_identity(
+    root: Path, manifest: dict[str, Any], renderer: dict[str, Any],
+) -> dict[str, Any]:
+    upstream_tree, upstream = git_source(root, UPSTREAM_COMMIT)
+    integration_tree, integration = git_source(root, INTEGRATION_COMMIT)
+    historical = manifest.get("historicalFiles", {})
+    phase = manifest.get("phaseSeams", {})
+    current = source_files(root)
+    baseline_errors: list[str] = []
+    declaration_errors: list[str] = []
+    identity_errors: list[str] = []
+    renderer_errors: list[str] = []
+    if manifest.get("schemaVersion") != 3:
+        baseline_errors.append("layered manifest schemaVersion must be 3")
+    if manifest.get("upstreamSource") != {
+        "commit": UPSTREAM_COMMIT,
+        "sourceRevision": "c4ea71cfdbcdb21e32e41bc25a0043d7d4836714",
+        "tree": upstream_tree,
+    }:
+        baseline_errors.append("upstream source commit/revision/tree mismatch")
+    if manifest.get("integrationSource") != {"commit": INTEGRATION_COMMIT, "tree": integration_tree}:
+        baseline_errors.append("frozen integration source commit/tree mismatch")
+    if manifest.get("baselineFiles") != upstream or manifest.get("baselineFileCount") != len(upstream):
+        baseline_errors.append("upstream file inventory/hashes differ from source Git blobs")
+
+    expected_historical = {
+        path: "added" if path not in upstream else "removed" if path not in integration else "modified"
+        for path in upstream.keys() | integration.keys()
+        if upstream.get(path) != integration.get(path)
+    }
+    if set(historical) != set(expected_historical):
+        declaration_errors.append(f"historical inventory mismatch: {sorted(set(historical) ^ set(expected_historical))}")
+    commit_reasons: dict[str, str] = {}
+    for path, item in historical.items():
+        commit = item.get("lastChangeCommit", "")
+        if commit not in commit_reasons and re.fullmatch(r"[0-9a-f]{40}", commit):
+            result = subprocess.run(
+                ["git", "show", "-s", "--format=%s", commit], cwd=root,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            commit_reasons[commit] = result.stdout.strip() if result.returncode == 0 else ""
+        if (item.get("kind") != expected_historical.get(path)
+            or item.get("sourceCommit") != INTEGRATION_COMMIT
+            or item.get("sha256") != integration.get(path)
+            or not item.get("reason")
+            or item.get("reason") != commit_reasons.get(commit)
+            or item.get("category") not in {"historical-native-carryover", "historical-integration"}
+            or not item.get("semanticReview")):
+            declaration_errors.append(f"invalid frozen source provenance: {path}")
+    for path, item in phase.items():
+        safe_path = Path(path)
+        if safe_path.is_absolute() or ".." in safe_path.parts or not item.get("reason") or not item.get("source"):
+            declaration_errors.append(f"invalid exact phase declaration: {path}")
+        elif not (root / item["source"]).is_file():
+            declaration_errors.append(f"missing phase provenance reference: {path}")
+        if "sha256" in item and not re.fullmatch(r"[0-9a-f]{64}", str(item["sha256"])):
+            declaration_errors.append(f"invalid reviewed phase hash: {path}")
+        hash_mode = item.get("hashMode")
+        if (hash_mode is not None and (path != PHASE_MANIFEST_PATH or hash_mode != PHASE_MANIFEST_HASH_MODE)
+            or path == PHASE_MANIFEST_PATH and "sha256" in item and hash_mode != PHASE_MANIFEST_HASH_MODE):
+            declaration_errors.append(f"invalid exact phase hash mode: {path}")
+    phase_commits = {
+        commit for item in phase.values()
+        for commit in item.get("sourceCommits", [item["sourceCommit"]] if item.get("sourceCommit") else [])
+    }
+    for commit in sorted(phase_commits):
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"], cwd=root,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        if result.returncode != 0:
+            declaration_errors.append(f"missing phase source commit: {commit}")
+    expected_modified = {p for p, kind in expected_historical.items() if kind == "modified"} | (phase.keys() & upstream.keys())
+    expected_added = {p for p, kind in expected_historical.items() if kind == "added"} | (phase.keys() - upstream.keys())
+    expected_removed = {p for p, kind in expected_historical.items() if kind == "removed"}
+    if (manifest.get("allowedAddedPrefixes") != []
+        or manifest.get("allowedModifiedFiles") != sorted(expected_modified)
+        or manifest.get("allowedAddedFiles") != sorted(expected_added)
+        or manifest.get("allowedRemovedFiles") != sorted(expected_removed)):
+        declaration_errors.append("exact additions/modifications/removals differ from source declarations, or directory exemption exists")
+    missing = (set(integration) | set(phase)) - current
+    extra = current - set(integration) - set(phase)
+    identity_errors.extend(f"missing source: {path}" for path in sorted(missing))
+    identity_errors.extend(f"undeclared addition: {path}" for path in sorted(extra))
+    identity_errors.extend(f"declared removal restored: {path}" for path in sorted(expected_removed & current))
+    for path in sorted(current & phase.keys()):
+        if "sha256" in phase[path] and phase_sha256(root, path) != phase[path]["sha256"]:
+            identity_errors.append(f"reviewed phase bytes changed: {path}")
+    for path in sorted(current & integration.keys() - phase.keys()):
+        if sha256(root / path) != integration[path]:
+            origin = "frozen integration" if path in historical else "protected upstream"
+            identity_errors.append(f"{origin} bytes changed without phase declaration: {path}")
+
+    native_upstream = {p: value for p, value in upstream.items() if p.startswith(NATIVE_COMPONENT_PREFIXES)}
+    if (renderer.get("schemaVersion") != 3 or renderer.get("sourceCommit") != UPSTREAM_COMMIT
+        or renderer.get("componentPrefixes") != list(NATIVE_COMPONENT_PREFIXES)
+        or renderer.get("files") != native_upstream or renderer.get("fileCount") != len(native_upstream)):
+        renderer_errors.append("complete native component inventory/hashes differ from source Git blobs")
+    renderer_errors.extend(error for error in identity_errors if any(prefix in error for prefix in NATIVE_COMPONENT_PREFIXES))
+    return {
+        "baselineErrors": baseline_errors,
+        "declarationErrors": declaration_errors,
+        "identityErrors": identity_errors,
+        "rendererErrors": renderer_errors,
+        "upstreamFileCount": len(upstream),
+        "upstreamExactFileCount": len(upstream.keys() & integration.keys() - historical.keys() - phase.keys()),
+        "frozenIntegrationFileCount": len(integration),
+        "historicalModifiedFileCount": sum(kind == "modified" for kind in expected_historical.values()),
+        "historicalAddedFileCount": sum(kind == "added" for kind in expected_historical.values()),
+        "historicalRemovedFileCount": len(expected_removed),
+        "historicalNativeCarryovers": sorted(p for p, item in historical.items() if item.get("category") == "historical-native-carryover"),
+        "semanticReviewRequired": sorted(p for p, item in historical.items() if item.get("semanticReview") == "provenance-only"),
+        "phaseSeamCount": len(phase),
+        "unfrozenPhaseSeams": sorted(p for p, item in phase.items() if "sha256" not in item),
+        "protectedNativeFileCount": len(native_upstream),
+    }
 
 
 def main() -> int:
@@ -65,9 +244,16 @@ def main() -> int:
     adapter_cargo = read(adapter / "Cargo.toml")
     bin_cargo = read(pager_bin / "Cargo.toml")
     adapter_sources = "\n".join(
-        read(path) for path in sorted((adapter / "src").glob("*.rs"))
+        read(path) for path in sorted((adapter / "src").rglob("*.rs"))
     )
-    bin_source = read(native_bin) if native_bin.exists() else ""
+    bin_paths = [native_bin, *sorted((native_bin.parent / "grok_pi").rglob("*.rs"))]
+    # This exact, cfg(test)-gated module renders native components to a Buffer.
+    # Source identity still covers it; it is not production composition code.
+    model_tests = native_bin.parent / "grok_pi/model_manager_tests.rs"
+    test_gate = '#[cfg(test)]\n#[path = "grok_pi/model_manager_tests.rs"]\nmod model_manager_tests;'
+    if native_bin.exists() and test_gate in read(native_bin):
+        bin_paths.remove(model_tests)
+    bin_source = "\n".join(read(path) for path in bin_paths if path.exists())
     pager_app_source = read(pager / "src/app/mod.rs")
 
     check(
@@ -188,181 +374,37 @@ def main() -> int:
         else f"missing native components: {missing_components}",
     )
 
-    # Full uploaded-tree identity check. This is stronger than checking only a
-    # hand-picked renderer directory: every uploaded Grok file outside the
-    # declared integration seams must remain byte-identical.
-    baseline_manifest_path = docs / "grok_uploaded_baseline_sha256.json"
-    baseline_manifest = json.loads(read(baseline_manifest_path))
-    baseline_files: dict[str, str] = baseline_manifest["baselineFiles"]
-    allowed_modified = set(baseline_manifest["allowedModifiedFiles"])
-    allowed_added_files = set(baseline_manifest["allowedAddedFiles"])
-    allowed_added_prefixes = tuple(baseline_manifest["allowedAddedPrefixes"])
-    current_files = source_files(ws)
-    baseline_set = set(baseline_files)
-
-    missing_baseline = sorted(baseline_set - current_files)
-    hash_mismatches: list[str] = []
-    for rel, expected in baseline_files.items():
-        if rel in allowed_modified or rel not in current_files:
-            continue
-        if sha256(ws / rel) != expected:
-            hash_mismatches.append(rel)
-    extras = sorted(
-        rel
-        for rel in current_files - baseline_set
-        if rel not in allowed_added_files
-        and not any(rel.startswith(prefix) for prefix in allowed_added_prefixes)
-    )
-    unchanged_count = len(baseline_files) - len(allowed_modified)
-    check(
-        "uploaded_grok_tree_is_byte_identical_outside_declared_seams",
-        not missing_baseline and not hash_mismatches and not extras,
-        f"{unchanged_count} uploaded Grok files are SHA-256 identical; only {len(allowed_modified)} declared semantic/manifest seams may differ"
-        if not missing_baseline and not hash_mismatches and not extras
-        else (
-            f"missing={missing_baseline[:10]}; mismatched={hash_mismatches[:10]}; "
-            f"unexpected additions={extras[:10]}"
-        ),
-    )
-
-    # Focused renderer manifest gives reviewers a compact list of the actual
-    # TUI, input, slash, scrollback, minimal and Markdown files.
+    baseline_manifest = json.loads(read(docs / "grok_uploaded_baseline_sha256.json"))
     renderer_manifest = json.loads(read(docs / "native_renderer_sha256.json"))
-    renderer_declared_modified = {
-        # Remote TUI overlay visibility yields to native Pi dialogs; no renderer replacement.
-        "crates/codegen/xai-grok-pager/src/app/agent_view/render.rs",
-        # EditTool hook/viewer seam: delegates to the sibling layout renderer
-        # while retaining the native unified renderer and patch-copy behavior.
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/edit.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/mod.rs",
-        "crates/codegen/xai-grok-pager/src/views/block_viewer.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/block.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/state/mod.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/wrappers/entry_renderer.rs",
-        # Product-copy seam only: the upstream tutorial modal/state/input remain
-        # native while external compositions select their own static topics.
-        "crates/codegen/xai-grok-pager/src/views/tutorial.rs",
-    }
-    renderer_declared_added = {
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/side_by_side_edit.rs",
-        # Pi codemode card: a Pi-owned tool presentation rendered with the
-        # native tool-block machinery; lives in its own added source file.
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/codemode.rs",
-    }
-    renderer_declared_seams = renderer_declared_modified | renderer_declared_added
-    renderer_mismatches = [
-        rel
-        for rel, expected in renderer_manifest["files"].items()
-        if rel not in renderer_declared_seams
-        and (not (ws / rel).exists() or sha256(ws / rel) != expected)
-    ]
-    renderer_seams_declared = (
-        renderer_declared_modified <= allowed_modified
-        and renderer_declared_added <= allowed_added_files
+    identity = verify_source_identity(ws, baseline_manifest, renderer_manifest)
+    check(
+        "upstream_source_manifest_matches_git_blobs",
+        not identity["baselineErrors"],
+        f"complete {identity['upstreamFileCount']}-file original upstream Git inventory and source commit/tree are exact",
+        identity["baselineErrors"],
     )
     check(
-        "message_animation_renderer_seams_are_declared",
-        renderer_seams_declared,
-        f"{len(renderer_declared_modified)} modified and {len(renderer_declared_added)} added native renderer/state seams are declared"
-        if renderer_seams_declared
-        else (
-            f"missing modified seams: {sorted(renderer_declared_modified - allowed_modified)}; "
-            f"missing added seams: {sorted(renderer_declared_added - allowed_added_files)}"
-        ),
+        "frozen_integration_and_phase_source_identity_are_exact",
+        not identity["identityErrors"],
+        f"{identity['upstreamExactFileCount']} protected files retain original upstream bytes; "
+        f"{identity['historicalModifiedFileCount']} committed modifications, {identity['historicalAddedFileCount']} additions "
+        f"and {identity['historicalRemovedFileCount']} removals are frozen to {INTEGRATION_COMMIT[:8]}; "
+        f"{identity['phaseSeamCount']} current-phase files are explicitly declared, not hashed as a new source baseline",
+        identity["identityErrors"],
     )
-    unchanged_renderer_count = renderer_manifest["fileCount"] - len(renderer_declared_seams)
     check(
-        "native_renderer_input_markdown_hashes_match_outside_declared_seams",
-        not renderer_mismatches,
-        f"{unchanged_renderer_count} native renderer/input/Markdown files match the uploaded Grok source; "
-        f"{len(renderer_declared_seams)} narrow semantic seams are declared separately"
-        if not renderer_mismatches
-        else f"renderer mismatches: {renderer_mismatches[:20]}",
+        "native_renderer_inventory_and_layered_identity_are_exact",
+        not identity["rendererErrors"],
+        f"all {identity['protectedNativeFileCount']} original Pager/Render/Minimal/Diff/Markdown files are covered; "
+        "declared historical carryovers and current-phase seams are separate from upstream identity",
+        identity["rendererErrors"],
     )
-
-    # Verify the files allowed to differ really are a narrow integration seam,
-    # not a hidden second UI package.
-    expected_modified = {
-        "crates/codegen/xai-grok-pager/src/app/agent_view/render.rs",
-        "Cargo.lock",
-        "Cargo.toml",
-        "crates/codegen/xai-grok-pager-bin/Cargo.toml",
-        "crates/codegen/xai-grok-pager/Cargo.toml",
-        "crates/codegen/xai-grok-pager/src/acp/mod.rs",
-        "crates/codegen/xai-grok-pager/src/acp/tracker.rs",
-        "crates/codegen/xai-grok-pager/src/app/actions.rs",
-        "crates/codegen/xai-grok-pager/src/app/acp_handler/interactions.rs",
-        "crates/codegen/xai-grok-pager/src/app/acp_handler/mod.rs",
-        "crates/codegen/xai-grok-pager/src/app/app_view.rs",
-        "crates/codegen/xai-grok-pager/src/app/agent_view/panes.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/mod.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/prompt.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/queue.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/session/load.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/session/mod.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/status.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/router.rs",
-        "crates/codegen/xai-grok-pager/src/app/modals.rs",
-        "crates/codegen/xai-grok-pager/src/lib.rs",
-        "crates/codegen/xai-grok-pager-minimal/src/welcome.rs",
-        "crates/codegen/xai-grok-pager/src/settings/defs.rs",
-        "crates/codegen/xai-grok-pager/src/views/modal.rs",
-        "crates/codegen/xai-grok-pager/src/views/mod.rs",
-        "crates/codegen/xai-grok-pager/src/views/settings_modal/input.rs",
-        "crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs",
-        "crates/codegen/xai-grok-pager/src/views/session_picker.rs",
-        "crates/codegen/xai-grok-pager/src/views/picker.rs",
-        "crates/codegen/xai-grok-pager/src/views/agent_status.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/settings/setters.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/task_result.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/tests/prompt.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/tests/router.rs",
-        "crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs",
-        "crates/codegen/xai-grok-pager/src/app/effects/helpers.rs",
-        "crates/codegen/xai-grok-pager/src/app/effects/mod.rs",
-        "crates/codegen/xai-grok-pager/src/app/effects/tests.rs",
-        "crates/codegen/xai-grok-pager/src/app/event_loop.rs",
-        "crates/codegen/xai-grok-pager/src/app/foreign_sessions.rs",
-        "crates/codegen/xai-grok-pager/src/app/mod.rs",
-        "crates/codegen/xai-grok-pager/src/slash/acp_command.rs",
-        "crates/codegen/xai-grok-pager/src/slash/command.rs",
-        "crates/codegen/xai-grok-pager/src/slash/commands/mod.rs",
-        "crates/codegen/xai-grok-pager/src/slash/commands/tutorial.rs",
-        "crates/codegen/xai-grok-pager/src/slash/mod.rs",
-        # Tutorial product-copy seam: stock Grok retains the default profile;
-        # grok-pi supplies only static title/description/topics while reusing UI.
-        "crates/codegen/xai-grok-pager/src/tutorial_docs.rs",
-        "crates/codegen/xai-grok-pager/src/views/tutorial.rs",
-        # Native message chrome policy: user and agent message bodies may stream,
-        # but their left accent remains static and does not drive animation ticks.
-        "crates/codegen/xai-grok-pager/src/scrollback/block.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/state/mod.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/wrappers/entry_renderer.rs",
-        # Native EditTool hook/viewer seam. The optional parallel layout lives
-        # in an explicitly allowed sibling source file, not inside edit.rs.
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/edit.rs",
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/mod.rs",
-        "crates/codegen/xai-grok-pager/src/views/block_viewer.rs",
-        "crates/codegen/xai-grok-pager/src/settings/registry.rs",
-        "crates/codegen/xai-grok-pager-render/src/appearance/cache.rs",
-        # Narrow branding seam: process-wide logo override for external hosts
-        # (e.g. grok-pi π art). Layout/shimmer still use the native renderer.
-        "crates/codegen/xai-grok-pager/src/scrollback/blocks/context_info.rs",
-        "crates/codegen/xai-grok-pager/src/views/welcome/logo.rs",
-        # Welcome menu policy for external hosts: hide New worktree, Changelog URL.
-        "crates/codegen/xai-grok-pager/src/views/welcome/mod.rs",
-        # grok-pi update discovery entry (GitHub releases → npm mirrors).
-        "crates/codegen/xai-grok-update/src/lib.rs",
-    }
     check(
-        "modified_surface_is_exact_and_semantic",
-        allowed_modified == expected_modified,
-        f"exactly {len(expected_modified)} workspace/ACP/state/dispatch/slash/tutorial/logo/message-animation seams are declared; no second TUI or broad renderer rewrite"
-        if allowed_modified == expected_modified
-        else f"declared seam mismatch: {sorted(allowed_modified ^ expected_modified)}",
+        "declared_source_surface_is_exact_and_has_provenance",
+        not identity["declarationErrors"],
+        "every historical deviation and phase seam has exact file-level source/reason metadata; no directory exemptions; "
+        "frozen native history proves provenance, with semantic review reported separately",
+        identity["declarationErrors"],
     )
 
     all_rs = "\n".join(
@@ -398,31 +440,50 @@ def main() -> int:
     expected_builtins = [
         "exit",
         "help",
+        "hotkeys",
+        "tutorial",
         "new",
         "compact",
         "model",
         "effort",
         "rename",
         "resume",
+        "session-info",
         "tree",
+        "tree-map",
+        "fork",
+        "clone",
+        "reload",
         "notify",
         "dashboard",
         "recap",
+        "btw",
         "copy",
         "find",
+        "jump",
+        "review-session",
+        "review-message",
         "transcript",
         "export",
         "expand",
         "queue",
+        "plan",
+        "plan-mode",
+        "view-plan",
         "multiline",
         "compact-mode",
+        "eval-display",
         "vim-mode",
         "theme",
         "timestamps",
         "timeline",
         "toggle-mouse-reporting",
+        "voice",
+        "doctor",
+        "debug",
         "pi-config",
         "pi-models",
+        "pi-shortcut-manager",
     ]
     # Product/session-store commands must not leak into the Pi composition.
     # Pi extension/prompt/skill commands arrive dynamically over get_commands.
@@ -431,7 +492,6 @@ def main() -> int:
         "diagnostics",
         "capabilities",
         "stats",
-        "fork",
         "history",
         "login",
         "logout",
@@ -441,8 +501,6 @@ def main() -> int:
         "memory",
         "workspace",
         "share",
-        "voice",
-        "debug",
     ]
     local_command_hits = [name for name in forbidden_local_commands if name in builtins]
     check(
@@ -457,12 +515,11 @@ def main() -> int:
         "pi_commands_are_dynamic_acp_commands",
         '"type": "get_commands"' in adapter_sources
         and "AvailableCommandsUpdate" in adapter_sources
-        and "command_catalog(&self.commands)" in adapter_sources,
+        and "command_catalog(&self.commands, workflows_enabled)" in adapter_sources,
         "Pi extension/prompt/skill commands are discovered from get_commands and merged by Grok's native ACP slash registry",
     )
 
-    rpc_types = pi / "packages/coding-agent/src/modes/rpc/rpc-types.ts"
-    rpc_text = read(rpc_types) if rpc_types.exists() else ""
+    pi_identity, rpc_text, agent_session_text, pi_event_corpus = load_pi_contract(pi)
     command_section = rpc_text.split("// RPC Responses", 1)[0]
     pi_command_tokens = set(re.findall(r'type:\s*"([a-zA-Z0-9_]+)"', command_section))
     adapter_command_tokens = {
@@ -470,6 +527,8 @@ def main() -> int:
         "get_available_models",
         "get_commands",
         "get_messages",
+        "get_entries",
+        "clear_queue",
         "prompt",
         "abort",
         "abort_bash",
@@ -484,7 +543,7 @@ def main() -> int:
     check(
         "adapter_rpc_calls_exist_in_uploaded_pi",
         not missing_rpc_commands,
-        f"validated {len(adapter_command_tokens)} adapter RPC calls against Pi rpc-types.ts"
+        f"validated {len(adapter_command_tokens)} adapter RPC calls against Pi {pi_identity['version']} {pi_identity['kind']}"
         if not missing_rpc_commands
         else f"missing Pi RPC commands: {missing_rpc_commands}",
     )
@@ -573,17 +632,10 @@ def main() -> int:
         else f"missing event routes: {missing_event_routes}",
     )
 
-    agent_session_source = pi / "packages/coding-agent/src/core/agent-session.ts"
-    agent_session_text = read(agent_session_source) if agent_session_source.exists() else ""
     # Most stream/tool lifecycle events come from AgentEvent, while Pi-specific
     # queue/compaction/retry state is declared in AgentSessionEvent. Validate the
     # Pi-specific set directly and validate the remaining event strings across
     # the uploaded Pi coding-agent source tree.
-    pi_event_corpus = "\n".join(
-        read(path)
-        for path in (pi / "packages/coding-agent/src").rglob("*.ts")
-        if path.is_file()
-    )
     missing_pi_event_contract = sorted(
         token for token in event_tokens if f'"{token}"' not in pi_event_corpus
     )
@@ -664,6 +716,8 @@ def main() -> int:
         "passed": passed,
         "workspace": str(ws),
         "piSource": str(pi),
+        "piContract": pi_identity,
+        "sourceIdentity": identity,
         "checks": checks,
     }
     out = args.json_out or docs / "native-grok-verification.json"

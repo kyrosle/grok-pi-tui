@@ -1,9 +1,9 @@
 ---
 id: "2026-10-02-pi-first-tui-plan"
 title: "Grok 原生 TUI 与 Pi 1.0 适配实施 Plan"
-status: "in-progress"
+status: "completed"
 created: "2026-10-02"
-updated: "2026-10-02"
+updated: "2026-10-03"
 category: "architecture"
 ---
 
@@ -15,13 +15,13 @@ category: "architecture"
 
 | 阶段 | 工作 | 验收与状态 |
 |---|---|---|
-| P0 | 修复 E0425；统一 Pi 1.0 基线；记录现状与准确 repo 路径；恢复相关测试入口 | 已完成构建基线：adapter 193 / bin 96 tests、check、build PASS；全量 verifier 的剩余 identity 失败归 P6 |
-| P1 | 迁移 Eval v2 到官方嵌套执行；保留结果、并发、background 与 native task/replay 语义 | 已完成并提交：生产 Eval 回归及实际 Pi/MCP 8 场景通过；正常路径使用官方 executeTool，显式外部 Eval MCP 兼容边界保留 |
+| P0 | 修复 E0425；统一 Pi 1.0 基线；记录现状与准确 repo 路径；恢复相关测试入口 | 已完成：adapter196/bin96，isolated Pi与stock check、真正build及组合verify均PASS；起点失败与修复历史保留 |
+| P1 | 迁移 Eval v2 到官方嵌套执行；保留结果、并发、background 与 native task/replay 语义 | 已完成并提交：生产 Eval 回归及实际 Pi/MCP 12 场景通过；正常路径使用官方 executeTool，显式外部 Eval MCP 兼容边界保留 |
 | P2 | 接入 Pi MCP opt-in、callable/exposure/CLI 约束、Eval-only；完善 `clear_queue` 取消 | 已完成并提交：实际本地 MCP 8 场景、clear_queue 回归、bin manifest/injector 检查通过，默认关闭 |
-| P3 | Codemode 图片原生呈现；Pi 鉴权原生对话框与新登录语义；收敛核心 Remote TUI 耦合 | 集成收尾：鉴权已提交；实际 Pi→ACP live/replay、auth scope 检查通过；Codemode 原生图片按钮修复待重建/PTY |
-| P4 | config/manifest/UI DTO 和 Workflow 契约迁移；逐项隔离 stock runtime；用依赖图证明实际裁剪 | 进行中：中性契约/Workflow 已提交，adapter 231 packages 且无 stock runtime；composition 残边和最终 Pi/stock profile 检查待完成 |
-| P5 | 记录 7 个上游 commit 的 Changes；按终端、输入/剪贴板、图像、minimal/Markdown 等 TUI 功能组选择性吸收 | 已记录并选择性落代码：输入/显示/link 通过；terminal/clipboard/repaint 联动组定向验收、阶段提交待完成 |
-| P6 | 修复 verifier 的递归模块/实际 Pi 契约/声明源码接缝；清理确认不可达成员；同步产品文档与验收证据 | 收尾中：精确分层 source/tamper 检查通过检查点；最终源码冻结、Pager 测试目标、生产 profile 构建/文档待完成 |
+| P3 | Codemode 图片原生呈现；Pi 鉴权原生对话框与新登录语义；收敛核心 Remote TUI 耦合 | 实际安装 Pi→ACP 7 场景、auth5/26、SDK child/replay/crash recovery、native child open-close 与 Codemode image/hitrect 通过；fresh build与正式9场景PTY全部通过，synthetic provider/原生UI证明不代替真实OAuth/模型 |
+| P4 | config/manifest/UI DTO 和 Workflow 契约迁移；逐项隔离 stock runtime；用依赖图证明实际裁剪 | 中性契约/Workflow已提交；production composition normal/build 图805 packages、七个禁止stock runtime均不可达；Pi/stock checks和isolated bin96通过，真正build退出0：83.008s incremental dev、184086200B，artifact证据见日志 |
+| P5 | 记录 7 个上游 commit 的 Changes；按终端、输入/剪贴板、图像、minimal/Markdown 等 TUI 功能组选择性吸收 | 7个Changes列表已记录；完整terminal/clipboard/repaint/Inline/Swift/Mermaid组已导入且定向检查通过；Minimal no-default full lib96通过；正式fresh PTY resize通过，余真人跨终端体验独立待验收 |
+| P6 | 修复 verifier 的递归模块/实际 Pi 契约/声明源码接缝；清理确认不可达成员；同步产品文档与验收证据 | 已完成：sourceguard21/21、664phase全pin、negative guards、Rustfmt1649、mock7/33lines、组合verify全PASS；仅inventory自身canonical内容身份，其余完整字节SHA；文档与既有验证入口已同步 |
 
 阶段可以因真实依赖顺序交错，不能跳过完成要求或把失败标记为通过。每次完成阶段后在下方记录实际结果；保留原始失败和其修复说明。
 
@@ -139,3 +139,26 @@ category: "architecture"
 - 隔离系统 Pi + production Subagents extension 复现旧 child `createAgentSession` 未继承父 provider 注册，报 `No API key found for pi-child-fixture`。使用官方 `ModelRuntime.create` 和公开注册 getter 继承 provider，显式传入 SDK；未新增 runtime 层或修改 injector/Pi core。
 - `pi_subagent_sdk_smoke.py` 退出 0：live UDS 4 messages 与 official load replay 5 messages 都有同一实际 child body。13 个已有 Runtime source unit tests 通过；该条证据尚不等于 ACP/native open-close 验收，其新 fixture 继续排队。
 - 另外完成 ConfigTypes 66 tests、Shared 312 tests；共享配置保完整 15 字段和真实双锁/原子写入，独立 child fixture 验证缓存隔离及硬 IO/语法错误。真实 no-stock profile 诊断从 629 降到 60（含级联），剩余 stock/profile 接缝仍在修复，未标整体完成。
+
+### 2026-10-03：最终证据审计与 native 联动组
+
+- 当前生产 normal/build 图805个唯一package（包括根），agent/tools/workspace/MCP/sampler/Shell/plugin-marketplace均不可达；isolated Pi与stock默认profile检查均退出0。最新no-stock grok-pi入口96 tests通过。初始composition1013与当前805使用同一计数方式；包数不转换为耗时/体积收益，最终重建产物另记。
+- Actual Pi RPC扩展为12场景：原8个Eval/MCP场景加abort、max4并行/max1串行、background结果、new/switch/fresh load后政策保持。实际Subagent SDK证明root注册provider继承、live/replay、host crash orphan取消与重复recovery去重；ACP循环实际7场景，旧“4 cases”输出已修正。
+- Native child card/view open-close、Codemode image live/replay/cache/Open Image hit rectangle通过定向回归。Fresh PTY使用同一重建binary，隔离Grok/Pi目录、去掉凭据变量并禁用contextual pasteboard hints；Eval/Codemode/auth retraction/Minimal resize/F2保存与失败rollback仍等最终运行结果。
+- 上游完整native组通过检查点：Render1215、Markdown496、MermaidSVG85、SVG→PNG8；reader3、restore3、fence1、clipboard4、image repaint1、modified Enter1，Inline67。后续Resetforeground root fix与Minimal并发theme fixture修复触发对应suite重跑；该检查点不代替新源码结果。
+- 来源清单保留3797ancestor blobs、4479frozen integration files与830native-component祖先文件，不重新hash这两层。当前phase按精确文件记录；verify.sh、Minimal panel fixture、Render theme/color修复均有各自reason/source，未扩大目录allowlist。因清单包含自身，仅这个精确JSON使用去掉自身sha字段后的canonical内容hash，其余文件必须完整字节SHA；protected byte、覆盖/provenance、自内容与自sha负例通过。
+- 文档双语命令清单补齐实际46个native命令中的plan/plan-mode/view-plan/eval-display；README MCP的planned旧说明修正为Pi1.0默认关闭、显式F2启用与官方nested执行。历史记录完整保留；当前证据与未验收边界在VERIFICATION顶部自包含。
+
+- P5对应新源码最终重跑：Render1216和Minimal no-default full lib96 tests退出0。Resetforeground保持unknown，RGB/Indexed与synthetic Reset base原波纹行为不变；Minimal两项严格semantic-copy问题是并发global-theme污染，使用既有pin_theme定点fixture后完整suite通过，未放宽assert。
+
+- 真正生产`./build.sh`退出0，83.008s incremental dev；binary184086200B，sha256=`f81b4e47124da5884c81df4ca32943e302bb9be080088d86c5db1f76a598e9cd`。起点stock-feature debug snapshot213136168B，本地快照差29049968B；没有受控cold-build前后耗时，不声称速度收益。Fresh9场景PTY继续，最终报告路径`/tmp/grok-pi-native-pty-complete-20261003`。
+
+- 正式SOURCE FREEZE由唯一runner于production/Rust/extension/fixture检查完成后声明。`/tmp/grok-pi-native-pty-complete-20261003/report.json`正式9场景全部PASS且nativeExit0，binary前后sha=f81b4e…一致。Eval/Codemode/Minimal读实际execute trace各一次；Minimal120→64→120无重复已提交历史；F2经/new进active view，搜索逐键且严格选中目标row，save/reopen/freshprocess/真实permission-failure toast与原bytes/rollback重开确认均通过。旧fixture失败保留，未忽略Tool not found、Welcome生命周期或静态row假阳性。
+
+### 2026-10-03：P0–P6 自动验收与组合入口完成
+
+- 最终组合 `CARGO_MAINTENANCE=0 ./verify.sh` 实际退出0，末尾 `All verification passed.`；日志 `/tmp/grok-pi-verify-entry-final-20261003.log`。这次包含两profile、graph805/forbidden7=[]、adapter196、isolated bin96、原生command-filter/compact与source/mock/syntax，没有用分项通过推断组合通过。
+- Frozen sourceguard21/21；3797完整祖先、4479frozen integration、830native inventory保持，3147 protected ancestor files exact。全部664phase已固定身份，四errors数组与unfrozenPhaseSeams均空。negative protected bytes/coverage/provenance/currentphase/self-content/self-SHA退出0；Rustfmt1649无failure；mock7checks/33lines、mockexit0且stderr空。
+- `./build.sh`产物对应本地阶段提交前的frozen source（`HEAD=a2644524`，dirty working tree stamp），并在正式9场景PTY前后验证同一f81b4e…SHA。后续阶段本地commit只记录这份已验源码，不把commit变化当成binary重建证明。
+- 最后仅文档显式解冻：当前页pending改实际PASS，补齐exact字段/命令/组来源/组合入口与未验收边界；production、extension与fixture保持冻结。逐文档审阅后仅更新其sha和inventory canonical self sha，再运行sourceguard与negative验证。机器汇总留在既有ignored `verification-logs/pi-first-final-proof-20261003.json`。
+- FR01–11实施与本地自动验收完成；本次仍是选择性native TUI吸收，不是完整上游sync，SOURCE_REV/base不变。真实模型推理、真实Anthropic/Radius/MCP OAuth与浏览器、真实STT/OS clipboard/图像协议、多终端和真人体验仍是独立待验收层，不将fixture、compile或sourceguard成功外推。

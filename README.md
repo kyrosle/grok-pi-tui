@@ -1,4 +1,13 @@
 <img width="1920" height="981" alt="file-79543f229c432ee6b8b1b7c402a9851b" src="https://github.com/user-attachments/assets/27ff0124-c1e1-4948-8c2c-9880e6a38732" />
+
+Current architecture: **Grok supplies the native TUI; Pi 1.0 owns agent behavior**.
+The ongoing local adaptation and selective upstream imports are tracked in
+[the SPEC](docs/issues/架构/20261002-pi-first-tui-SPEC.md),
+[PLAN](docs/issues/架构/20261002-pi-first-tui-PLAN.md) and
+[verification report](docs/VERIFICATION.md). The production Pi profile now excludes the seven stock agent/runtime packages
+from its normal/build graph; final build, native PTY and frozen-source evidence
+are recorded separately. These imports remain a selective TUI update.
+
 <img width="1042" height="888" alt="file-78b1898685afe0e47d0cee01e9efcc62" src="https://github.com/user-attachments/assets/83abc999-08fe-459e-ab06-935eeb0780e6" />
 
 # grok-pi — Remote TUI bridge for Pi and Grok Build
@@ -52,7 +61,7 @@ grok-pi --help   # original name
 pi-grok --help   # alias
 ```
 
-`grok-pi` requires [Pi](https://pi.dev) **0.99.0 or newer** (system `pi` / pi.dev installer):
+`grok-pi` requires [Pi](https://pi.dev) **1.0.0 or newer** (system `pi` / pi.dev installer):
 
 ```bash
 # recommended
@@ -151,7 +160,7 @@ Bundled bridge extensions are enabled by default where stable. Experimental nati
 | Variable | Default | Purpose |
 |---|---:|---|
 | `PI_GROK_REMOTE_TUI` | `1` | Enable Pi `ctx.ui.custom` components |
-| `PI_GROK_BASH` | `1` | Enable Grok-owned Bash integration |
+| `PI_GROK_BASH` | `1` | Enable the bundled Pi Bash integration |
 | `PI_GROK_NATIVE_COMMANDS` | `0` | Enable experimental `/pi-*` commands |
 | `PI_GROK_SUBAGENTS_V2` | `0` | Enable optional V2 team tools (`spawn_team`, stable agent paths, peer messaging, nested spawn) on top of Pi subagents |
 | `GROK_HOME` | `~/.grok-pi` | User state root (isolated from stock Grok `~/.grok`) |
@@ -213,7 +222,7 @@ See [VERIFICATION.md](docs/VERIFICATION.md) for the distinction between static c
 ## Documentation
 
 - [Feature matrix](docs/FEATURE_MATRIX.md) — supported behavior and intentional boundaries
-- [Eval v2 / Pi Codemode / MCP plan](docs/issues/adapter/20260930-Eval%20v2%20学习%20Pi%20Codemode%20并复用%20MCP.md) — planned tool-registry reuse and runtime boundaries
+- [Eval v2 / Pi Codemode / MCP plan](docs/issues/adapter/20260930-Eval%20v2%20学习%20Pi%20Codemode%20并复用%20MCP.md) — official nested execution, opt-in Pi MCP and runtime boundaries
 - [Subagents V2 guide](docs/usage/subagents-v2.md) — opt-in team collaboration, stable paths, presets, queue semantics, rollback, and troubleshooting
 - [Architecture alignment](docs/NATIVE_GROK_TUI_ALIGNMENT.md) — component ownership, protocol mapping, and migration guidance
 - [Verification record](docs/VERIFICATION.md) — completed checks and known environment blockers
@@ -258,7 +267,7 @@ pi_eval_v2_display_mode = "effects" # "effects" (default) or "legacy"
 
 Use `pi_eval = "v1"` (or omit the key) for legacy Eval. Eval v1 keeps persistent Python and JavaScript kernels; Eval Bridge v2 uses isolated cells with explicit `store/load` persistence and the selected language set. Because `pi_eval` is a single version selector, v1 and v2 cannot run concurrently. `pi_eval` and `pi_eval_v2_language` are restart-required.
 
-Pi Codemode is now available as an opt-in F2 built-in tool and loads Pi's official `builtin:codemode` extension only when selected. Eval v2's outbound MCP integration is still planned: it will reuse Pi's official MCP extension and tool registry, without adding a second MCP client to the Eval Worker or replacing Eval's Node/Python runtime. Pi MCP remains disabled by default under grok-pi's explicit extension allowlist. See the [implementation plan](docs/issues/adapter/20260930-Eval%20v2%20学习%20Pi%20Codemode%20并复用%20MCP.md).
+Pi Codemode is an opt-in F2 built-in tool loading Pi's official `builtin:codemode` extension. F2 **Pi MCP** (`pi_mcp`, default off) enables Pi 1.0's built-in MCP and retains Pi trust, resource allowlists, exposure and CLI exclusions. Normal Eval v2 calls use official `ctx.executeTool()`; `await tools.waitFor(pattern, timeout_ms)` observes the public callable registry while servers connect. Pi owns MCP connections, OAuth, registration and permissions. Eval-only hides other top-level declarations with `prepareLoadout.hiddenDeclarations` while keeping allowed tools callable. The separately enabled external Eval MCP facade has no assistant-issued tool context and retains its isolated compatibility path. See the [Pi-first verification](docs/VERIFICATION.md).
 
 `pi_eval_v2_display_mode` is presentation-only and applies immediately: `effects` keeps Eval v2 orchestration source out of the normal transcript and presents its effects/results, while `legacy` restores source + result rendering. Change it from **F2 → Agent → Eval v2 display**, edit `[ui].pi_eval_v2_display_mode`, or use `/eval-display [effects|legacy]`; `/eval-display` with no argument toggles the current mode. The selected mode is persisted for future sessions.
 

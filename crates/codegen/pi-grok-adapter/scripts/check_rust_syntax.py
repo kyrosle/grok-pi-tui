@@ -1,29 +1,11 @@
 #!/usr/bin/env python3
-"""Parse every Pi integration Rust seam with tree-sitter-rust."""
+"""Parse every Pi integration Rust seam with the repository Rust toolchain."""
 from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
-
-from tree_sitter import Language, Parser
-import tree_sitter_rust
-
-
-def collect_error_nodes(node, output: list[dict[str, object]]) -> None:
-    if node.is_error or node.is_missing:
-        output.append(
-            {
-                "kind": node.type,
-                "start": [node.start_point.row + 1, node.start_point.column + 1],
-                "end": [node.end_point.row + 1, node.end_point.column + 1],
-                "missing": node.is_missing,
-                "error": node.is_error,
-            }
-        )
-    for child in node.children:
-        collect_error_nodes(child, output)
-
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -42,10 +24,13 @@ def main() -> int:
         for rel in manifest["allowedModifiedFiles"] + manifest["allowedAddedFiles"]
         if rel.endswith(".rs")
     }
-    paths.update((adapter / "src").glob("*.rs"))
-
-    language = Language(tree_sitter_rust.language())
-    rust_parser = Parser(language)
+    for path in list(paths):
+        module_dir = path.parent if path.name == "mod.rs" else path.with_suffix("")
+        if module_dir.is_dir():
+            paths.update(module_dir.rglob("*.rs"))
+    paths.update((adapter / "src").rglob("*.rs"))
+    paths.update((workspace / "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi").rglob("*.rs"))
+    paths.update(workspace / f"crates/codegen/xai-workflow/src/{name}.rs" for name in ("backend", "tracker", "store"))
     failures: dict[str, list[dict[str, object]]] = {}
     parsed: list[str] = []
 
@@ -56,12 +41,15 @@ def main() -> int:
             ]
             continue
         relative = path.relative_to(workspace).as_posix()
-        tree = rust_parser.parse(path.read_bytes())
-        errors: list[dict[str, object]] = []
-        collect_error_nodes(tree.root_node, errors)
+        # stdout emission parses without writing/reformatting the source. It
+        # checks syntax only; Cargo checks names/types and runtime checks behavior.
+        result = subprocess.run(
+            ["rustfmt", "--edition", "2024", "--emit", "stdout", "--config", "skip_children=true", str(path)],
+            cwd=workspace, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+        )
         parsed.append(relative)
-        if tree.root_node.has_error or errors:
-            failures[relative] = errors
+        if result.returncode != 0:
+            failures[relative] = [{"kind": "rustfmt_parse_error", "diagnostics": result.stderr}]
 
     report = {
         "schemaVersion": 1,
