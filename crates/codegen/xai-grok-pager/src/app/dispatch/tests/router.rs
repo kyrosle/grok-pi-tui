@@ -3202,3 +3202,255 @@ fn refresh_mcp_list_clears_managed_connectors_wait() {
         [Effect::FetchMcpsList { cache: false, .. }]
     ));
 }
+
+#[test]
+fn external_stock_product_actions_cannot_open_modals_or_emit_effects() {
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    let id = AgentId(0);
+    let original_ui = serde_json::to_value(&app.current_ui).unwrap();
+    for action in [
+        Action::OpenMemoryModal,
+        Action::PersistMemoryFullscreen(true),
+        Action::EnterRememberMode,
+        Action::SendRememberNote("legacy note".into()),
+        Action::SaveRememberNoteFromModal,
+        Action::SendFeedback {
+            text: "legacy feedback".into(),
+            images: Default::default(),
+            trace: None,
+        },
+        Action::Login,
+        Action::Logout,
+        Action::SwitchAccount,
+        Action::CancelLogin,
+        Action::SubmitAuthCode("code".into()),
+        Action::CopyAuthUrl,
+        Action::ShowRawAuthUrl,
+        Action::HideRawAuthUrl,
+        Action::CheckSubscription,
+        Action::ManageBilling,
+        Action::ShowUsage,
+        Action::OpenSupergrokUrl,
+        Action::OpenManagedConnectors,
+        Action::AnnouncementsHide,
+        Action::AnnouncementsShow,
+        Action::ShareSession,
+        Action::ShowPrivacyInfo,
+        Action::SetCodingDataSharing { opted_in: true },
+        Action::PrivacyBannerOptIn,
+        Action::PrivacyBannerOptOut,
+        Action::RequestBundleStatus,
+        Action::RefreshMcpList,
+        Action::McpAuthTrigger {
+            server_name: "legacy".into(),
+        },
+        Action::ToggleMcpServer {
+            server_name: "legacy".into(),
+            enabled: true,
+        },
+        Action::DeleteMcpServer {
+            server_name: "legacy".into(),
+        },
+        Action::ToggleSkill {
+            skill_name: "legacy".into(),
+            enabled: true,
+        },
+        Action::OpenGboom,
+        Action::OpenHowtoGuides,
+        Action::OpenNewWorktreeDialog,
+        Action::NewWorktreeSession {
+            load_session_id: None,
+            label: None,
+            git_ref: None,
+        },
+        Action::DashboardToggleWorktree,
+        Action::DashboardConfirmWorktree { label: None },
+    ] {
+        assert!(dispatch(action, &mut app).is_empty());
+        assert!(app.agents[&id].active_modal.is_none());
+        assert!(app.agents[&id].extensions_modal.is_none());
+        assert_eq!(serde_json::to_value(&app.current_ui).unwrap(), original_ui);
+    }
+    assert!(app.new_worktree_dialog.is_none());
+    assert!(!app.auth_show_raw_url);
+    let effects = dispatch(
+        Action::PiControlRequest {
+            method: crate::app::actions::PiControlMethod::RuntimeControl,
+            params: serde_json::json!({"action":"snapshot"}),
+        },
+        &mut app,
+    );
+    assert!(
+        effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::PiControlRequest { .. }))
+    );
+}
+
+#[test]
+fn external_workflow_catalog_is_live_gated_and_only_fetches_its_supported_backend() {
+    use crate::views::extensions_modal::ExtensionsTab;
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    let id = AgentId(0);
+    let open = |tab| Action::OpenExtensionsModal {
+        tab,
+        trigger: xai_grok_telemetry::events::ExtensionsModalTrigger::CommandPalette,
+    };
+    app.current_ui.pi_workflows = true;
+    assert!(dispatch(open(ExtensionsTab::Workflows), &mut app).is_empty());
+    assert!(app.agents[&id].extensions_modal.is_none());
+    app.agents
+        .get_mut(&id)
+        .unwrap()
+        .session
+        .available_commands
+        .push(acp::AvailableCommand::new(
+            "workflows",
+            "Optional workflow extension",
+        ));
+    let effects = dispatch(open(ExtensionsTab::Workflows), &mut app);
+    assert!(
+        matches!(effects.as_slice(), [Effect::FetchWorkflowsList { .. }]),
+        "{effects:?}"
+    );
+    let modal = app
+        .agents
+        .get_mut(&id)
+        .unwrap()
+        .extensions_modal
+        .as_mut()
+        .unwrap();
+    assert_eq!(modal.tabs(), &[ExtensionsTab::Workflows]);
+    modal.switch_tab(ExtensionsTab::McpServers);
+    assert_eq!(modal.active_tab, ExtensionsTab::Workflows);
+    let effects = dispatch(Action::ReloadSkills, &mut app);
+    assert!(
+        matches!(effects.as_slice(), [Effect::FetchWorkflowsList { .. }]),
+        "{effects:?}"
+    );
+    app.agents.get_mut(&id).unwrap().extensions_modal = None;
+    for tab in [
+        ExtensionsTab::Hooks,
+        ExtensionsTab::Plugins,
+        ExtensionsTab::Marketplace,
+        ExtensionsTab::Skills,
+        ExtensionsTab::McpServers,
+    ] {
+        assert!(dispatch(open(tab), &mut app).is_empty());
+        assert!(app.agents[&id].extensions_modal.is_none());
+    }
+    app.current_ui.pi_workflows = false;
+    app.agents
+        .get_mut(&id)
+        .unwrap()
+        .session
+        .available_commands
+        .clear();
+    assert!(dispatch(open(ExtensionsTab::Workflows), &mut app).is_empty());
+    assert!(app.agents[&id].extensions_modal.is_none());
+}
+
+#[test]
+fn external_profile_never_displays_stock_training_banner_even_with_rollout_override() {
+    let mut app = test_app_with_agent();
+    app.privacy_notice_rollout = true;
+    app.coding_data_retention_opt_out = true;
+    app.is_zdr = false;
+    app.gate = None;
+    app.team_name = None;
+    app.privacy_banner_acked = None;
+    app.screen_mode = crate::app::ScreenMode::Fullscreen;
+    assert!(
+        app.privacy_banner_should_show(),
+        "fixture must prove the stock banner is eligible"
+    );
+    app.external_agent = true;
+    assert!(!app.privacy_banner_should_show());
+}
+
+#[test]
+fn external_workflow_live_capability_overrides_stale_disabled_ui_config() {
+    use crate::views::extensions_modal::ExtensionsTab;
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    // Environment overrides and restart-required preferences need not match
+    // raw F2 config. The active host's advertised command is the authority.
+    app.current_ui.pi_workflows = false;
+    let id = AgentId(0);
+    app.agents
+        .get_mut(&id)
+        .unwrap()
+        .session
+        .available_commands
+        .push(acp::AvailableCommand::new(
+            "workflows",
+            "Active workflow backend",
+        ));
+    let open = || Action::OpenExtensionsModal {
+        tab: ExtensionsTab::Workflows,
+        trigger: xai_grok_telemetry::events::ExtensionsModalTrigger::CommandPalette,
+    };
+    let effects = dispatch(open(), &mut app);
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::FetchWorkflowsList { .. }]
+    ));
+    let effects = dispatch(Action::ReloadSkills, &mut app);
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::FetchWorkflowsList { .. }]
+    ));
+    let effects = dispatch(
+        Action::WorkflowLaunch {
+            name: "active".into(),
+            args: String::new(),
+        },
+        &mut app,
+    );
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::WorkflowLaunch { .. }]
+    ));
+    let effects = dispatch(
+        Action::WorkflowManage {
+            op: "pause".into(),
+            target: "active".into(),
+        },
+        &mut app,
+    );
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::WorkflowManage { .. }]
+    ));
+    app.agents.get_mut(&id).unwrap().extensions_modal = None;
+    app.agents
+        .get_mut(&id)
+        .unwrap()
+        .session
+        .available_commands
+        .clear();
+    assert!(dispatch(open(), &mut app).is_empty());
+    assert!(dispatch(Action::ReloadSkills, &mut app).is_empty());
+    assert!(
+        dispatch(
+            Action::WorkflowLaunch {
+                name: "inactive".into(),
+                args: String::new()
+            },
+            &mut app
+        )
+        .is_empty()
+    );
+    assert!(
+        dispatch(
+            Action::WorkflowManage {
+                op: "pause".into(),
+                target: "run-id".into()
+            },
+            &mut app
+        )
+        .is_empty()
+    );
+}

@@ -742,10 +742,7 @@ impl AgentView {
         // This keeps the default (L/R expand/collapse on the selected item) unless the user explicitly moved focus to the tabs with arrows
         {
             let state = self.extensions_modal.as_mut().unwrap();
-            let labels: Vec<&str> = crate::views::extensions_modal::ExtensionsTab::ALL
-                .iter()
-                .map(|t| t.label())
-                .collect();
+            let labels: Vec<&str> = state.tabs().iter().map(|t| t.label()).collect();
             // Build FoldInfo from the focused entry's state
             // When search is active or the tab bar is focused via Up/Down, fold_info is None, so h/l/L/R return Unhandled and fall through
             // The picker then handles tabs or the search cursor for arrows; L/R on content do expand/collapse
@@ -900,11 +897,9 @@ impl AgentView {
         };
 
         // Build the same config as the renderer.
-        let labels: Vec<&str> = crate::views::extensions_modal::ExtensionsTab::ALL
-            .iter()
-            .map(|t| t.label())
-            .collect();
-        let active_idx = crate::views::extensions_modal::ExtensionsTab::ALL
+        let labels: Vec<&str> = state.tabs().iter().map(|t| t.label()).collect();
+        let active_idx = state
+            .tabs()
             .iter()
             .position(|t| *t == state.active_tab)
             .unwrap_or(0);
@@ -975,7 +970,7 @@ impl AgentView {
             }
             crate::views::picker::PickerOutcome::TabChanged(idx) => {
                 if let Some(ref mut state) = self.extensions_modal
-                    && let Some(&tab) = crate::views::extensions_modal::ExtensionsTab::ALL.get(idx)
+                    && let Some(&tab) = state.tabs().get(idx)
                 {
                     // switch_tab also clears the Add form, error overlay, and pending [processing] badge
                     // The new tab thus opens in a clean browse view
@@ -1180,8 +1175,7 @@ impl AgentView {
                     return InputOutcome::Changed;
                 }
                 crate::views::modal_window::ModalWindowOutcome::TabChanged(idx) => {
-                    if let Some(&tab) = crate::views::extensions_modal::ExtensionsTab::ALL.get(idx)
-                    {
+                    if let Some(&tab) = state.tabs().get(idx) {
                         // Clears Add form, error overlay, and pending badge in addition to resetting picker state
                         state.switch_tab_focus_list(tab);
                     }
@@ -1198,7 +1192,7 @@ impl AgentView {
                     // Resolve the char here; dispatch after the borrow is released so execute_modal_button_action can take &mut self
                     if id == 98 {
                         // The "Tab/Shift+Tab tabs" hint: cycle to the next tab, mirroring the Tab keypress flow
-                        let all = crate::views::extensions_modal::ExtensionsTab::ALL;
+                        let all = state.tabs();
                         let cur = all.iter().position(|&t| t == state.active_tab).unwrap_or(0);
                         let next = (cur + 1) % all.len();
                         if let Some(&tab) = all.get(next) {
@@ -1284,11 +1278,9 @@ impl AgentView {
         }
 
         // Build the same config as the renderer/key handler.
-        let labels: Vec<&str> = crate::views::extensions_modal::ExtensionsTab::ALL
-            .iter()
-            .map(|t| t.label())
-            .collect();
-        let active_idx = crate::views::extensions_modal::ExtensionsTab::ALL
+        let labels: Vec<&str> = state.tabs().iter().map(|t| t.label()).collect();
+        let active_idx = state
+            .tabs()
             .iter()
             .position(|t| *t == state.active_tab)
             .unwrap_or(0);
@@ -1378,7 +1370,7 @@ impl AgentView {
             }
             crate::views::picker::PickerOutcome::TabChanged(idx) => {
                 if let Some(ref mut state) = self.extensions_modal
-                    && let Some(&tab) = crate::views::extensions_modal::ExtensionsTab::ALL.get(idx)
+                    && let Some(&tab) = state.tabs().get(idx)
                 {
                     // Clears Add form, error overlay, and pending badge in addition to resetting picker state
                     state.switch_tab_focus_list(tab);

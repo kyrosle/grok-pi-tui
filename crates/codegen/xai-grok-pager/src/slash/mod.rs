@@ -62,14 +62,16 @@ pub fn set_builtin_command_profile(profile: BuiltinCommandProfile) {
         .expect("slash command profile lock poisoned") = profile;
 }
 
-fn profiled_builtin_commands() -> Vec<std::sync::Arc<dyn SlashCommand>> {
+fn profiled_builtin_registry() -> CommandRegistry {
     match command_profile_cell()
         .read()
         .expect("slash command profile lock poisoned")
         .clone()
     {
-        BuiltinCommandProfile::Grok => commands::builtin_commands(),
-        BuiltinCommandProfile::External(names) => commands::builtin_commands_named(&names),
+        BuiltinCommandProfile::Grok => CommandRegistry::new(commands::builtin_commands()),
+        BuiltinCommandProfile::External(names) => {
+            CommandRegistry::new_external(commands::builtin_commands_named(&names))
+        }
     }
 }
 
@@ -575,7 +577,7 @@ impl SlashController {
 
     /// Create a controller pre-loaded with pager builtin commands.
     pub fn with_builtins(cwd: std::path::PathBuf) -> Self {
-        Self::new(CommandRegistry::new(profiled_builtin_commands()), cwd)
+        Self::new(profiled_builtin_registry(), cwd)
     }
 
     /// Mutable access to the registry (for ACP sync).

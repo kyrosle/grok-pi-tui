@@ -1085,6 +1085,9 @@ pub(in crate::app::dispatch) fn dispatch_pick_content_session(
 ) -> Vec<Effect> {
     // PSM full-text hits (External filter) are Pi sessions — load by id+cwd.
     if session_picker_external_filter_active(app) {
+        if !app.external_agent {
+            return vec![];
+        }
         if let Some(agent) = get_active_agent_mut(app) {
             agent.active_modal = None;
         }
@@ -1670,6 +1673,7 @@ pub(in crate::app::dispatch) fn handle_deep_search_results(
     request: PickerRequest,
     results: Vec<xai_grok_shared::session::catalog::SearchSessionHit>,
 ) -> Vec<Effect> {
+    let external_agent = app.external_agent;
     let Some(target) = accept_picker_result(
         app,
         request,
@@ -1678,10 +1682,11 @@ pub(in crate::app::dispatch) fn handle_deep_search_results(
     ) else {
         return vec![];
     };
-    // Fork seam: upstream suppresses deep-search hits on the External page
-    // (foreign stores are not FTS-indexed). Our External page includes Pi
-    // sessions whose PSM hits arrive through this same path, so they are
-    // stored instead of dropped.
+    // Stock foreign stores are not FTS-indexed. Pi's External page uses PSM
+    // and accepts its own results after the same generation/sequence checks.
+    if !external_agent && target.source_filter.is_content_search_disabled() {
+        return vec![];
+    }
     *target.content_results = Some(results);
     *target.content_loading = false;
     vec![]

@@ -29,7 +29,7 @@ category: "architecture"
 | 阶段 | 目标 | 对应 SPEC | 依赖 | 状态 |
 |---|---|---|---|---|
 | T0 | 治理切换：Grok Build 改为参考仓库，验证体系换成架构守卫 | GV-01~07、VF-01~08 | — | 完成，T0 验证通过 |
-| T1 | 产品入口收口：白名单化，补齐残留，处理 5 个失败测试 | PR-01~03 | T0 | 验证中 |
+| T1 | 产品入口收口：白名单化，补齐残留，处理 5 个失败测试 | PR-01~03 | T0 | 完成，60/0 与原生PTY通过 |
 | T2 | 编译期切除 I：遥测、voice、login/auth、公告、反馈、gboom、dashboard | CB-01~05 | T1 | 待开始 |
 | T3 | Pi 协议对齐 I：队列、settled、命令目录、bash、compaction/retry、工具元数据 | PI-01~03、PI-08~10 | T1 | 待开始 |
 | T4 | 扩展层整合：host-bridge，去 prototype patch 和文件轮询 | EX-01~05、EX-09、PI-04 | T3 | 待开始 |
@@ -235,6 +235,9 @@ T2 和 T3 可以并行（一个改依赖图，一个改 adapter），但要分�
 - 完整 `external_` filter 最终 exit 0，60 passed/0 failed；`/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`。先修 8 个新代码编译诊断及 1 个新增测试 target 类型诊断；首个实际运行 59/1 暴露 Execute fixture 初始 fold state，修 fixture 后 60/0。没有删掉原断言。
 - 旧 5 fail：Ctrl+O 使用真实 hunks，并显式设置 excluded Execute 的初始 Expanded；dashboard 使用规范 glyph；stock 外部来源拒绝 native FTS，Pi PSM 保留 fresh/stale 校验与按 id/cwd 加载，新增对应测试。
 - 新 `./verify.sh` 实际 exit 0：`/tmp/grok-pi-native-t0-t1-verify-20261003.log`。17 架构守卫、negative、3397 Rust 语法、8 mock/33lines、Pi/stock checks、adapter207+非ignored disposition1/reloadACK1/EOF2、bin98及2个声明native单测均通过；其余actual专项仍ignored。本次不是全部Pager suite验收。
-- Dependency report 796 packages/forbidden=[]/pending29/terminalReady=false；endpoint报告 source213/旧binary52，不冒称 END-02/04。T0 治理和守卫退出条件完成，T1 60/0 已通过；正式新 build 与 PTY 尚待回执。
+- T0 提交 `bb968e41`，总纲接受提交 `d7ca4d0b`；T1 实现提交由 Git log 记录。治理/守卫与产品入口分别提交，T2~T8 仍待办。
+- 正式 `./build.sh` exit0、28.02s；artifact SHA `3b1f03c49e96d70e95a0b6eb4de7bbc21495a3b2ec1129b7535ff4216013755f`、181635384bytes；`d7ca4d0b`+dirty冻结T1 source stamp，不冒称最终cleanHEAD。`/tmp/grok-pi-native-t1-build-20261003.log`、artifact JSON同名前缀。
+- 新nativePTY 4cases（product-surface、settings-save/reopen/rollback）全部nativeExit0，SHA前后未变。product case强制voice/pluginCTA/workspaceDashboard/privacy rollout环境开关；F2产品项不可见、合法UI设置保留、保存/重开/失败回滚通过。`/tmp/grok-pi-native-t1-pty-20261003/report.json`。
+- 新binary endpoint报告 source213/binary52、protocol1259单列，enforced:false/passed:null；`/tmp/grok-pi-native-t1-endpoints-20261003.json`。Dependency 796/forbidden=[]/pending29/terminalReady=false，不冒称 END-02/04。
 
 T2~T8 尚未实施；队列/Plan/Goal/扩展整合、业务 crate 切除、唯一产品/零 external 分支等终态条件仍未满足。

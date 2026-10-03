@@ -937,6 +937,63 @@ fn active_modal_owns_stale_and_external_deep_search_results() {
 }
 
 #[test]
+fn external_pi_psm_results_load_and_reject_stale_packets() {
+    for stale in [false, true] {
+        let mut app = test_app_with_agent();
+        app.external_agent = true;
+        open_session_picker_with(&mut app, vec![make_picker_entry("pi-session", "/repo")]);
+        let Some(ActiveModal::SessionPicker {
+            deep_search_seq,
+            source_filter,
+            ..
+        }) = get_active_agent_mut(&mut app).unwrap().active_modal.as_mut()
+        else {
+            panic!("modal picker missing");
+        };
+        *deep_search_seq = if stale { 8 } else { 7 };
+        *source_filter = SourceFilter::External;
+
+        dispatch(
+            Action::TaskComplete(TaskResult::DeepSearchResults {
+                host: SessionPickerHost::AgentModal,
+                generation: modal_picker_generation(&app),
+                results: vec![content_hit("pi-hit")],
+                seq: 7,
+            }),
+            &mut app,
+        );
+
+        assert!(app.session_picker_content_results.is_none());
+        let Some(ActiveModal::SessionPicker { content_results, .. }) =
+            app.agents[&AgentId(0)].active_modal.as_ref()
+        else {
+            panic!("modal picker missing");
+        };
+        if stale {
+            assert!(content_results.is_none());
+            continue;
+        }
+        assert_eq!(content_results.as_ref().unwrap()[0].session_id, "pi-hit");
+        let effects = dispatch(
+            Action::PickContentSession {
+                session_id: "pi-hit".into(),
+                cwd: "/repo".into(),
+            },
+            &mut app,
+        );
+        assert!(effects.iter().any(|effect| matches!(
+            effect,
+            Effect::LoadSession {
+                session_id,
+                session_cwd: Some(cwd),
+                chat_kind: false,
+                ..
+            } if session_id == "pi-hit" && cwd == &std::path::PathBuf::from("/repo")
+        )));
+    }
+}
+
+#[test]
 fn detail_result_revalidates_source_id_and_detail_seq_after_reorder() {
     let mut app = test_app_with_agent();
     open_session_picker_with(

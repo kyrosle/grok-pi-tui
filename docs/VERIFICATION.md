@@ -1,12 +1,12 @@
 # grok-pi verification
 
-## Master plan: T0 passed, T1 final runtime acceptance in progress
+## Master plan: T0/T1 passed; T2–T8 pending
 
 The governing [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) replace checkpoint-only completion. T0 retires reference blob identity; current gates check architecture, dependency policy, service endpoints, Pi contracts and actual native UI behavior. Historical identity receipts below remain evidence for their own commits only. [Archived material](grok-build/archive/README.md) is not an active gate.
 
 T0 baseline: 796 production packages; 29 explicitly named linked removals remain pending (including xai-mixpanel), not terminal acceptance. Previously absent or newly introduced business dependencies fail. Endpoint report mode exposes service literals and separately observes ACP namespaces; T7 strict mode rejects real endpoint/removal debt. No reference fetch, full merge or new port was performed.
 
-T1 closes remaining product actions and converts palette/unknown command handling to explicit support. The complete external_ filter passes 60/60, resolving all five prior failures. New verify exits 0: architecture17, negative, syntax3397, mock8, Pi/stock checks, adapter207 plus non-ignored targets, bin98 and two declared native filters. Fresh build/PTY receipts remain pending; endpoint report still uses the older 210efc artifact. Logs: `/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`, `/tmp/grok-pi-native-t0-t1-verify-20261003.log`.
+T1 closes remaining product actions and converts palette/unknown command handling to explicit support. The complete external_ filter passes 60/60, resolving all five prior failures. New verify exits 0: architecture17, negative, syntax3397, mock8, Pi/stock checks, adapter207 plus non-ignored targets, bin98 and two declared native filters. Fresh build exits0/28.02s: SHA `3b1f03c49e96d70e95a0b6eb4de7bbc21495a3b2ec1129b7535ff4216013755f`, 181635384bytes, d7ca4d0b+dirty frozen source stamp. Four native PTY cases pass with nativeExit0 and unchanged SHA. New binary endpoint report retains source213/binary52 and protocol1259, not a zero-endpoint pass. Reports `/tmp/grok-pi-native-t1-artifact-20261003.json`, `/tmp/grok-pi-native-t1-pty-20261003/report.json`, `/tmp/grok-pi-native-t1-endpoints-20261003.json`. Logs: `/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`, `/tmp/grok-pi-native-t0-t1-verify-20261003.log`.
 
 Current commands: `./verify.sh`; `python3 crates/codegen/pi-grok-adapter/scripts/test_native_architecture.py`. T7: `PI_VERIFY_ENFORCE=1 PI_VERIFY_BINARY=/absolute/fresh/grok-pi ./verify.sh`.
 

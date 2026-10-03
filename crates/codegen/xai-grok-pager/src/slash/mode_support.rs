@@ -17,6 +17,8 @@ pub enum Remedy {
 /// Which render modes a slash command functions in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModeSupport {
+    /// Not registered for this backend; unavailable in every render mode.
+    Unsupported,
     Both,
     FullscreenOnly(Remedy),
     MinimalOnly(Remedy),
@@ -25,6 +27,7 @@ pub enum ModeSupport {
 impl ModeSupport {
     pub(crate) fn supports(self, mode: ScreenMode) -> bool {
         match self {
+            Self::Unsupported => false,
             Self::Both => true,
             Self::FullscreenOnly(_) => !mode.is_minimal(),
             Self::MinimalOnly(_) => mode.is_minimal(),
@@ -36,6 +39,7 @@ impl ModeSupport {
             return None;
         }
         let (remedy, current, switch) = match self {
+            Self::Unsupported => return Some(format!("/{token} is unavailable for this agent.")),
             Self::Both => return None,
             Self::FullscreenOnly(remedy) => (remedy, "minimal", "/fullscreen"),
             Self::MinimalOnly(remedy) => (remedy, "fullscreen", "/minimal"),

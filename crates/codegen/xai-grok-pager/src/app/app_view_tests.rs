@@ -2559,7 +2559,7 @@ fn external_ctrl_o_defaults_to_write_edit() {
         .scrollback
         .push_block(crate::scrollback::RenderBlock::edit_with_hunks(
             "x.rs",
-            vec![],
+            xai_grok_pager_diff::diff_hunks_from_strings("before\n", "after\n", 1),
         ));
     let execute_id =
         agent
@@ -2569,6 +2569,11 @@ fn external_ctrl_o_defaults_to_write_edit() {
                 "tool output",
                 None::<String>,
             ));
+    agent
+        .scrollback
+        .get_by_id_mut(execute_id)
+        .unwrap()
+        .set_display_mode(crate::scrollback::DisplayMode::Expanded);
 
     let out = app.handle_input(&key_event(KeyCode::Char('o'), KeyModifiers::CONTROL));
 
@@ -2595,7 +2600,7 @@ fn external_ctrl_o_all_tools_expands_every_tool() {
         .scrollback
         .push_block(crate::scrollback::RenderBlock::edit_with_hunks(
             "x.rs",
-            vec![],
+            xai_grok_pager_diff::diff_hunks_from_strings("before\n", "after\n", 1),
         ));
     let execute_id =
         agent

@@ -170,7 +170,87 @@ pub(in crate::app::dispatch) fn confirmed_quit(app: &mut AppView) -> Vec<Effect>
     effects.push(Effect::Quit);
     effects
 }
+/// Stock product actions have no Pi backend contract. Reject stale UI actions
+/// before opening a modal, touching configuration, or starting an effect.
+fn stock_product_action(action: &Action) -> bool {
+    match action {
+        Action::Login
+        | Action::Logout
+        | Action::SwitchAccount
+        | Action::CancelLogin
+        | Action::SubmitAuthCode(_)
+        | Action::CopyAuthUrl
+        | Action::ShowRawAuthUrl
+        | Action::HideRawAuthUrl
+        | Action::CheckSubscription
+        | Action::OpenSupergrokUrl
+        | Action::RetryCreditLimitPrompt
+        | Action::ManageBilling
+        | Action::ShowUsage
+        | Action::OpenManagedConnectors
+        | Action::AcceptConsent
+        | Action::TrustFolder
+        | Action::OpenConsentLink(_)
+        | Action::ShareSession
+        | Action::AnnouncementsHide
+        | Action::AnnouncementsShow
+        | Action::AnnouncementsOpenCta(_)
+        | Action::OpenFeedbackModal(_)
+        | Action::SubmitFeedbackModal { .. }
+        | Action::RequestFeedbackDraft { .. }
+        | Action::SendFeedback { .. }
+        | Action::EnterRememberMode
+        | Action::SendRememberNote(_)
+        | Action::SaveRememberNoteFromModal
+        | Action::OpenMemoryModal
+        | Action::PersistMemoryFullscreen(_)
+        | Action::OpenGboom
+        | Action::ShowPrivacyInfo
+        | Action::SetCodingDataSharing { .. }
+        | Action::PrivacyBannerOptIn
+        | Action::PrivacyBannerOptOut
+        | Action::McpAuthTrigger { .. }
+        | Action::McpSetupSubmit { .. }
+        | Action::RefreshMcpList
+        | Action::ExecuteHooksAction(_)
+        | Action::ExecutePluginsAction(_)
+        | Action::ExecuteMarketplaceAction(_)
+        | Action::UpsertMcpServer { .. }
+        | Action::DeleteMcpServer { .. }
+        | Action::ToggleMcpServer { .. }
+        | Action::ToggleMcpTool { .. }
+        | Action::ToggleSkill { .. }
+        | Action::RequestBundleStatus
+        | Action::ViewCatalogEntry { .. }
+        | Action::OpenHowtoGuides
+        | Action::NewWorktreeSession { .. }
+        | Action::OpenNewWorktreeDialog
+        | Action::PickSessionInWorktree(_)
+        | Action::PickContentSessionInWorktree { .. }
+        | Action::DashboardToggleWorktree
+        | Action::DashboardConfirmWorktree { .. }
+        | Action::AgentTypeMismatchAnswered { .. } => true,
+        Action::SuspendForEditor {
+            refresh_agents_modal: Some(_),
+            ..
+        } => true,
+        #[cfg(feature = "local-workspace")]
+        Action::ConfirmWelcomeLocalWorkspaceAck => true,
+        #[cfg(feature = "stock-runtime")]
+        Action::OpenConfigAgentsModal(_)
+        | Action::ImportClaudeSettings
+        | Action::ImportClaudeConfirm
+        | Action::ImportClaudeCancel
+        | Action::DismissClaudeImport => true,
+        _ => false,
+    }
+}
+
 pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+    if app.external_agent && stock_product_action(&action) {
+        app.show_toast("This product action is unavailable for Pi");
+        return vec![];
+    }
     app.reconcile_foreign_resume_launch();
     let effects = match action {
         Action::Quit | Action::QuitConfirmed => confirmed_quit(app),
@@ -854,6 +934,35 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
             }]
         }
         Action::ReloadSkills => {
+            if app.external_agent {
+                let ActiveView::Agent(id) = app.active_view else {
+                    return vec![];
+                };
+                let Some(agent) = app.agents.get_mut(&id) else {
+                    return vec![];
+                };
+                if !agent
+                    .session
+                    .available_commands
+                    .iter()
+                    .any(|command| command.name == "workflows")
+                    || !agent
+                        .extensions_modal
+                        .as_ref()
+                        .is_some_and(|modal| modal.workflows_only)
+                {
+                    return vec![];
+                }
+                let Some(session_id) = agent.session.session_id.clone() else {
+                    return vec![];
+                };
+                agent.extensions_modal.as_mut().unwrap().workflows_data =
+                    crate::views::extensions_modal::TabDataState::Loading;
+                return vec![Effect::FetchWorkflowsList {
+                    agent_id: id,
+                    session_id,
+                }];
+            }
             let ActiveView::Agent(id) = app.active_view else {
                 return vec![];
             };
@@ -1387,7 +1496,9 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
         Action::PrivacyBannerOptIn => dispatch_privacy_banner_opt_in(app),
         Action::PrivacyBannerOptOut => dispatch_privacy_banner_opt_out(app),
         Action::OpenPiConfig => dispatch_open_pi_config(app),
-        Action::PiControlRequest { method, params } => super::settings::ui::dispatch_pi_control(app, method, params),
+        Action::PiControlRequest { method, params } => {
+            super::settings::ui::dispatch_pi_control(app, method, params)
+        }
         Action::OpenPiModels => dispatch_open_pi_models(app),
         Action::OpenCommandPalette => dispatch_open_command_palette(app),
         Action::OpenShortcutsHelp => dispatch_open_shortcuts_help(app),
@@ -1808,6 +1919,13 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
             vec![]
         }
         Action::WorkflowLaunch { name, args } => {
+            if app.external_agent
+                && !matches!(app.active_view, ActiveView::Agent(id) if app.agents.get(&id).is_some_and(|agent|
+                    agent.session.available_commands.iter().any(|command| command.name == "workflows")))
+            {
+                app.show_toast("Pi workflows are unavailable");
+                return vec![];
+            }
             let ActiveView::Agent(agent_id) = app.active_view else {
                 return vec![];
             };
@@ -1826,6 +1944,13 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
             }]
         }
         Action::WorkflowManage { op, target } => {
+            if app.external_agent
+                && !matches!(app.active_view, ActiveView::Agent(id) if app.agents.get(&id).is_some_and(|agent|
+                    agent.session.available_commands.iter().any(|command| command.name == "workflows")))
+            {
+                app.show_toast("Pi workflows are unavailable");
+                return vec![];
+            }
             let ActiveView::Agent(agent_id) = app.active_view else {
                 return vec![];
             };

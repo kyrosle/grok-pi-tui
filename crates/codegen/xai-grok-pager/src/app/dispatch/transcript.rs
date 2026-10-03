@@ -391,6 +391,12 @@ pub(super) fn extensions_modal_tab_fetches(
     agent_id: AgentId,
     session_id: acp::SessionId,
 ) -> Vec<Effect> {
+    if modal.workflows_only {
+        return vec![Effect::FetchWorkflowsList {
+            agent_id,
+            session_id,
+        }];
+    }
     let mut effects = vec![
         Effect::FetchHooksList {
             agent_id,
@@ -496,7 +502,21 @@ pub(super) fn dispatch_open_extensions_modal(
     {
         agent.agents_modal = None;
     }
-    let mut modal = ExtensionsModalState::new(tab);
+    let mut modal = if app.external_agent {
+        if tab != crate::views::extensions_modal::ExtensionsTab::Workflows
+            || !agent
+                .session
+                .available_commands
+                .iter()
+                .any(|command| command.name == "workflows")
+        {
+            agent.show_toast("This catalog is unavailable; use Pi resources");
+            return vec![];
+        }
+        ExtensionsModalState::workflows_only()
+    } else {
+        ExtensionsModalState::new(tab)
+    };
     modal.session_team_id = app.team_id.clone();
     agent.extensions_modal = Some(modal);
     log_event(xai_grok_telemetry::events::ExtensionsModalOpened {

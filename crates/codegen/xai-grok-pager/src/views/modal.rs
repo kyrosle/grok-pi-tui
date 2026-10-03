@@ -717,20 +717,26 @@ pub enum PaletteCommand {
     InsertFeedbackSlash,
 }
 /// Build the default set of palette entries with section grouping.
-/// Remove stock product entries while keeping native UI and Pi command surfaces.
-fn external_palette_command_supported(command: &PaletteCommand) -> bool {
-    use crate::views::extensions_modal::ExtensionsTab;
+/// External palette variants are explicitly local UI operations or live commands.
+/// New stock variants remain unavailable until their Pi handler is reviewed.
+fn external_palette_command_allowed(
+    command: &PaletteCommand,
+    slash: &crate::slash::SlashController,
+) -> bool {
     match command {
-        PaletteCommand::SlashCommand(text) if text.trim() == "/always-approve" => false,
+        PaletteCommand::NewSession
+        | PaletteCommand::Home
+        | PaletteCommand::Quit
+        | PaletteCommand::EditPromptExternal
+        | PaletteCommand::KeyboardShortcuts
+        | PaletteCommand::OpenSettings
+        | PaletteCommand::SectionHeader(_) => true,
         PaletteCommand::OpenExtensionsTab(
-            ExtensionsTab::Hooks
-            | ExtensionsTab::Plugins
-            | ExtensionsTab::Marketplace
-            | ExtensionsTab::McpServers,
-        ) => false,
-        #[cfg(feature = "stock-runtime")]
-        PaletteCommand::OpenAgentsModal => false,
-        _ => true,
+            crate::views::extensions_modal::ExtensionsTab::Workflows,
+        ) => slash.registry().get("workflows").is_some(),
+        PaletteCommand::SlashCommand(text) => crate::slash::parse_invocation(text.trim())
+            .is_some_and(|invocation| slash.registry().get(invocation.token).is_some()),
+        _ => false,
     }
 }
 
@@ -953,8 +959,8 @@ pub(crate) fn default_palette_entries(
         },
     ];
     entries.retain(|entry| {
-        if crate::app::external_agent_active()
-            && !external_palette_command_supported(&entry.command)
+        if slash.registry().is_external()
+            && !external_palette_command_allowed(&entry.command, slash)
         {
             return false;
         }
@@ -1072,6 +1078,9 @@ pub(crate) fn palette_entries_with_acp_commands(
             current_section = Some(section);
         }
         entries.push(entry);
+    }
+    if slash.registry().is_external() {
+        entries.retain(|entry| external_palette_command_allowed(&entry.command, slash));
     }
     entries
 }
@@ -2283,37 +2292,75 @@ mod palette_sharing_tests {
         controller
     }
     #[test]
-    fn external_palette_retains_ui_and_pi_entries_and_hides_stock_products() {
-        let entries = default_palette_entries(true, &slash(crate::app::ScreenMode::Fullscreen));
-        let filtered = entries
+    fn external_palette_actual_collection_matches_local_ui_and_live_commands() {
+        let names = [
+            "model",
+            "theme",
+            "resume",
+            "session-info",
+            "compact",
+            "tutorial",
+        ]
+        .map(str::to_owned);
+        let registry = crate::slash::registry::CommandRegistry::new_external(
+            crate::slash::commands::builtin_commands_named(&names),
+        );
+        let mut controller = crate::slash::SlashController::new(registry, ".".into());
+        controller.set_screen_mode(crate::app::ScreenMode::Fullscreen);
+        let commands = [
+            agent_client_protocol::AvailableCommand::new("pi-config", "Pi resources").meta(
+                serde_json::json!({
+                    "piCommandSource": "extension"
+                })
+                .as_object()
+                .cloned(),
+            ),
+        ];
+        controller.registry_mut().set_acp_commands(&commands);
+        let entries = palette_entries_with_acp_commands(true, &controller, &commands, &[]);
+        let mut actual = entries
             .iter()
-            .filter(|entry| external_palette_command_supported(&entry.command))
+            .filter_map(|entry| match &entry.command {
+                PaletteCommand::SectionHeader(_) => None,
+                PaletteCommand::SlashCommand(text) => Some(text.trim().to_string()),
+                _ => Some(entry.label.clone()),
+            })
             .collect::<Vec<_>>();
-        assert!(
-            filtered
-                .iter()
-                .any(|entry| matches!(entry.command, PaletteCommand::OpenSettings))
+        actual.sort();
+        let mut expected = [
+            "New Session",
+            "Back to Home",
+            "Settings",
+            "Keyboard Shortcuts",
+            "Edit Prompt in External Editor",
+            "Quit",
+            "/model",
+            "/theme",
+            "/resume",
+            "/session-info",
+            "/compact",
+            "/tutorial",
+            "/pi-config",
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        expected.sort();
+        assert_eq!(
+            actual, expected,
+            "actual palette must equal the reviewed external set"
         );
-        assert!(filtered.iter().any(|entry| entry.label == "Switch Model"));
-        assert!(filtered.iter().any(|entry| entry.label == "Switch Theme"));
-        assert!(
-            filtered
-                .iter()
-                .any(|entry| matches!(entry.command, PaletteCommand::Quit))
-        );
-        for label in [
-            "Always Approve Mode",
-            "Hooks",
-            "Plugins",
-            "Marketplace",
-            "MCP Servers",
-            "Manage Agents",
-        ] {
-            assert!(
-                !filtered.iter().any(|entry| entry.label == label),
-                "external hides {label}"
-            );
-        }
+        assert!(!external_palette_command_allowed(
+            &PaletteCommand::SlashCommand("/feedback".into()),
+            &controller
+        ));
+        assert!(!external_palette_command_allowed(
+            &PaletteCommand::Memory,
+            &controller
+        ));
+        assert!(!external_palette_command_allowed(
+            &PaletteCommand::OpenFeedbackModal,
+            &controller
+        ));
     }
 
     #[test]

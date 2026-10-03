@@ -1,12 +1,12 @@
 # grok-pi 验证记录
 
-## 总纲：T0 通过，T1 最终运行验收中
+## 总纲：T0/T1通过，T2–T8待办
 
 当前 [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) 取代按局部检查点宣称完成。T0 退役参考仓库 blob 身份约束；现行守卫为架构、依赖、服务端点、Pi 合同和实际原生交互。[归档材料](grok-build/archive/README.md) 保留旧证据，不再执行。
 
 T0 基线：796 production packages，29 个已链接移除项（含 xai-mixpanel）显式 pending，不是终态通过；已缺席或新增业务依赖会失败。端点报告区分服务字面量与 ACP 命名空间观察；T7 strict 才要求清空业务依赖与服务端点。没有新增 reference fetch、整体 merge 或移植。
 
-T1 收口产品 Action、命令面板白名单和未知命令规则；完整 external_ filter 60/60，通过原5项修复。新 verify 实际exit0：架构17、negative、语法3397、mock8、Pi/stock checks、adapter207及非ignored targets、bin98及两个声明native filters。新build/PTY待回执，endpoint报告仍用旧210efc artifact。日志：`/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`、`/tmp/grok-pi-native-t0-t1-verify-20261003.log`。
+T1 收口产品 Action、命令面板白名单和未知命令规则；完整 external_ filter 60/60，通过原5项修复。新 verify 实际exit0：架构17、negative、语法3397、mock8、Pi/stock checks、adapter207及非ignored targets、bin98及两个声明native filters。新build实际exit0/28.02s：SHA `3b1f03c49e96d70e95a0b6eb4de7bbc21495a3b2ec1129b7535ff4216013755f`、181635384bytes，d7ca4d0b+dirty冻结源码stamp。4nativePTY全部nativeExit0且SHA前后不变；新binary端点报告source213/binary52、protocol1259，不是零端点通过。报告：`/tmp/grok-pi-native-t1-artifact-20261003.json`、`/tmp/grok-pi-native-t1-pty-20261003/report.json`、`/tmp/grok-pi-native-t1-endpoints-20261003.json`。日志：`/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`、`/tmp/grok-pi-native-t0-t1-verify-20261003.log`。
 
 现行命令：`./verify.sh`、`python3 crates/codegen/pi-grok-adapter/scripts/test_native_architecture.py`。T7：`PI_VERIFY_ENFORCE=1 PI_VERIFY_BINARY=/absolute/fresh/grok-pi ./verify.sh`。
 

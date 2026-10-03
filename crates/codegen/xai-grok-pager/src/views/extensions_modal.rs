@@ -1817,6 +1817,8 @@ pub struct WorkflowInfo {
 
 /// State for the hooks/plugins modal popup.
 pub struct ExtensionsModalState {
+    /// Transitional Pi catalog: only the existing optional Workflow backend is supported.
+    pub workflows_only: bool,
     /// Shared modal window chrome state (close button, tabs, footer shortcuts, popup area).
     pub window: ModalWindowState,
     /// Currently active tab (source of truth). `window.active_tab` (a `usize` index) is derived from
@@ -1936,8 +1938,24 @@ impl Default for ExtensionsModalState {
 }
 
 impl ExtensionsModalState {
+    pub fn workflows_only() -> Self {
+        let mut state = Self::new(ExtensionsTab::Workflows);
+        state.workflows_only = true;
+        state.window = ModalWindowState::with_tabs(1);
+        state
+    }
+
+    pub fn tabs(&self) -> &'static [ExtensionsTab] {
+        if self.workflows_only {
+            &[ExtensionsTab::Workflows]
+        } else {
+            ExtensionsTab::ALL
+        }
+    }
+
     pub fn new(tab: ExtensionsTab) -> Self {
         Self {
+            workflows_only: false,
             window: ModalWindowState::with_tabs(ExtensionsTab::ALL.len()),
             active_tab: tab,
             session_team_id: None,
@@ -2078,6 +2096,9 @@ impl ExtensionsModalState {
     /// Switch to a different tab and reset the per-tab transient UI state. The user's search query
     /// (`picker_state.query()`) is intentionally preserved across tabs, matching the rest of the modal.
     pub fn switch_tab(&mut self, tab: ExtensionsTab) {
+        if !self.tabs().contains(&tab) {
+            return;
+        }
         self.active_tab = tab;
         // Clear modal flow state from the previous tab.
         self.input = None;
@@ -2785,8 +2806,9 @@ pub fn render_extensions_modal(
     }
 
     // Tab labels and active index.
-    let labels: Vec<&str> = ExtensionsTab::ALL.iter().map(|t| t.label()).collect();
-    let active_idx = ExtensionsTab::ALL
+    let labels: Vec<&str> = state.tabs().iter().map(|t| t.label()).collect();
+    let active_idx = state
+        .tabs()
         .iter()
         .position(|t| *t == state.active_tab)
         .unwrap_or(0);

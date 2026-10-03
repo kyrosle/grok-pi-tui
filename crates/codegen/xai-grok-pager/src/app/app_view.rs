@@ -1527,6 +1527,9 @@ impl AppView {
     }
     /// Welcome privacy banner visibility gates.
     pub fn privacy_banner_should_show(&self) -> bool {
+        if self.external_agent {
+            return false;
+        }
         if self.screen_mode.is_minimal() {
             return false;
         }

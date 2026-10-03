@@ -1381,13 +1381,14 @@ pub(crate) async fn run(
         && xai_grok_config::env_bool("GROK_PLUGIN_CTA")
             .or_else(|| remote_settings.as_ref().and_then(|s| s.plugin_cta))
             .unwrap_or(false);
-    app.privacy_notice_rollout = xai_grok_config::env_bool("GROK_PRIVACY_NOTICE_ROLLOUT")
-        .or_else(|| {
-            remote_settings
-                .as_ref()
-                .and_then(|s| s.privacy_notice_rollout)
-        })
-        .unwrap_or(false);
+    app.privacy_notice_rollout = !external_agent
+        && xai_grok_config::env_bool("GROK_PRIVACY_NOTICE_ROLLOUT")
+            .or_else(|| {
+                remote_settings
+                    .as_ref()
+                    .and_then(|s| s.privacy_notice_rollout)
+            })
+            .unwrap_or(false);
     app.privacy_banner_reshow_days = std::env::var("GROK_PRIVACY_BANNER_RESHOW_DAYS")
         .ok()
         .and_then(|v| v.trim().parse().ok())
@@ -1408,19 +1409,21 @@ pub(crate) async fn run(
     if external_agent {
         app.usage_visible = false;
     }
-    app.plugin_cta_enabled = xai_grok_config::env_bool("GROK_PLUGIN_CTA")
-        .or_else(|| remote_settings.as_ref().and_then(|s| s.plugin_cta))
-        .unwrap_or(false);
+    app.plugin_cta_enabled = !external_agent
+        && xai_grok_config::env_bool("GROK_PLUGIN_CTA")
+            .or_else(|| remote_settings.as_ref().and_then(|s| s.plugin_cta))
+            .unwrap_or(false);
     app.plugin_cta_marketplace = launch_effective_config
         .as_ref()
         .and_then(plugin_cta_marketplace_from);
-    app.workspace_dashboard_enabled = xai_grok_config::env_bool("GROK_WORKSPACE_DASHBOARD")
-        .or_else(|| {
-            remote_settings
-                .as_ref()
-                .and_then(|s| s.workspace_dashboard_enabled)
-        })
-        .unwrap_or(false);
+    app.workspace_dashboard_enabled = !external_agent
+        && xai_grok_config::env_bool("GROK_WORKSPACE_DASHBOARD")
+            .or_else(|| {
+                remote_settings
+                    .as_ref()
+                    .and_then(|s| s.workspace_dashboard_enabled)
+            })
+            .unwrap_or(false);
     // Voice is applied after auth_meta so API-key detection is accurate.
     app.session_picker_grouped = std::env::var("GROK_SESSION_PICKER_GROUPED")
         .ok()
@@ -1506,9 +1509,7 @@ pub(crate) async fn run(
         if connection.auth_methods.is_empty() {
             // preferred_method pin unavailable: no advertised method to start
             app.auth_state = super::app_view::AuthState::Pending {
-                error: Some(
-                    xai_grok_login::auth_method::PREFERRED_API_KEY_UNAVAILABLE.to_string(),
-                ),
+                error: Some(xai_grok_login::auth_method::PREFERRED_API_KEY_UNAVAILABLE.to_string()),
             };
             vec![]
         } else {
@@ -1528,9 +1529,10 @@ pub(crate) async fn run(
         }
     } else {
         // No cached session: check if the API key is the active credential
-        app.is_api_key_auth = app.auth_methods.iter().any(|m| {
-            m.id().0.as_ref() == xai_grok_login::auth_method::XAI_API_KEY_METHOD_ID
-        });
+        app.is_api_key_auth = app
+            .auth_methods
+            .iter()
+            .any(|m| m.id().0.as_ref() == xai_grok_login::auth_method::XAI_API_KEY_METHOD_ID);
         // No AuthMeta on this path: API keys / external auth have no consumer billing surface
         // External auth also hides `/usage`
         if app.is_api_key_auth || app.has_external_auth_provider {

@@ -4104,9 +4104,13 @@ fn external_dashboard_dispatch_blocks_while_turn_is_running() {
     assert!(effects.is_empty());
     assert_eq!(app.agents.len(), 1);
     assert!(app.agents.contains_key(&AgentId(0)));
+    let expected_toast = format!(
+        "{} Finish the current Pi turn before dispatching a new session",
+        crate::glyphs::ballot_x()
+    );
     assert_eq!(
         app.dashboard.as_ref().unwrap().error_toast.as_deref(),
-        Some("Finish the current Pi turn before dispatching a new session")
+        Some(expected_toast.as_str())
     );
 }
 

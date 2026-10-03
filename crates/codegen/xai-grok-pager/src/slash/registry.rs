@@ -107,6 +107,8 @@ impl CommandTrigger {
 /// Owns the command objects and provides lookup by name/alias.
 /// Supports dynamic mutation via `set_acp_commands()` for runtime ACP command catalog updates.
 pub struct CommandRegistry {
+    /// External profiles never infer support for unregistered commands.
+    external_profile: bool,
     commands: Vec<Arc<dyn SlashCommand>>,
     sources: Vec<CommandSource>,
     key_to_index: HashMap<String, usize>,
@@ -150,6 +152,7 @@ impl CommandRegistry {
         let mut menu_hidden = HashSet::new();
         menu_hidden.insert("share".to_string());
         let mut reg = Self {
+            external_profile: false,
             commands: builtins,
             sources,
             key_to_index: HashMap::new(),
@@ -163,6 +166,17 @@ impl CommandRegistry {
         };
         reg.rebuild_triggers();
         reg
+    }
+
+    /// Build the external host's explicit native-command allowlist.
+    pub fn new_external(builtins: Vec<Arc<dyn SlashCommand>>) -> Self {
+        let mut registry = Self::new(builtins);
+        registry.external_profile = true;
+        registry
+    }
+
+    pub(crate) fn is_external(&self) -> bool {
+        self.external_profile
     }
 
     fn set_command_visible(&mut self, name: &str, visible: bool) {
@@ -199,7 +213,14 @@ impl CommandRegistry {
         self.commands
             .iter()
             .find(|cmd| cmd.name() == key || cmd.aliases().contains(&key))
-            .map_or(ModeSupport::Both, |cmd| cmd.mode_support())
+            .map_or(
+                if self.external_profile {
+                    ModeSupport::Unsupported
+                } else {
+                    ModeSupport::Both
+                },
+                |cmd| cmd.mode_support(),
+            )
     }
 
     /// Normalize a deny-list entry: trim, strip one leading `/`, lowercase.
@@ -546,6 +567,30 @@ impl CommandRegistry {
 mod tests {
     use super::*;
     use crate::slash::command::{CommandExecCtx, CommandResult};
+
+    #[test]
+    fn external_unknown_mode_support_fails_closed_and_registered_commands_work() {
+        let mut registry = CommandRegistry::new_external(vec![]);
+        for mode in [
+            crate::app::ScreenMode::Minimal,
+            crate::app::ScreenMode::Fullscreen,
+        ] {
+            assert!(!registry.mode_support("feedback").supports(mode));
+        }
+        let command = agent_client_protocol::AvailableCommand::new("pi-test", "Pi extension");
+        registry.set_acp_commands(&[command]);
+        assert!(
+            registry
+                .mode_support("pi-test")
+                .supports(crate::app::ScreenMode::Fullscreen)
+        );
+        let stock = CommandRegistry::new(vec![]);
+        assert!(
+            stock
+                .mode_support("unknown")
+                .supports(crate::app::ScreenMode::Fullscreen)
+        );
+    }
 
     struct DummyCommand {
         name: &'static str,

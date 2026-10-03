@@ -43,7 +43,10 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
   PI_GROK_EVAL_V2_ONLY: evalOnly ? "1" : "0", PI_GROK_EVAL_MCP: "0", PI_GROK_RPC_WATCHDOG: "0", PI_NATIVE_RENDER_TRACE: join(directory, "render-tools.jsonl"),
   TERM: "xterm-256color", TERM_PROGRAM: "xterm", COLORTERM: "truecolor" };
  env["PI_PTY_CONTROL_TRACE"] = join(directory, "control-registry.jsonl");
- if (mode === "product-surface") env["GROK_VOICE_MODE"] = "1";
+ if (mode === "product-surface") {
+  for (const key of ["GROK_VOICE_MODE", "GROK_PLUGIN_CTA", "GROK_WORKSPACE_DASHBOARD", "GROK_PRIVACY_NOTICE_ROLLOUT"])
+   env[key] = "1";
+ }
  const packageSource = join(directory, "local-package");
  if (mode === "packages") {
   // The host recomputes admission on reload. Persist Pi's session so an official
