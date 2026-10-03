@@ -12,10 +12,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from pi_contract_sources import load_pi_contract
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pi-source", type=Path, required=True)
+    parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -109,7 +113,7 @@ def main() -> int:
     }
 
     adapter_source = "\n".join(
-        p.read_text(encoding="utf-8") for p in sorted((root / "src").glob("*.rs"))
+        p.read_text(encoding="utf-8") for p in sorted((root / "src").rglob("*.rs"))
     )
     rust_ui_tokens = {
         "notify": '"notify"',
@@ -123,14 +127,15 @@ def main() -> int:
         "editor": '"editor"',
     }
 
-    rpc_types_path = args.pi_source / "packages/coding-agent/src/modes/rpc/rpc-types.ts"
-    pi_rpc_types = rpc_types_path.read_text(encoding="utf-8")
+    pi_identity, pi_rpc_types, _, _ = load_pi_contract(args.pi_source)
+    settled = adapter_source.partition('"agent_settled" => {')[2].split('\n            "', 1)[0]
     checks = {
         "mock_ui_methods": ui_methods == expected_ui,
         "mock_stream_events": expected_events <= event_types,
         "rust_routes_all_ui_methods": all(token in adapter_source for token in rust_ui_tokens.values()),
         "pi_rpc_declares_all_ui_methods": all(f'method: "{method}"' in pi_rpc_types for method in expected_ui),
-        "agent_settled_is_completion_barrier": '"agent_settled" => self.finish_prompt' in adapter_source,
+        "agent_settled_is_completion_barrier": 'self.finish_prompts(acp::StopReason::EndTurn)' in settled
+        and '"agent_end" => {}' in adapter_source,
         "history_is_requested": '"type": "get_messages"' in adapter_source,
         "pi_commands_are_discovered": '"type": "get_commands"' in adapter_source,
     }
@@ -142,6 +147,7 @@ def main() -> int:
 
     report = {
         "passed": all(checks.values()) and proc.returncode == 0 and not stderr,
+        "piContract": pi_identity,
         "checks": checks,
         "uiMethods": sorted(ui_methods),
         "eventTypes": sorted(str(value) for value in event_types),
@@ -149,7 +155,7 @@ def main() -> int:
         "mockExitCode": proc.returncode,
         "mockStderr": stderr,
     }
-    out = root / "docs/mock-pi-contract.json"
+    out = args.json_out or root / "docs/mock-pi-contract.json"
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     for name, passed in checks.items():
         print(f"[{'PASS' if passed else 'FAIL'}] {name}")

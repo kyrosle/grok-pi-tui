@@ -12,11 +12,21 @@ export default function (pi: ExtensionAPI) {
       const user = [...context.messages].reverse().find(message => message.role === "user");
       const text = typeof user?.content === "string" ? user.content : JSON.stringify(user?.content);
       const child = text?.includes("NATIVE_CHILD_REQUEST");
-      const spawned = context.messages.some(message => message.role === "toolResult" && message.toolName === "spawn_subagent");
+      const waitingChild = text?.includes("NATIVE_CHILD_WAIT_REQUEST");
+      if (waitingChild) {
+        // A real running SDK child, held until the isolated parent process is killed.
+        // The registered provider never opens a network connection.
+        return stream;
+      }
+      let userIndex = context.messages.length - 1;
+      while (userIndex >= 0 && context.messages[userIndex].role !== "user") userIndex--;
+      const spawned = context.messages.slice(userIndex + 1).some(message => message.role === "toolResult" && message.toolName === "spawn_subagent");
+      const background = text?.includes("NATIVE_PARENT_WAIT_REQUEST") ?? false;
       const content = child ? [{ type: "text" as const, text: "NATIVE_CHILD_BODY" }]
         : spawned ? [{ type: "text" as const, text: "NATIVE_PARENT_DONE" }]
         : [{ type: "toolCall" as const, id: "fixture-child-spawn", name: "spawn_subagent", arguments: {
-          prompt: "NATIVE_CHILD_REQUEST", description: "Native child fixture", subagent_type: "general-purpose", background: false,
+          prompt: background ? "NATIVE_CHILD_WAIT_REQUEST" : "NATIVE_CHILD_REQUEST",
+          description: background ? "Native orphan fixture" : "Native child fixture", subagent_type: "general-purpose", background,
         } }];
       const stopReason = child || spawned ? "stop" as const : "toolUse" as const;
       const message = { role: "assistant" as const, content, api: model.api, provider: model.provider, model: model.id,

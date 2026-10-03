@@ -12,10 +12,129 @@ import time
 ROOT = Path(__file__).resolve().parents[4]
 
 
+def run_runtime_fixture(directory, mode):
+    """Actual official executeTool and durable session paths, never FakeToolContext."""
+    root = Path(directory) / mode
+    root.mkdir()
+    env = {key: value for key, value in os.environ.items() if not (
+        key.endswith("_API_KEY") or key.endswith("_TOKEN") or key.startswith("AWS_"))}
+    env.update(PI_CODING_AGENT_DIR=str(root / "pi"), GROK_HOME=str(root / "grok"),
+               GROK_PROJECT_DIR=str(root / "project"), PI_GROK_EVAL_VERSION="v2",
+               PI_GROK_EVAL_V2_ONLY="1", PI_GROK_EVAL_MCP="0", PI_OFFLINE="1",
+               PI_TELEMETRY="0", PI_FIXTURE_RUNTIME_MODE=mode)
+    command = [env.get("PI_BIN", "pi"), "--mode", "rpc", "--offline", "-ne", "-ns", "-np", "-nc",
+               "--no-themes", "--no-approve", "--session-dir", str(root / "sessions"),
+               "--model", "pi-fixture/local", "--extension", str(ROOT / "extensions/pi-grok-bash/index.ts"),
+               "--extension", str(Path(__file__).parent / "fixtures/pi_native_tools.ts")]
+    if mode == "policy": command.extend(["--exclude-tools", "fixture_note"])
+    output, errors, all_events = queue.Queue(), [], []
+    def start(extra=()):
+        process = subprocess.Popen(command + list(extra), cwd=root, env=env, text=True, bufsize=1,
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        def stdout():
+            for line in process.stdout:
+                try: output.put(json.loads(line))
+                except ValueError: pass
+            output.put(None)
+        def stderr(): errors.extend(process.stderr)
+        reader = threading.Thread(target=stdout, daemon=True); reader.start()
+        threading.Thread(target=stderr, daemon=True).start()
+        return process, reader
+    process, reader = start()
+    def send(value):
+        process.stdin.write(json.dumps(value) + "\n"); process.stdin.flush()
+    def until(predicate, seconds=30):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            event = output.get(timeout=max(.1, deadline - time.monotonic()))
+            assert event is not None, "Pi EOF: " + "".join(errors)
+            all_events.append(event)
+            if predicate(event): return event
+        raise AssertionError("actual Pi runtime deadline: " + mode)
+    def request(kind, **params):
+        identity = f"request-{len(all_events)}"
+        send({"id": identity, "type": kind, **params})
+        response = until(lambda event: event.get("id") == identity)
+        assert response.get("success"), response
+        return response.get("data", {})
+    def prompt():
+        boundary = len(all_events)
+        send({"id": f"prompt-{boundary}", "type": "prompt", "message": "Runtime " + mode})
+        until(lambda event: event.get("type") == "agent_settled")
+        events = all_events[boundary:]
+        messages = [event["message"] for event in events if event.get("type") == "message_end"]
+        text = [item.get("text", "") for message in messages for item in message.get("content", []) if item.get("type") == "text"]
+        completion = next(json.loads(item) for item in text if item.startswith('{"fixtureComplete"'))
+        assert completion["tools"] == ["eval"], completion
+        results = [message for message in messages if message.get("role") == "toolResult" and message.get("toolName") == "eval"]
+        assert results and all(not result.get("isError") for result in results), results
+        return completion, results
+    def stats():
+        send({"id": "stats", "type": "prompt", "message": "/fixture-runtime-stats"})
+        event = until(lambda event: event.get("type") == "extension_ui_request" and str(event.get("message", "")).startswith("PI_RUNTIME_STATS:"))
+        return json.loads(event["message"].split(":", 1)[1])
+    try:
+        if mode == "abort":
+            send({"id": "abort-prompt", "type": "prompt", "message": "Runtime abort"})
+            start_event = until(lambda event: event.get("type") == "tool_execution_start" and event.get("toolName") == "fixture_parallel")
+            assert start_event.get("parentToolCallId"), start_event
+            send({"id": "abort", "type": "abort"})
+            until(lambda event: event.get("type") == "agent_settled")
+            state = stats()
+            assert state["parallel"] == 0 and state["aborted"] == 1 and state["completed"] == 0, state
+            terminal = [event for event in all_events if event.get("type") == "tool_execution_end" and event.get("toolCallId") == start_event["toolCallId"]]
+            assert len(terminal) == 1 and terminal[0]["isError"], terminal
+        elif mode == "concurrency":
+            completion, _ = prompt(); state = completion["runtime"]
+            assert state["maxParallel"] >= 2, state
+            assert state["maxSequential"] == 1 and state["parallel"] == state["sequential"] == 0, state
+            assert state["completed"] == 7, state
+        elif mode == "background":
+            _, results = prompt()
+            assert len(results) == 2 and results[0]["details"]["background"], results
+            first_id = results[0]["details"]["taskId"]
+            text = "\n".join(item.get("text", "") for item in results[1]["content"])
+            envelope = json.loads(text.split("RUNTIME_BACKGROUND_RESULT:", 1)[1])
+            payload = json.loads(envelope["text"])
+            assert payload["task_id"] == first_id and payload["status"] == "completed", payload
+            assert "RUNTIME_BACKGROUND_DONE" in payload["output"], payload
+        elif mode == "policy":
+            snapshots = []
+            def verify_policy():
+                completion, results = prompt()
+                text = "\n".join(item.get("text", "") for item in results[0]["content"])
+                payload = json.loads(text.split("RUNTIME_POLICY:", 1)[1])
+                assert "fixture_note" not in payload["declared"], payload
+                assert "excluded" in payload["results"]["fixture_note"] or "non-callable" in payload["results"]["fixture_note"], payload
+                assert "fixture-slow:policy" in str(payload["results"]["fixture_parallel"]), payload
+                assert completion["executions"] == 0, completion
+                snapshots.append({"declared": completion["tools"], "callable": payload["declared"]})
+            verify_policy()
+            parent = Path(request("get_state")["sessionFile"]); assert parent.is_file()
+            request("new_session")
+            request("set_model", provider="pi-fixture", modelId="local")
+            verify_policy()
+            request("switch_session", sessionPath=str(parent))
+            verify_policy()
+            process.terminate(); process.wait(timeout=5); reader.join(timeout=5)
+            while not output.empty(): output.get_nowait()
+            process, reader = start(["--session", str(parent)])
+            verify_policy()
+            assert all(snapshot == snapshots[0] for snapshot in snapshots), snapshots
+        if path := os.environ.get("PI_EVAL_RUNTIME_CAPTURE"):
+            directory = Path(path); directory.mkdir(parents=True, exist_ok=True)
+            (directory / f"{mode}.json").write_text(json.dumps({"mode": mode, "events": all_events}, ensure_ascii=False, indent=2) + "\n")
+        print(json.dumps({"passed": True, "runtime": mode, "events": len(all_events)}))
+    finally:
+        process.terminate()
+        try: process.wait(timeout=5)
+        except subprocess.TimeoutExpired: process.kill(); process.wait(timeout=5)
+
+
 def run_fixture(directory, eval_only, mcp_mode=None):
-    env = dict(os.environ)
+    env = {key: value for key, value in os.environ.items() if not (key.endswith("_API_KEY") or key.endswith("_TOKEN") or key.startswith("AWS_"))}
     env.update(PI_CODING_AGENT_DIR=str(Path(directory) / f"pi-{eval_only}"),
-               GROK_HOME=str(Path(directory) / "grok"), PI_GROK="1",
+               GROK_HOME=str(Path(directory) / "grok"), GROK_PROJECT_DIR=str(Path(directory) / "project"), PI_GROK="1",
                PI_GROK_EVAL_VERSION="v2", PI_GROK_EVAL_V2_ONLY=str(eval_only),
                PI_GROK_EVAL_MCP="0", PI_OFFLINE="1", PI_TELEMETRY="0")
     command = [env.get("PI_BIN", "pi"), "--mode", "rpc", "--offline", "-ne", "-ns", "-np",
@@ -124,3 +243,5 @@ if __name__ == "__main__":
         for mode in ["enabled", "deferred", "search-excluded", "excluded", "disabled"]:
             run_fixture(directory, 0, mode)
         run_fixture(directory, 1, "enabled")
+        for mode in ["abort", "concurrency", "background", "policy"]:
+            run_runtime_fixture(directory, mode)

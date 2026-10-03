@@ -34,18 +34,24 @@ def main():
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, stderr = queue.Queue(), []
         def read_stdout():
-            for line in process.stdout:
+            source = process.stdout
+            for line in source:
                 try: output.put(json.loads(line))
                 except ValueError: pass
             output.put(None)
-        def read_stderr(): stderr.extend(process.stderr)
+        def read_stderr():
+            source = process.stderr
+            stderr.extend(source)
         def read_bridge():
-            connection, _ = listener.accept()
-            with connection, connection.makefile() as lines:
-                for line in lines:
-                    output.put({"_bridge": json.loads(line)["data"]})
-        threading.Thread(target=read_stdout, daemon=True).start()
-        threading.Thread(target=read_stderr, daemon=True).start()
+            while True:
+                try: connection, _ = listener.accept()
+                except OSError: return
+                with connection, connection.makefile() as lines:
+                    for line in lines:
+                        output.put({"_bridge": json.loads(line)["data"]})
+        stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+        stdout_thread.start(); stderr_thread.start()
         threading.Thread(target=read_bridge, daemon=True).start()
         def send(value):
             process.stdin.write(json.dumps(value) + "\n"); process.stdin.flush()
@@ -79,11 +85,40 @@ def main():
             until(lambda event: event.get("_bridge", {}).get("kind") == "replay_complete")
             replay = [event["_bridge"] for event in events[boundary:] if "_bridge" in event]
             assert any(item["kind"] == "child_update" and item["replay"] and "NATIVE_CHILD_BODY" in str(item) for item in replay), replay
+            # Produce a real running durable child, then exercise the official recovery command
+            # after an abrupt parent restart. No session JSONL or sidecar is edited by this test.
+            send({"id": "background", "type": "prompt", "message": "NATIVE_PARENT_WAIT_REQUEST"})
+            until(lambda event: event.get("type") == "agent_settled")
+            if not any("NATIVE_CHILD_WAIT_REQUEST" in str(event.get("_bridge", {}).get("payload", {}).get("update", {})) for event in events):
+                until(lambda event: "NATIVE_CHILD_WAIT_REQUEST" in str(event.get("_bridge", {}).get("payload", {}).get("update", {})))
+            process.kill(); process.wait(timeout=5)
+            stdout_thread.join(timeout=5); stderr_thread.join(timeout=5)
+            while not output.empty(): output.get_nowait()
+            process = subprocess.Popen(command + ["--session", str(parent)], cwd=root, env=env, text=True, bufsize=1,
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+            stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+            stdout_thread.start(); stderr_thread.start()
+            boundary = len(events)
+            send({"id": "recovery", "type": "prompt", "message": '/__pi_grok_subagent_replay {"mode":"recovery","requestId":"fixture-recovery"}'})
+            until(lambda event: event.get("_bridge", {}).get("kind") == "replay_complete")
+            recovery = [event["_bridge"] for event in events[boundary:] if "_bridge" in event]
+            assert [item["kind"] for item in recovery] == ["spawned", "finished", "replay_complete"], recovery
+            assert recovery[1]["payload"]["status"] == "cancelled", recovery
+            assert recovery[0]["subagentId"] == recovery[1]["subagentId"], recovery
+            assert not any(item["replay"] for item in recovery), recovery
+            # A second recovery settles no completed/cancelled child and cannot duplicate history.
+            boundary = len(events)
+            send({"id": "recovery-again", "type": "prompt", "message": '/__pi_grok_subagent_replay {"mode":"recovery","requestId":"fixture-recovery-again"}'})
+            until(lambda event: event.get("_bridge", {}).get("kind") == "replay_complete")
+            repeated = [event["_bridge"] for event in events[boundary:] if "_bridge" in event]
+            assert [item["kind"] for item in repeated] == ["replay_complete"], repeated
             report = {"piBinary": command[0], "provider": "root-only-extension-registration", "live": bridge, "replay": replay,
-                      "persistedEntries": len(entries), "proof": "actual Pi SDK + production subagent bridge; ACP/native requires adapter fixture"}
+                      "recovery": recovery, "repeatedRecovery": repeated, "persistedEntries": len(entries),
+                      "proof": "actual Pi SDK + production subagent bridge; ACP/native requires adapter fixture"}
             if path := os.environ.get("PI_SUBAGENT_SDK_CAPTURE"):
                 Path(path).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-            print(json.dumps({"passed": True, "live": len(bridge), "replay": len(replay), "child": "NATIVE_CHILD_BODY"}))
+            print(json.dumps({"passed": True, "live": len(bridge), "replay": len(replay), "recovery": len(recovery), "child": "NATIVE_CHILD_BODY"}))
         finally:
             listener.close()
             process.terminate()
