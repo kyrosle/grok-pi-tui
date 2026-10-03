@@ -1,10 +1,6 @@
-# grok-pi — 面向 Pi 的 Grok Build 风格 TUI
+# grok-pi — Pi 原生 Rust TUI
 
-当前产品：**Pi Agent Core + Grok Build 风格原生 TUI**。
-本轮产品入口裁剪记录在
-[SPEC](issues/架构/20261003-pi-product-surface-SPEC.md)、
-[PLAN](issues/架构/20261003-pi-product-surface-PLAN.md) 和
-[验证报告](VERIFICATION.md)。先前 Pi-first 与深度适配的构建、原生 PTY 和来源证据保留为独立检查点。
+总纲以 [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) 和 [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) 为准：最终仅保留 grok-pi，Pi 为唯一内核，删除 stock profile 与 Grok 业务依赖。Grok Build 只作 UI 参考仓库。T0–T8 正在推进，先前入口裁剪是历史检查点，当前证据见[验证报告](VERIFICATION.md)。
 
 
 > 在 Grok Pager 原生终端 UI 中使用 Pi 模型、工具与会话。

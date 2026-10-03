@@ -1,20 +1,32 @@
 #!/usr/bin/env python3
-"""Check native UI architecture and installed-Pi source contracts.
+"""Prove that Pi is hosted by the uploaded Grok Build TUI, not a replacement TUI.
 
-Source guards do not prove runtime behavior, endpoint absence or Git blob identity.
+The verifier checks architecture and exact layered source identity. Original
+upstream Git blobs remain protected; committed integration deviations are
+frozen separately, and current-phase seams require exact file provenance.
+A Git merge or frozen integration snapshot is not semantic alignment proof.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
 import sys
-import tomllib
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from pi_contract_sources import load_pi_contract, runtime_rpc_commands
+
+
+def sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def read(path: Path) -> str:
@@ -23,7 +35,7 @@ def read(path: Path) -> str:
 
 def source_files(root: Path) -> set[str]:
     # Git defines source candidates; ignored dependencies and build artifacts
-    # are not source candidates for the architecture guard.
+    # are not native source. No native directory is exempted from identity checks.
     candidates = subprocess.check_output(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         cwd=root,
@@ -31,36 +43,185 @@ def source_files(root: Path) -> set[str]:
     return {name for name in candidates if name and (root / name).is_file()}
 
 
-def adapter_dependency_hits(cargo_text: str, workspace_cargo_text: str = "") -> list[str]:
-    """Check declared dependencies, including aliases, targets and test dependencies."""
-    hits: set[str] = set()
-    workspace_dependencies = tomllib.loads(workspace_cargo_text).get("workspace", {}).get("dependencies", {}) if workspace_cargo_text else {}
-    def visit(value: Any) -> None:
-        if not isinstance(value, dict):
-            return
-        for key, entries in value.items():
-            if key in {"dependencies", "build-dependencies", "dev-dependencies"}:
-                for name, definition in entries.items():
-                    if isinstance(definition, dict) and definition.get("workspace") is True:
-                        definition = workspace_dependencies.get(name, definition)
-                    package = definition.get("package", name) if isinstance(definition, dict) else name
-                    if package in {"ratatui", "crossterm", "tui-textarea"} or package.startswith(("xai-ratatui", "xai-grok-pager")):
-                        hits.add(package)
-            else:
-                visit(entries)
-    visit(tomllib.loads(cargo_text))
-    return sorted(hits)
+UPSTREAM_COMMIT = "37949780c144e37df692e3d669051a21fec24f20"
+INTEGRATION_COMMIT = "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+PHASE_REVIEW_BASE_COMMIT = "84174917511690447ba32915571e9748b5e10ad4"
+PHASE_MANIFEST_PATH = "crates/codegen/pi-grok-adapter/docs/grok_uploaded_baseline_sha256.json"
+PHASE_MANIFEST_HASH_MODE = "canonical-json-without-self-sha256"
+NATIVE_COMPONENT_PREFIXES = (
+    "crates/codegen/xai-grok-pager/",
+    "crates/codegen/xai-grok-pager-render/",
+    "crates/codegen/xai-grok-pager-minimal/",
+    "crates/codegen/xai-grok-pager-diff/",
+    "crates/codegen/xai-grok-markdown/",
+)
 
 
-def native_command_errors(source: str, expected: list[str], forbidden: list[str]) -> tuple[list[str], list[str]]:
-    match = re.search(r"const PI_GROK_NATIVE_COMMANDS:\s*&\[&str\]\s*=\s*&\[(.*?)\];", source, re.S)
-    commands = re.findall(r'"([^"]+)"', match.group(1)) if match else []
-    errors = []
-    if commands != expected:
-        errors.append("native command catalog differs from the reviewed UI whitelist")
-    if set(commands) & set(forbidden):
-        errors.append("stock product commands entered the local native catalog")
-    return commands, errors
+def phase_sha256(root: Path, relative: str) -> str:
+    if relative != PHASE_MANIFEST_PATH:
+        return sha256(root / relative)
+    # The manifest cannot embed its own raw-byte SHA. Only this exact metadata
+    # path hashes canonical content, omitting its single self SHA field.
+    content = json.loads(read(root / relative))
+    content["phaseSeams"][relative].pop("sha256", None)
+    canonical = json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@lru_cache(maxsize=2)
+def git_source(root: Path, revision: str) -> tuple[str, dict[str, str]]:
+    """Hash source Git blobs, never accept working-tree bytes as a baseline."""
+    tree = subprocess.check_output(
+        ["git", "rev-parse", f"{revision}^{{tree}}"], cwd=root, text=True,
+    ).strip()
+    blobs: dict[str, str] = {}
+    for row in subprocess.check_output(["git", "ls-tree", "-rz", revision], cwd=root).split(b"\0"):
+        if row:
+            meta, path = row.split(b"\t", 1)
+            _mode, kind, oid = meta.decode().split()
+            if kind == "blob":
+                blobs[path.decode()] = oid
+    oids = sorted(set(blobs.values()))
+    result = subprocess.run(
+        ["git", "cat-file", "--batch"], cwd=root, check=True,
+        input=("\n".join(oids) + "\n").encode(), stdout=subprocess.PIPE,
+    ).stdout
+    hashes: dict[str, str] = {}
+    offset = 0
+    for oid in oids:
+        end = result.index(b"\n", offset)
+        actual, kind, size_text = result[offset:end].decode().split()
+        if (actual, kind) != (oid, "blob"):
+            raise ValueError(f"invalid Git blob response: {actual} {kind}")
+        size = int(size_text)
+        offset = end + 1
+        hashes[oid] = hashlib.sha256(result[offset:offset + size]).hexdigest()
+        offset += size + 1
+    return tree, {path: hashes[oid] for path, oid in blobs.items()}
+
+
+def verify_source_identity(
+    root: Path, manifest: dict[str, Any], renderer: dict[str, Any],
+) -> dict[str, Any]:
+    upstream_tree, upstream = git_source(root, UPSTREAM_COMMIT)
+    integration_tree, integration = git_source(root, INTEGRATION_COMMIT)
+    historical = manifest.get("historicalFiles", {})
+    phase = manifest.get("phaseSeams", {})
+    current = source_files(root)
+    baseline_errors: list[str] = []
+    declaration_errors: list[str] = []
+    identity_errors: list[str] = []
+    renderer_errors: list[str] = []
+    if manifest.get("schemaVersion") != 3:
+        baseline_errors.append("layered manifest schemaVersion must be 3")
+    if manifest.get("upstreamSource") != {
+        "commit": UPSTREAM_COMMIT,
+        "sourceRevision": "c4ea71cfdbcdb21e32e41bc25a0043d7d4836714",
+        "tree": upstream_tree,
+    }:
+        baseline_errors.append("upstream source commit/revision/tree mismatch")
+    if manifest.get("integrationSource") != {"commit": INTEGRATION_COMMIT, "tree": integration_tree}:
+        baseline_errors.append("frozen integration source commit/tree mismatch")
+    review_tree = subprocess.check_output(
+        ["git", "rev-parse", f"{PHASE_REVIEW_BASE_COMMIT}^{{tree}}"], cwd=root, text=True,
+    ).strip()
+    if manifest.get("phaseReviewBaseSource") != {"commit": PHASE_REVIEW_BASE_COMMIT, "tree": review_tree}:
+        declaration_errors.append("previous Pi-first phase review-base commit/tree mismatch")
+    if manifest.get("baselineFiles") != upstream or manifest.get("baselineFileCount") != len(upstream):
+        baseline_errors.append("upstream file inventory/hashes differ from source Git blobs")
+
+    expected_historical = {
+        path: "added" if path not in upstream else "removed" if path not in integration else "modified"
+        for path in upstream.keys() | integration.keys()
+        if upstream.get(path) != integration.get(path)
+    }
+    if set(historical) != set(expected_historical):
+        declaration_errors.append(f"historical inventory mismatch: {sorted(set(historical) ^ set(expected_historical))}")
+    commit_reasons: dict[str, str] = {}
+    for path, item in historical.items():
+        commit = item.get("lastChangeCommit", "")
+        if commit not in commit_reasons and re.fullmatch(r"[0-9a-f]{40}", commit):
+            result = subprocess.run(
+                ["git", "show", "-s", "--format=%s", commit], cwd=root,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            commit_reasons[commit] = result.stdout.strip() if result.returncode == 0 else ""
+        if (item.get("kind") != expected_historical.get(path)
+            or item.get("sourceCommit") != INTEGRATION_COMMIT
+            or item.get("sha256") != integration.get(path)
+            or not item.get("reason")
+            or item.get("reason") != commit_reasons.get(commit)
+            or item.get("category") not in {"historical-native-carryover", "historical-integration"}
+            or not item.get("semanticReview")):
+            declaration_errors.append(f"invalid frozen source provenance: {path}")
+    for path, item in phase.items():
+        safe_path = Path(path)
+        if safe_path.is_absolute() or ".." in safe_path.parts or not item.get("reason") or not item.get("source"):
+            declaration_errors.append(f"invalid exact phase declaration: {path}")
+        elif not (root / item["source"]).is_file():
+            declaration_errors.append(f"missing phase provenance reference: {path}")
+        if "sha256" in item and not re.fullmatch(r"[0-9a-f]{64}", str(item["sha256"])):
+            declaration_errors.append(f"invalid reviewed phase hash: {path}")
+        hash_mode = item.get("hashMode")
+        if (hash_mode is not None and (path != PHASE_MANIFEST_PATH or hash_mode != PHASE_MANIFEST_HASH_MODE)
+            or path == PHASE_MANIFEST_PATH and "sha256" in item and hash_mode != PHASE_MANIFEST_HASH_MODE):
+            declaration_errors.append(f"invalid exact phase hash mode: {path}")
+    phase_commits = {
+        commit for item in phase.values()
+        for commit in item.get("sourceCommits", [item["sourceCommit"]] if item.get("sourceCommit") else [])
+    }
+    for commit in sorted(phase_commits):
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"], cwd=root,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        if result.returncode != 0:
+            declaration_errors.append(f"missing phase source commit: {commit}")
+    expected_modified = {p for p, kind in expected_historical.items() if kind == "modified"} | (phase.keys() & upstream.keys())
+    expected_added = {p for p, kind in expected_historical.items() if kind == "added"} | (phase.keys() - upstream.keys())
+    expected_removed = {p for p, kind in expected_historical.items() if kind == "removed"}
+    if (manifest.get("allowedAddedPrefixes") != []
+        or manifest.get("allowedModifiedFiles") != sorted(expected_modified)
+        or manifest.get("allowedAddedFiles") != sorted(expected_added)
+        or manifest.get("allowedRemovedFiles") != sorted(expected_removed)):
+        declaration_errors.append("exact additions/modifications/removals differ from source declarations, or directory exemption exists")
+    missing = (set(integration) | set(phase)) - current
+    extra = current - set(integration) - set(phase)
+    identity_errors.extend(f"missing source: {path}" for path in sorted(missing))
+    identity_errors.extend(f"undeclared addition: {path}" for path in sorted(extra))
+    identity_errors.extend(f"declared removal restored: {path}" for path in sorted(expected_removed & current))
+    for path in sorted(current & phase.keys()):
+        if "sha256" in phase[path] and phase_sha256(root, path) != phase[path]["sha256"]:
+            identity_errors.append(f"reviewed phase bytes changed: {path}")
+    for path in sorted(current & integration.keys() - phase.keys()):
+        if sha256(root / path) != integration[path]:
+            origin = "frozen integration" if path in historical else "protected upstream"
+            identity_errors.append(f"{origin} bytes changed without phase declaration: {path}")
+
+    native_upstream = {p: value for p, value in upstream.items() if p.startswith(NATIVE_COMPONENT_PREFIXES)}
+    if (renderer.get("schemaVersion") != 3 or renderer.get("sourceCommit") != UPSTREAM_COMMIT
+        or renderer.get("componentPrefixes") != list(NATIVE_COMPONENT_PREFIXES)
+        or renderer.get("files") != native_upstream or renderer.get("fileCount") != len(native_upstream)):
+        renderer_errors.append("complete native component inventory/hashes differ from source Git blobs")
+    renderer_errors.extend(error for error in identity_errors if any(prefix in error for prefix in NATIVE_COMPONENT_PREFIXES))
+    return {
+        "baselineErrors": baseline_errors,
+        "declarationErrors": declaration_errors,
+        "identityErrors": identity_errors,
+        "rendererErrors": renderer_errors,
+        "upstreamFileCount": len(upstream),
+        "upstreamExactFileCount": len(upstream.keys() & integration.keys() - historical.keys() - phase.keys()),
+        "frozenIntegrationFileCount": len(integration),
+        "historicalModifiedFileCount": sum(kind == "modified" for kind in expected_historical.values()),
+        "historicalAddedFileCount": sum(kind == "added" for kind in expected_historical.values()),
+        "historicalRemovedFileCount": len(expected_removed),
+        "historicalNativeCarryovers": sorted(p for p, item in historical.items() if item.get("category") == "historical-native-carryover"),
+        "semanticReviewRequired": sorted(p for p, item in historical.items() if item.get("semanticReview") == "provenance-only"),
+        "phaseSeamCount": len(phase),
+        "phaseReviewBaseCommit": PHASE_REVIEW_BASE_COMMIT,
+        "unfrozenPhaseSeams": sorted(p for p, item in phase.items() if "sha256" not in item),
+        "protectedNativeFileCount": len(native_upstream),
+    }
 
 
 def main() -> int:
@@ -94,7 +255,7 @@ def main() -> int:
     )
     bin_paths = [native_bin, *sorted((native_bin.parent / "grok_pi").rglob("*.rs"))]
     # This exact, cfg(test)-gated module renders native components to a Buffer.
-    # It is a test-only rendering fixture, not production composition code.
+    # Source identity still covers it; it is not production composition code.
     model_tests = native_bin.parent / "grok_pi/model_manager_tests.rs"
     test_gate = '#[cfg(test)]\n#[path = "grok_pi/model_manager_tests.rs"]\nmod model_manager_tests;'
     if native_bin.exists() and test_gate in read(native_bin):
@@ -112,7 +273,8 @@ def main() -> int:
         "pi-grok-adapter is a library-only workspace member; the former standalone TUI target is absent",
     )
 
-    dependency_hits = adapter_dependency_hits(adapter_cargo, root_cargo)
+    banned_deps = ["ratatui", "crossterm", "xai-ratatui", "tui-textarea"]
+    dependency_hits = [name for name in banned_deps if name in adapter_cargo.lower()]
     check(
         "adapter_has_no_terminal_dependencies",
         not dependency_hits,
@@ -152,7 +314,7 @@ def main() -> int:
         and 'name = "grok-pi"' in bin_cargo
         and 'path = "src/bin/grok-pi.rs"' in bin_cargo
         and 'pi-grok-adapter = { path = "../pi-grok-adapter" }' in bin_cargo,
-        "grok-pi composition uses the native Pager library",
+        "grok-pi is a second composition root in xai-grok-pager-bin",
         str(native_bin.relative_to(ws)) if native_bin.exists() else None,
     )
 
@@ -219,15 +381,55 @@ def main() -> int:
         else f"missing native components: {missing_components}",
     )
 
-    tracked_sources = source_files(ws)
-    all_rs = "\n".join(read(ws / path) for path in sorted(tracked_sources) if path.endswith(".rs"))
+    baseline_manifest = json.loads(read(docs / "grok_uploaded_baseline_sha256.json"))
+    renderer_manifest = json.loads(read(docs / "native_renderer_sha256.json"))
+    identity = verify_source_identity(ws, baseline_manifest, renderer_manifest)
+    check(
+        "upstream_source_manifest_matches_git_blobs",
+        not identity["baselineErrors"],
+        f"complete {identity['upstreamFileCount']}-file original upstream Git inventory and source commit/tree are exact",
+        identity["baselineErrors"],
+    )
+    check(
+        "frozen_integration_and_phase_source_identity_are_exact",
+        not identity["identityErrors"],
+        f"{identity['upstreamExactFileCount']} protected files retain original upstream bytes; "
+        f"{identity['historicalModifiedFileCount']} committed modifications, {identity['historicalAddedFileCount']} additions "
+        f"and {identity['historicalRemovedFileCount']} removals are frozen to {INTEGRATION_COMMIT[:8]}; "
+        f"{identity['phaseSeamCount']} current-phase files are explicitly declared, not hashed as a new source baseline",
+        identity["identityErrors"],
+    )
+    check(
+        "native_renderer_inventory_and_layered_identity_are_exact",
+        not identity["rendererErrors"],
+        f"all {identity['protectedNativeFileCount']} original Pager/Render/Minimal/Diff/Markdown files are covered; "
+        "declared historical carryovers and current-phase seams are separate from upstream identity",
+        identity["rendererErrors"],
+    )
+    check(
+        "declared_source_surface_is_exact_and_has_provenance",
+        not identity["declarationErrors"],
+        "every historical deviation and phase seam has exact file-level source/reason metadata; no directory exemptions; "
+        "frozen native history proves provenance, with semantic review reported separately",
+        identity["declarationErrors"],
+    )
+
+    all_rs = "\n".join(
+        read(path)
+        for path in ws.rglob("*.rs")
+        if "target" not in path.parts and ".git" not in path.parts
+    )
     forbidden_messages = [
         "acknowledged by fallback renderer",
         "fallback renderer",
         "Unsupported Extension UI method",
     ]
     found_messages = [message for message in forbidden_messages if message in all_rs]
-    old_tui_paths = sorted(path for path in tracked_sources if "pi-grok-tui" in Path(path).parts)
+    old_tui_paths = [
+        str(path.relative_to(ws))
+        for path in ws.rglob("pi-grok-tui")
+        if path.is_dir()
+    ]
     check(
         "no_fallback_or_old_custom_tui",
         not found_messages and not old_tui_paths,
@@ -236,6 +438,12 @@ def main() -> int:
         else f"messages={found_messages}; paths={old_tui_paths}",
     )
 
+    builtins_match = re.search(
+        r"const PI_GROK_NATIVE_COMMANDS:\s*&\[&str\]\s*=\s*&\[(.*?)\];",
+        bin_source,
+        re.S,
+    )
+    builtins = re.findall(r'"([^"]+)"', builtins_match.group(1)) if builtins_match else []
     expected_builtins = [
         "exit",
         "help",
@@ -302,11 +510,10 @@ def main() -> int:
         "share",
         "voice",
     ]
-    builtins, command_errors = native_command_errors(bin_source, expected_builtins, forbidden_local_commands)
     local_command_hits = [name for name in forbidden_local_commands if name in builtins]
     check(
         "slash_surface_uses_grok_native_commands_and_pi_catalog",
-        not command_errors,
+        builtins == expected_builtins and not local_command_hits,
         f"retained {len(builtins)} existing Grok UI or ACP-backed commands; no adapter-specific slash UI"
         if builtins == expected_builtins and not local_command_hits
         else f"builtins={builtins}; forbidden local commands={local_command_hits}",
@@ -516,13 +723,12 @@ def main() -> int:
 
     passed = all(item["passed"] for item in checks.values())
     report = {
-        "schemaVersion": 3,
+        "schemaVersion": 2,
         "passed": passed,
         "workspace": str(ws),
         "piSource": str(pi),
         "piContract": pi_identity,
-        "proofLayer": "source-architecture-and-Pi-contract",
-        "limits": ["No upstream blob identity requirement", "No Cargo/runtime or endpoint-absence proof"],
+        "sourceIdentity": identity,
         "checks": checks,
     }
     out = args.json_out or docs / "native-grok-verification.json"

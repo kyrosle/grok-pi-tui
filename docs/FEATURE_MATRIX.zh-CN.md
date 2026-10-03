@@ -1,5 +1,8 @@
 # Pi Core + Grok Build 风格原生 TUI 功能矩阵
 
+总纲：[SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md)。T0 改用架构守卫，T1 收口入口；编译期移除债务与 T2–T8 仍待完成。下面的已接入能力是检查点，不代表 END-01–09 全部通过。
+
+
 
 **最小 Pi 版本：1.0.0**（系统 `pi` / `@earendil-works/pi-coding-agent`）。`pi-main` 为可选 git 子模块，非运行时必需。
 

@@ -1,5 +1,8 @@
 # Pi Core + Grok Build-style Native TUI Feature Matrix
 
+Master transition: [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md). T0 replaces reference byte identity with architecture guards; T1 closes remaining entries. Compiled removal debt and T2–T8 remain explicit. Current capabilities below are checkpoints, not completion of END-01–09.
+
+
 
 **Minimum Pi version: 1.0.0** (system `pi` / `@earendil-works/pi-coding-agent`). `pi-main` is an optional git submodule, not required at runtime.
 

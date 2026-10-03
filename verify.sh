@@ -17,6 +17,24 @@ python3 "$ADAPTER/scripts/verify_native_grok.py" \
   --json-out "$LOG_DIR/native-grok-verification.json" \
   | tee "$LOG_DIR/native-grok-verification.log"
 
+python3 "$ADAPTER/scripts/test_native_architecture.py" \
+  | tee "$LOG_DIR/architecture-negative.log"
+
+ENDPOINT_ARGS=(--workspace "$ROOT")
+DEPENDENCY_ARGS=(--json-out "$LOG_DIR/pi-dependency-profile.json")
+VERIFY_BINARY="${PI_VERIFY_BINARY:-$ROOT/target/debug/grok-pi}"
+if [[ -f "$VERIFY_BINARY" ]]; then
+  ENDPOINT_ARGS+=(--binary "$VERIFY_BINARY")
+fi
+if [[ "${PI_VERIFY_ENFORCE:-0}" == "1" ]]; then
+  ENDPOINT_ARGS+=(--enforce)
+  DEPENDENCY_ARGS+=(--enforce)
+fi
+python3 "$ADAPTER/scripts/scan_product_endpoints.py" \
+  "${ENDPOINT_ARGS[@]}" \
+  --json-out "$LOG_DIR/product-endpoints.json" \
+  | tee "$LOG_DIR/product-endpoints.log"
+
 python3 "$ADAPTER/tests/mock_pi_contract.py" \
   --pi-source "$PI_ROOT" \
   --json-out "$LOG_DIR/mock-pi-contract.json" \
@@ -51,7 +69,7 @@ fi
   "$ROOT/scripts/cargo-shared.sh" check -p xai-grok-pager-bin --bin grok-pi \
     --no-default-features --features jemalloc,sandbox-enforce
   "$ROOT/scripts/cargo-shared.sh" check -p xai-grok-pager-bin --bin xai-grok-pager
-  python3 "$ADAPTER/tests/pi_dependency_profile.py"
+  python3 "$ADAPTER/tests/pi_dependency_profile.py" "${DEPENDENCY_ARGS[@]}"
   "$ROOT/scripts/cargo-shared.sh" test -p pi-grok-adapter
   "$ROOT/scripts/cargo-shared.sh" test -p xai-grok-pager-bin --bin grok-pi \
     --no-default-features --features jemalloc,sandbox-enforce
@@ -65,4 +83,8 @@ cat > "$LOG_DIR/cargo-status.json" <<JSON
 }
 JSON
 
-echo "All verification passed."
+if [[ "${PI_VERIFY_ENFORCE:-0}" == "1" ]]; then
+  echo "Selected verification checks passed with strict removal/endpoint policy."
+else
+  echo "Selected verification checks passed; pending removals and endpoint baseline are reported, not terminal acceptance."
+fi

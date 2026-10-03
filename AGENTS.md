@@ -6,45 +6,26 @@ This repository root (`grok-pi-tui/`) is the primary project checkout. Do not tr
 
 ```text
 origin   https://github.com/Dwsy/grok-pi-tui.git
-upstream https://github.com/xai-org/grok-build.git
-base     37949780c144e37df692e3d669051a21fec24f20
+grok-build https://github.com/xai-org/grok-build.git (reference; push disabled)
 ```
 
 - Work from this directory; do not use its parent wrapper as a repository.
-- `origin/main` is the Pi-Grok integration branch. The Grok Build source is read-only; an `upstream` remote may be configured for fetching it.
-- Never directly merge an upstream root commit into this repository without a migration plan. Reapply the narrow integration seams and validate them instead.
+- `origin/main` is the product branch. Grok Build is a reference repository, not an upstream to merge.
+- Source inherited from Grok Build may be changed, renamed or removed. Preserve licenses and copyright notices; port UI improvements deliberately.
 - Keep commits focused. Do not stage generated `pi-main` model catalog changes unless they are intentional.
 - Pi host default is **system `pi` >= 1.0.0** (`npm i -g @earendil-works/pi-coding-agent`). Override with `--pi-bin` / `PI_BIN`.
 - Optional Pi source checkout is the git submodule [`pi-main`](https://github.com/earendil-works/pi) (not a vendored copy). Follow [`pi-main/AGENTS.md`](pi-main/AGENTS.md) when working inside the submodule.
 
-The current product spec and execution record are [Pi product surface SPEC](docs/issues/架构/20261003-pi-product-surface-SPEC.md) and [PLAN](docs/issues/架构/20261003-pi-product-surface-PLAN.md): Pi agent core with a Grok Build-style native TUI and configurable Pi extensions. The external profile excludes Grok voice, account, billing, training/retention and stock agent/plugin/MCP product controls.
+The governing documents are [Pi native TUI SPEC](docs/issues/架构/20261003-pi-native-tui-SPEC.md) and [PLAN](docs/issues/架构/20261003-pi-native-tui-PLAN.md). The final product has one grok-pi binary, Pi as the only core, a native Rust TUI, and no stock Grok profile or business runtime. Execute T0–T8 in order; a completed checkpoint is not completion of the master SPEC.
 
-The [Pi-first TUI record](docs/issues/架构/20261002-pi-first-tui-PLAN.md) is the completed baseline at `84174917`; [Pi deep adaptation SPEC](docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md), and [exact source review](docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md) describe the following checkpoint. Keep their prior verification separate from current source/fixture/build acceptance. Adapter-owned queue, Plan/Goal and optional Rhai Workflow ownership remain recorded debts; this product-surface cut does not migrate them.
+The [Pi-first](docs/issues/架构/20261002-pi-first-tui-PLAN.md), [deep adaptation](docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md) and [product surface](docs/issues/架构/20261003-pi-product-surface-PLAN.md) records are historical checkpoints. Adapter queue/Plan/Goal ownership, private extension hooks and compiled Grok dependencies remain master-plan work.
 
-## Upstream sync workflow
+## Grok Build reference review
 
-Syncing upstream Grok Build is a **two-phase** process. Always record what
-upstream changed *before* merging it.
-
-1. **Fill the upstream update record first.** Run the
-   [`upstream-changelog`](.pi/skills/upstream-changelog/SKILL.md) skill (trigger:
-   `/skill:upstream-changelog`, or "上游更新记录" / "fill the upstream update
-   list"). It fetches `upstream`, computes the pending range
-   (`merge-base HEAD upstream/main .. upstream/main`), transcribes the
-   `Changes:` list from each upstream commit message, and writes a structured
-   English entry to [`docs/upstream/UPSTREAM_CHANGELOG.md`](docs/upstream/UPSTREAM_CHANGELOG.md).
-   This step is **read-only** — it records changes but merges nothing.
-2. **Then merge.** Only after the changelog entry exists, proceed with the
-   isolated-worktree merge, seam reapplication, and validation (see the
-   `docs/issues/架构/` sync issues). Never merge an upstream root commit
-   directly into `main` without this plan.
-
-Upstream commits are titled `Synced from monorepo` but each carries a full
-`Changes:` bullet list and a `Source-Revision:` trailer — the changelog skill
-transcribes those as the authoritative feature list (diff analysis is only a
-fallback for commits lacking a `Changes:` list). `SOURCE_REV`, `AGENTS.md`
-`base`, and verifier baselines are updated only after a completed, verified
-merge — never by the changelog skill.
+- Fetch `grok-build` and review `docs/grok-build/REVIEWED..grok-build/main` using [grok-build-review](.pi/skills/grok-build-review/SKILL.md). Record each change as port, adapt then port, skip business, or observe, with reasons and target paths in [REVIEW_LOG](docs/grok-build/REVIEW_LOG.md).
+- Do not merge the reference repository wholesale. Actual ports use an isolated worktree, a narrow patch or a rewrite, and their own validation/commit. Commit trailers record `Ported-From: grok-build <sha> (Source-Revision <rev>)`.
+- Advance `REVIEWED` only after the range's decisions are recorded. It is a review watermark, not a source-sync or adoption claim.
+- Previous sync records and byte-identity inventories are [archived](docs/grok-build/archive/README.md); they do not constrain current source edits. Crate names may remain `xai-*` for reference-path continuity.
 
 ## Architecture invariants
 
@@ -54,6 +35,7 @@ merge — never by the changelog skill.
 4. **Reuse native Grok surfaces.** Map Pi capabilities to existing Pager prompt, slash, QuestionView, toast, banner, tool card, diff, and scrollback surfaces. Do not create a second TUI or ASCII fallback UI.
 5. **Do not modify Pi source to extend RPC.** When a Pi core capability is not exposed over RPC, prefer the official extension API. Preserve Pi semantics rather than emulating them with JSONL edits or unrelated RPCs.
 6. **Product-isolated state trees.** grok-pi must not share stock Grok’s user or project config roots (see [Product state isolation](#product-state-isolation)).
+7. **No Grok business in the final product.** Pending dependencies are transitional T2/T7 work, not permanent exceptions. Validation uses dependency, endpoint, protocol, entry-policy and PTY guards; it does not require reference blob identity.
 
 Read [`NATIVE_GROK_TUI_ALIGNMENT.md`](docs/NATIVE_GROK_TUI_ALIGNMENT.md) and [`FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md) before changing protocol or UI behavior.
 
@@ -72,7 +54,7 @@ Rules:
 - Resolve project paths only via `xai_grok_config::project_config_dirname()` / `project_config_dir(root)` — never hardcode `.join(".grok")` for project assets in grok-pi production code.
 - User paths go through `grok_home()` / `$GROK_HOME` (workflows → `$GROK_HOME/workflows`, config → `$GROK_HOME/config.toml`, etc.).
 - **No dual-scan of stock trees by default.** grok-pi does not auto-read `~/.grok` or `<repo>/.grok` for project discovery; migrate with `grok-pi migrate-home` (allowlisted user files only — **not** `workflows/`) or copy project trees manually into `.grok-pi`.
-- Unit tests without env keep the stock default `.grok` so upstream-style tests stay green.
+- Until T7, stock-profile tests retain their legacy defaults. T7 makes Pi behavior the sole default and removes stock tests/profile explicitly.
 - Design note: [`docs/issues/架构/20260722-项目级.grok-pi隔离.md`](docs/issues/架构/20260722-项目级.grok-pi隔离.md).
 
 Examples under a git repo:
@@ -99,8 +81,8 @@ Examples under a git repo:
 | Pi RPC facts (submodule / installed package) | `pi-main/packages/coding-agent/src/modes/rpc/` or npm package dist |
 | Pi session lifecycle facts | `pi-main/packages/coding-agent/src/core/agent-session.ts` |
 | Architecture and task records | `docs/` |
-| Upstream update record (changelog) | `docs/upstream/UPSTREAM_CHANGELOG.md` |
-| Upstream changelog skill | `.pi/skills/upstream-changelog/SKILL.md` |
+| Reference review watermark / log | `docs/grok-build/REVIEWED`, `docs/grok-build/REVIEW_LOG.md` |
+| Reference review skill | `.pi/skills/grok-build-review/SKILL.md` |
 | Project `.grok-pi` isolation issue | `docs/issues/架构/20260722-项目级.grok-pi隔离.md` |
 
 ## Session and tree rules
@@ -128,7 +110,7 @@ python3 crates/codegen/pi-grok-adapter/tests/pi_dependency_profile.py
 
 All linked worktrees share one Cargo output tree at `<git-common-dir>/pi-grok-cargo-target`. `./build.sh` and `./verify.sh` initialize the root `target` symlink automatically. Use `./scripts/cargo-shared.sh <cargo-args>` for project Cargo commands: it sets up the shared target, enables incremental compilation by default, caps generated target output at 128 GiB, and stops Cargo at the default 20 GiB free-space floor. Override the target cap with `CARGO_TARGET_MAX_GIB`; when a target is already over the cap, periodic maintenance clears incremental roots first and falls back to `cargo clean` if needed. Raise the free-space floor with `CARGO_MIN_FREE_GIB`; use `CARGO_DISK_GUARD_PATH` when output is on a custom filesystem; set `CARGO_MAINTENANCE=0` to skip one pre-command maintenance pass. The running disk guard continuously enforces the free-space floor; target-size maintenance runs on its configured cadence. An explicit `CARGO_TARGET_DIR` remains authoritative for CI or one-off isolation. Never copy `target/` between worktrees. Direct raw `cargo` remains available for deliberate recovery/maintenance, but is not protected by the project guard.
 
-`./verify.sh` additionally checks both profiles, the normal/build dependency graph, native architecture, exact layered source identity, actual installed-Pi contracts, mock RPC and recursive Rust syntax. Syntax is parsed with the repository rustfmt without editing source; no Python tree-sitter package or initialized `pi-main` is required. Identity protects the complete `37949780` Git blobs, freezes historical changes to `222d614d`, and separately declares each current-phase file. Follow [`VERIFICATION.md`](docs/VERIFICATION.md) for current results; source identity, synthetic-provider transport and real model/OAuth/manual acceptance are separate proof layers.
+`./verify.sh` checks native/headless architecture, entry policies, the production dependency graph, installed-Pi contracts, mock RPC and Rust syntax. Stock checks remain only until T7. Endpoint and pending-dependency reports expose unfinished cuts; T7 enables strict terminal enforcement. Rustfmt parses Git-listed Rust source without editing it; no Python tree-sitter package or initialized `pi-main` is required. Follow [`VERIFICATION.md`](docs/VERIFICATION.md) for separate source/guard, synthetic transport, native PTY and real provider/OAuth/manual evidence. Historical byte-identity reports are archived, not current gates.
 
 For a standalone change under `extensions/`, validate the extension source and diff only; do **not** run Cargo unless Rust code, the embedded-extension loader, or its Rust contract changed, or the user asks.
 
@@ -175,7 +157,7 @@ only names a file (e.g. `index.ts`), never the real error. Follow this order:
 - Complex work must have a record in `docs/issues/` before implementation.
 - Update the relevant Issue after each completed phase.
 - Keep `README.md`, `docs/README.zh-CN.md`, `docs/FEATURE_MATRIX.md`, and `docs/VERIFICATION.md` aligned with actual behavior.
-- The source-identity verifier allows only declared Pager seams. If a required native seam changes, update its baseline/allowed-seam metadata deliberately; never weaken the verifier broadly.
+- Keep dependency, endpoint, headless-adapter, entry-policy and protocol guards meaningful as the architecture changes. Do not turn pending findings into permanent waivers or describe report mode as terminal acceptance.
 
 ## Safety
 

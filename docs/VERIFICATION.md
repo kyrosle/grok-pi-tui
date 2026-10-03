@@ -1,6 +1,17 @@
-# Grok Native TUI × Pi Verification Report
+# grok-pi verification
 
-## 2026-10-03 Pi product surface: current increment
+## Master plan: T0 passed, T1 final runtime acceptance in progress
+
+The governing [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) replace checkpoint-only completion. T0 retires reference blob identity; current gates check architecture, dependency policy, service endpoints, Pi contracts and actual native UI behavior. Historical identity receipts below remain evidence for their own commits only. [Archived material](grok-build/archive/README.md) is not an active gate.
+
+T0 baseline: 796 production packages; 29 explicitly named linked removals remain pending (including xai-mixpanel), not terminal acceptance. Previously absent or newly introduced business dependencies fail. Endpoint report mode exposes service literals and separately observes ACP namespaces; T7 strict mode rejects real endpoint/removal debt. No reference fetch, full merge or new port was performed.
+
+T1 closes remaining product actions and converts palette/unknown command handling to explicit support. The complete external_ filter passes 60/60, resolving all five prior failures. New verify exits 0: architecture17, negative, syntax3397, mock8, Pi/stock checks, adapter207 plus non-ignored targets, bin98 and two declared native filters. Fresh build/PTY receipts remain pending; endpoint report still uses the older 210efc artifact. Logs: `/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`, `/tmp/grok-pi-native-t0-t1-verify-20261003.log`.
+
+Current commands: `./verify.sh`; `python3 crates/codegen/pi-grok-adapter/scripts/test_native_architecture.py`. T7: `PI_VERIFY_ENFORCE=1 PI_VERIFY_BINARY=/absolute/fresh/grok-pi ./verify.sh`.
+
+
+## Historical 7bbd748a product-surface checkpoint
 
 Scope: [SPEC](issues/架构/20261003-pi-product-surface-SPEC.md) / [PLAN](issues/架构/20261003-pi-product-surface-PLAN.md), implementation base `13697f9c5d6f48fe742f2b64361dd039e99277c2`; spec commit `76e7a5a87b9b6fb9a292021d7877666a69471cce`. P0–P3 product-surface scope is complete; Root owns the local implementation commit, whose hash is recorded by Git log. The broader failing scan remains separate.
 
@@ -80,7 +91,7 @@ The neutral Shared configuration retains `cli`, `models`, `ui`, `harness`, `skil
 
 Source identity has three distinct layers: immutable `37949780c144e37df692e3d669051a21fec24f20` / `SOURCE_REV=c4ea71cfdbcdb21e32e41bc25a0043d7d4836714`; historical integration frozen to `222d614d9f12cc8fcd408d59419c7d4d197d1be3` (339 modified, 687 added, 5 removed files); and individually declared current-phase files. Historical `provenance-only` records require semantic review when touched and are not a claim of full upstream alignment. Only the inventory JSON itself uses canonical JSON after removing its own embedded `sha256`; every other reviewed file uses its complete-byte SHA-256. Negative checks reject protected-byte, ancestor-hash, missing inventory, directory exemption, undeclared file, current-phase byte, self-content and self-SHA tampering.
 
-[Selective backport provenance](upstream/TUI_BACKPORTS.md) records the complete native dependency groups and decisions. The seven upstream `Changes:` lists are transcribed in [UPSTREAM_CHANGELOG](upstream/UPSTREAM_CHANGELOG.md). Partial imports do not advance `SOURCE_REV` or claim a complete upstream sync.
+[Selective backport provenance](upstream/TUI_BACKPORTS.md) records the complete native dependency groups and decisions. The seven upstream `Changes:` lists are transcribed in [UPSTREAM_CHANGELOG](grok-build/archive/UPSTREAM_CHANGELOG.md). Partial imports do not advance `SOURCE_REV` or claim a complete upstream sync.
 
 ## FR-01–11 proof audit
 
@@ -127,7 +138,7 @@ bun test extensions/pi-grok-remote-tui
 ./scripts/cargo-shared.sh test -p pi-grok-adapter --test pi_native_projection -- --ignored
 bun crates/codegen/pi-grok-adapter/tests/pi_native_pty_smoke.ts eval codemode signal timeout eof minimal settings
 python3 crates/codegen/pi-grok-adapter/scripts/verify_native_grok.py --workspace . --pi-source pi-main --json-out /tmp/grok-pi-source-identity-final-20261003.json
-python3 crates/codegen/pi-grok-adapter/scripts/test_native_identity.py
+python3 docs/grok-build/archive/verification/test_native_identity.py # archived historical command, not a current gate
 python3 crates/codegen/pi-grok-adapter/scripts/check_rust_syntax.py --workspace . --json-out /tmp/grok-pi-rust-syntax-frozen-20261003.json
 python3 crates/codegen/pi-grok-adapter/tests/mock_pi_contract.py --pi-source pi-main --json-out /tmp/grok-pi-mock-frozen-20261003.json
 ```

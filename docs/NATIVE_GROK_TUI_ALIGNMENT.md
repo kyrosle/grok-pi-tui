@@ -1,6 +1,10 @@
-# Pi Core + Grok Build-style Native TUI Alignment
+# grok-pi native TUI architecture
 
-## Current product surface
+## Governing master plan
+
+[Master SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) and [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) define one Pi-native Rust TUI and removal of stock Grok business/profile. Grok Build is a reference repository, not a merge upstream. Architecture/contract/entry/dependency/endpoint guards replace historical blob identity. T0/T1 begin this transition; compiled dependencies and adapter ownership debt remain explicit until T2–T7.
+
+## Historical product-surface checkpoint
 
 The current [SPEC](issues/架构/20261003-pi-product-surface-SPEC.md) and [PLAN](issues/架构/20261003-pi-product-surface-PLAN.md) define a native Grok Build-style TUI for Pi. Pi supplies models, providers, authentication, tools, sessions, retry and compaction; Pager presents controls and results. The external profile removes Grok voice/STT/TTS, account/billing, training/retention and stock agent/plugin/MCP controls across F2, palette and the Web host-settings catalog. Existing user configuration and credentials are retained; stock Grok keeps its own profile.
 

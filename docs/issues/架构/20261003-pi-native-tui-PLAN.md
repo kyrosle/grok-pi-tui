@@ -13,14 +13,14 @@ category: "architecture"
 
 ## 基线（2026-10-03，`7bbd748a`）
 
-| 指标 | 值 | 来源 |
-|---|---|---|
-| grok-pi normal/build 依赖包数 | 796 | 产品入口裁剪 PLAN 回执 |
-| Pager 中 external 分支（不含测试） | 约 166 处，31 个文件 | `external_agent\|is_external\|UiProfile::External\|BuiltinCommandProfile\|ExternalUiProfile` 扫描 |
-| 仍被 grok-pi 链接的 Grok 业务 crate | telemetry/otel、login/auth/secrets、announcements、feedback、gboom、dashboard-store、voice（不含音频后端）、foreign-sessions 等 | 审计 + `Cargo.toml` |
-| 注入的 Pi 扩展 | 23 个（`extensions/`） | 目录 |
-| 已知失败测试 | 扩大 `external_` 扫描时 5 个（Ctrl+O ×2、dashboard toast 前缀 ×1、foreign session ×2） | 产品入口裁剪 PLAN |
-| Pi host | 系统 Pi 1.0.0；`pi-main` 子模块未初始化 | `git submodule status` |
+| 指标 | 基线 | 当前 T0/T1 | 来源 |
+|---|---|---|---|
+| grok-pi normal/build 依赖包数 | 796 | 796；29 removal pending | 当前锁定 production tree / dependency guard |
+| Pager 中 external 分支（不含测试） | 约 166 处，31 个文件 | 166匹配行/34文件（含声明/注释，非AST分支计数） | `external_agent\|is_external\|UiProfile::External\|BuiltinCommandProfile\|ExternalUiProfile` 扫描 |
+| 仍被 grok-pi 链接的 Grok 业务 crate | telemetry/otel、login/auth/secrets、announcements、feedback、gboom、dashboard-store、voice（不含音频后端）、foreign-sessions 等 | 15移除类+14telemetry exporter packages；待T2切除 | 审计 + `Cargo.toml` |
+| 注入的 Pi 扩展 | 23 个（`extensions/`） | 未重组，待T4 | 目录 |
+| 已知失败测试 | 扩大 `external_` 扫描时 5 个（Ctrl+O ×2、dashboard toast 前缀 ×1、foreign session ×2） | 原5项修复；external_ 60/0 | 产品入口裁剪 PLAN / 当前test log |
+| Pi host | 系统 Pi 1.0.0；`pi-main` 子模块未初始化 | 系统Pi1.0.0，未改Pi源 | `git submodule status` |
 
 每阶段结束时更新这张表的"当前值"列（在回执里写）。
 
@@ -28,8 +28,8 @@ category: "architecture"
 
 | 阶段 | 目标 | 对应 SPEC | 依赖 | 状态 |
 |---|---|---|---|---|
-| T0 | 治理切换：Grok Build 改为参考仓库，验证体系换成架构守卫 | GV-01~07、VF-01~08 | — | 进行中 |
-| T1 | 产品入口收口：白名单化，补齐残留，处理 5 个失败测试 | PR-01~03 | T0 | 待开始 |
+| T0 | 治理切换：Grok Build 改为参考仓库，验证体系换成架构守卫 | GV-01~07、VF-01~08 | — | 完成，T0 验证通过 |
+| T1 | 产品入口收口：白名单化，补齐残留，处理 5 个失败测试 | PR-01~03 | T0 | 验证中 |
 | T2 | 编译期切除 I：遥测、voice、login/auth、公告、反馈、gboom、dashboard | CB-01~05 | T1 | 待开始 |
 | T3 | Pi 协议对齐 I：队列、settled、命令目录、bash、compaction/retry、工具元数据 | PI-01~03、PI-08~10 | T1 | 待开始 |
 | T4 | 扩展层整合：host-bridge，去 prototype patch 和文件轮询 | EX-01~05、EX-09、PI-04 | T3 | 待开始 |
@@ -46,11 +46,11 @@ T2 和 T3 可以并行（一个改依赖图，一个改 adapter），但要分�
 
 **任务**
 
-1. remote：`git remote rename upstream grok-build`；`git remote set-url --push grok-build DISABLED`。（本地配置，执行前需用户确认。）
+1. remote：`git remote rename upstream grok-build`；`git remote set-url --push grok-build DISABLED`。（本地可逆配置，按本次总纲授权执行；不修改远程仓库。）
 2. 新建 `docs/grok-build/REVIEWED`：写入 `2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8` 和 Source-Revision `559751fd…`（最近一次已审阅的范围终点）。
 3. `docs/upstream/UPSTREAM_CHANGELOG.md` 移到 `docs/grok-build/archive/`，新建 `docs/grok-build/REVIEW_LOG.md`（条目格式：范围、提交、逐条定性表 `移植/改造/跳过/观察`、理由、目标路径、移植提交）。
 4. skill：`.pi/skills/upstream-changelog/` → `.pi/skills/grok-build-review/`，改写步骤：
-   - 范围 = `$(cat docs/grok-build/REVIEWED)..grok-build/main`；
+   - `REVIEWED` 第一行是完整提交 SHA，第二行记录 Source-Revision；范围取第一行 SHA 到 `grok-build/main`，不得把整个文件直接作为 Git ref；
    - 按路径预分类：业务路径（shell、workspace、tools、agent、mcp、telemetry、login、auth、voice、memory、plugin-marketplace…）自动标"跳过"；UI 路径（pager、render、markdown、diff、mermaid、tty、textarea）标"待评估"；
    - 只写记录，不移植；更新 `REVIEWED` 需在移植评估完成之后。
 5. AGENTS.md：
@@ -224,4 +224,17 @@ T2 和 T3 可以并行（一个改依赖图，一个改 adapter），但要分�
 
 ## 回执
 
-（每阶段完成后在此追加：日期、提交、执行的命令与结果、基线指标变化、遗留项。）
+### 2026-10-03：接管总纲与 T0/T1
+
+- 用户提供的总纲已原文保存并接受，提交 `d7ca4d0b`；完成依据是 END-01~09，前面的局部检查点不代表总工程完成。
+- 本地 remote 改为 `grok-build`，push URL 为 `DISABLED`；origin 未改，未 fetch/merge/port/push。
+- 审阅水位核对为 `2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8`，原提交 trailer 为 `559751fdcec02d413e4c57c8832ab275e4f44980`；记录、SOURCE_REV 和最终旧 identity 材料归档。新 skill 逐条决定移植/改造/跳过/观察。
+- [逐 crate 清单](20261003-pi-native-tui-CRATES.md)覆盖 87 个实际 crate：56 linked、31 absent；移除类 15 个 linked，混用的 UI 契约须先抽取。T0 policy 将 29 个已链接业务/exporter 名字显式 pending；已缺席或新增业务依赖现在就拒绝，不能借通配 pending 混入。
+- 17 项新架构/合同守卫与 negative exit 0；Rust 3397 文件语法解析通过。端点旧 artifact 基线：source 213、binary 52 主命中，protocol 1260 单列；`enforced:false/passed:null`，不是 END-04 通过。旧 SHA `210efc…`，没有用它冒称新源码 artifact。
+- T1 [Action 清单](20261003-pi-native-tui-ACTIONS.md)：63 个 stock 产品 Action 声明受中央拒绝；环境变量不能开启 plugin/workspace/privacy；palette 与未知命令 fail-closed。可选 Workflow 只显示单 tab、仅发真实已有的请求，运行能力以 live catalogue 为准，不被旧 raw UI 配置否决。
+- 完整 `external_` filter 最终 exit 0，60 passed/0 failed；`/tmp/grok-pi-native-t1-external-tests-final3-20261003.log`。先修 8 个新代码编译诊断及 1 个新增测试 target 类型诊断；首个实际运行 59/1 暴露 Execute fixture 初始 fold state，修 fixture 后 60/0。没有删掉原断言。
+- 旧 5 fail：Ctrl+O 使用真实 hunks，并显式设置 excluded Execute 的初始 Expanded；dashboard 使用规范 glyph；stock 外部来源拒绝 native FTS，Pi PSM 保留 fresh/stale 校验与按 id/cwd 加载，新增对应测试。
+- 新 `./verify.sh` 实际 exit 0：`/tmp/grok-pi-native-t0-t1-verify-20261003.log`。17 架构守卫、negative、3397 Rust 语法、8 mock/33lines、Pi/stock checks、adapter207+非ignored disposition1/reloadACK1/EOF2、bin98及2个声明native单测均通过；其余actual专项仍ignored。本次不是全部Pager suite验收。
+- Dependency report 796 packages/forbidden=[]/pending29/terminalReady=false；endpoint报告 source213/旧binary52，不冒称 END-02/04。T0 治理和守卫退出条件完成，T1 60/0 已通过；正式新 build 与 PTY 尚待回执。
+
+T2~T8 尚未实施；队列/Plan/Goal/扩展整合、业务 crate 切除、唯一产品/零 external 分支等终态条件仍未满足。

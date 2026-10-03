@@ -1,15 +1,15 @@
 <img width="1920" height="981" alt="file-79543f229c432ee6b8b1b7c402a9851b" src="https://github.com/user-attachments/assets/27ff0124-c1e1-4948-8c2c-9880e6a38732" />
 
-Current product: **Pi agent core with a Grok Build-style native TUI**.
-The current product-surface cut is tracked in
-[the SPEC](docs/issues/架构/20261003-pi-product-surface-SPEC.md),
-[PLAN](docs/issues/架构/20261003-pi-product-surface-PLAN.md) and
-[verification report](docs/VERIFICATION.md). Earlier Pi-first and deep-adaptation
-build, native PTY and source evidence remain separate checkpoints.
+Product target: **one native Rust TUI for Pi, with no Grok business runtime**.
+The governing [SPEC](docs/issues/架构/20261003-pi-native-tui-SPEC.md) and
+[PLAN](docs/issues/架构/20261003-pi-native-tui-PLAN.md) track T0–T8. Grok Build is
+a reference for selected UI ports; its stock profile and business dependencies
+are being removed. Earlier cuts are historical checkpoints, not terminal acceptance.
+See the [verification report](docs/VERIFICATION.md) for current pending work.
 
 <img width="1042" height="888" alt="file-78b1898685afe0e47d0cee01e9efcc62" src="https://github.com/user-attachments/assets/83abc999-08fe-459e-ab06-935eeb0780e6" />
 
-# grok-pi — A Grok Build-style TUI for Pi
+# grok-pi — A native Rust TUI for Pi
 
 > Pi models, tools and sessions in Grok Pager's native terminal UI.
 

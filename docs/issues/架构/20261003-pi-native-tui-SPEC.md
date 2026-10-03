@@ -121,10 +121,12 @@ Grok Build（xai-org/grok-build）：只作参考仓库，逐提交审阅、按�
 |---|---|
 | **保留：TUI 核心** | `xai-grok-pager`、`xai-grok-pager-render`、`xai-grok-pager-diff`、`xai-grok-pager-minimal`、`xai-grok-markdown`、`xai-grok-markdown-core`、`xai-grok-mermaid`（+ `third_party/` 的 dagre/graphlib/mermaid-to-svg）、`xai-ratatui-textarea`、`xai-ratatui-inline`、`xai-tty-utils`、`xai-grok-status-line`、`xai-fuzzy-file-search`、`xai-grok-image` |
 | **保留：基础设施** | `xai-grok-pager-bin`（只保留 `grok-pi`）、`pi-grok-adapter`、`xai-acp-lib`、`xai-grok-config`、`xai-grok-config-types`、`xai-grok-paths`、`xai-dirs`、`xai-file-utils`、`xai-grok-shared`、`xai-grok-version`、`xai-crash-handler`、`xai-grok-extra-ca`、`xai-token-estimation`、`xai-grok-update`（只保留 Pi 发布通道）、`xai-tracing*`、`xai-grok-pager-pty-harness`/`xai-grok-test-support`（测试） |
-| **移除：Grok 业务** | `xai-grok-agent`、`xai-grok-tools`、`xai-grok-tools-api`、`xai-grok-shell*`、`xai-grok-workspace*`、`xai-grok-mcp`、`xai-grok-plugin-marketplace`、`xai-grok-sampler`、`xai-grok-sampling-types`、`xai-grok-login`、`xai-grok-auth`、`xai-grok-secrets`、`xai-grok-telemetry`、`xai-grok-otel`、`xai-grok-announcements`、`xai-grok-feedback`、`xai-grok-gboom`、`xai-grok-dashboard-store`、`xai-grok-voice`、`xai-grok-memory`、`xai-grok-session-search`、`xai-grok-diag-server`、`xai-computer-hub-*`、`xai-grok-bundle`、`xai-grok-models` |
+| **移除：Grok 业务** | `xai-grok-agent`、`xai-grok-tools`、`xai-grok-tools-api`、`xai-grok-shell*`、`xai-grok-workspace*`、`xai-grok-mcp`、`xai-grok-plugin-marketplace`、`xai-grok-sampler`、`xai-grok-sampling-types`、`xai-grok-login`、`xai-grok-auth`、`xai-grok-secrets`、`xai-grok-telemetry`、`xai-grok-otel`、`xai-mixpanel`、`xai-grok-announcements`、`xai-grok-feedback`、`xai-grok-gboom`、`xai-grok-dashboard-store`、`xai-grok-voice`、`xai-grok-memory`、`xai-grok-session-search`、`xai-grok-diag-server`、`xai-computer-hub-*`、`xai-grok-bundle`、`xai-grok-models` |
 | **待定** | `xai-grok-sandbox`（grok-pi 的 `sandbox-enforce` 是否仍有实际作用？工具执行在 Pi 进程内）、`xai-grok-hooks`/`xai-hooks-plugins-types`（`.grok-pi/hooks` 是否改由 Pi 扩展承担）、`xai-workflow`（见 EX-08）、`xai-grok-foreign-sessions`、`xai-grok-active-sessions`、`xai-prompt-queue`（见 PI-01）、`xai-grok-compaction`/`xai-compaction-transcript`、`xai-grok-session-events`、`xai-codebase-graph`、`xai-fast-worktree`、`xai-hunk-tracker`、`xai-gix-status`、`xai-fsnotify`、`crates/common/*` 的工具协议类 crate |
 
 决策规则：被 Pager UI 直接使用、且不发起 Grok 服务调用的，保留；只服务于 Grok agent/工具运行时或 Grok 服务的，移除；两者都有的，先拆分再处理。
+
+T0 核实结果见 [逐 crate 清单](20261003-pi-native-tui-CRATES.md)：锁定的 Pi normal/build 图为 796 packages，表中 87 个实际 workspace crate 中 56 个可达、31 个未链接；初始移除类仍有 15 个可达（含补入的 xai-mixpanel）。`shell*`/`workspace*` 包含被 UI 使用的 `shell-base`/`workspace-types`；sampling-types/models 同样需先抽中立契约。`xai-tracing*` 与测试支持不在生产图中；common tool-types 是 UI/diff 契约，tool-runtime 不在生产图中。上述引用计数包含 stock/test 源码，仅作为耦合证据，不能当作运行执行证明。
 
 ## 6. Pi 1.0 深度接入
 
@@ -200,6 +202,10 @@ Grok Build（xai-org/grok-build）：只作参考仓库，逐提交审阅、按�
 | VF-06 | **原生 PTY**：产品入口、设置保存/重开/回滚、队列、树导航、退出 | 保留并扩充 |
 | VF-07 | Rust 语法检查（rustfmt 解析） | 保留 |
 | VF-08 | 上游 blob 三层身份（`grok_uploaded_baseline_sha256.json`、sourceguard、negative） | **T0 退役**，被 VF-01~04 取代 |
+
+VF-02 区分实际服务域名/URL 与 ACP 方法命名空间；`x.ai/session/...` 协议标识本身不是网络端点。源码与二进制均检查，以免只扫二进制漏掉宏编码的域名。过渡期 report 明确列出命中，不冒称已满足 END-04。
+
+END-08 检查产品自有的静态文案；Pi 返回的 provider/model 名称、工具输出、用户数据和实际终端名称保持原样，不通过修改这些数据来制造品牌扫描通过。
 
 验证层次保持分离：源码/守卫、合成 provider 传输、原生 PTY、真实 provider/OAuth 手工验收。回报时逐层说明，不以一层通过代替另一层。
 
