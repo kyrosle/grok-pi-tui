@@ -6,7 +6,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
-use xai_grok_workspace::file_system::FuzzyMatchResult;
+use xai_fuzzy_file_search::FuzzyMatchResult;
 
 use crate::render::scrollbar::render_scrollbar_styled;
 use crate::theme::Theme;

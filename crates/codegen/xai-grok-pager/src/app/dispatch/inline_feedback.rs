@@ -7,7 +7,7 @@ use xai_grok_feedback::{
     DraftImage, DraftImagePolicy, FeedbackDraftId, FeedbackDraftStore, FeedbackStoreError,
     derive_title, read_draft_images, write_draft_images,
 };
-use xai_grok_shell::session::{
+use xai_grok_shared::session::feedback::{
     MAX_FEEDBACK_IMAGE_BYTES, MAX_FEEDBACK_IMAGE_TOTAL_BYTES, MAX_FEEDBACK_IMAGES,
     feedback_image_extension,
 };

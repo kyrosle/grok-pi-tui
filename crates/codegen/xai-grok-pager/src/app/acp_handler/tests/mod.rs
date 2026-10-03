@@ -9,8 +9,8 @@ use crate::scrollback::state::ScrollbackState;
 use crate::views::permission_view::SubagentInfo;
 use std::path::PathBuf;
 use std::time::Instant;
-use xai_grok_shell::extensions::notification::RetryState;
-use xai_grok_shell::extensions::notification::SessionUpdate as XaiSessionUpdate;
+use xai_grok_shared::session::notification::RetryState;
+use xai_grok_shared::session::notification::SessionUpdate as XaiSessionUpdate;
 pub(super) fn make_session(session_id: Option<&str>) -> AgentSession {
     let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
     AgentSession {
@@ -165,8 +165,8 @@ fn workflow_catalog_projection_detects_same_name_metadata_changes() {
 }
 pub(super) fn compressed_entry(
     index: usize,
-) -> xai_grok_shell::extensions::notification::ImageCompressedEntry {
-    xai_grok_shell::extensions::notification::ImageCompressedEntry {
+) -> xai_grok_shared::session::notification::ImageCompressedEntry {
+    xai_grok_shared::session::notification::ImageCompressedEntry {
         index,
         original_bytes: 4_200_000,
         compressed_bytes: 780_000,
@@ -710,14 +710,14 @@ pub(super) fn make_deleted_ext_notif(
     make_deleted_ext_notif_with_reason(
         session_id,
         task_id,
-        xai_grok_tools::notification::ScheduledTaskRemovedReason::Unknown,
+        xai_tool_types::scheduled_task::ScheduledTaskRemovedReason::Unknown,
         false,
     )
 }
 pub(super) fn make_deleted_ext_notif_with_reason(
     session_id: &str,
     task_id: &str,
-    reason: xai_grok_tools::notification::ScheduledTaskRemovedReason,
+    reason: xai_tool_types::scheduled_task::ScheduledTaskRemovedReason,
     is_replay: bool,
 ) -> acp::ExtNotification {
     let notif = SessionNotification {
@@ -1281,7 +1281,7 @@ pub(super) fn xai_hook_execution_notif_for_prompt(
     prompt_id: Option<&str>,
     is_replay: bool,
 ) -> acp::ExtNotification {
-    use xai_grok_shell::extensions::notification::{HookRunEntryDto, HookRunStatusDto};
+    use xai_grok_shared::session::notification::{HookRunEntryDto, HookRunStatusDto};
     xai_hook_execution_notif_with_runs(
         session_id,
         event_name,
@@ -1299,7 +1299,7 @@ pub(super) fn xai_hook_execution_notif_with_runs(
     event_name: &str,
     prompt_id: Option<&str>,
     is_replay: bool,
-    runs: Vec<xai_grok_shell::extensions::notification::HookRunEntryDto>,
+    runs: Vec<xai_grok_shared::session::notification::HookRunEntryDto>,
 ) -> acp::ExtNotification {
     let payload = SessionNotification {
         session_id: acp::SessionId::new(session_id),
@@ -1925,7 +1925,7 @@ pub(super) fn make_git_head_changed_notif(
     is_worktree: bool,
     main_repo: Option<&str>,
 ) -> acp::ExtNotification {
-    let payload = xai_grok_workspace::session::git::GitHeadChanged {
+    let payload = xai_grok_workspace_types::rpc::git::GitHeadChanged {
         session_id: session_id.into(),
         branch: branch.map(str::to_string),
         is_worktree,
@@ -2290,10 +2290,10 @@ pub(super) fn seed_owner_agent_with_open_modal(app: &mut AppView) {
 pub(super) fn make_server_status_notif(
     session_id: &str,
     name: &str,
-    status: xai_grok_shell::extensions::mcp::McpServerStatus,
+    status: xai_tool_types::mcp::McpServerStatus,
     tools: Option<serde_json::Value>,
 ) -> acp::ExtNotification {
-    use xai_grok_shell::extensions::mcp::{
+    use xai_tool_types::mcp::{
         McpServerSource, McpServerStatusPayload, McpServerStatusReason,
     };
     let payload = McpServerStatusPayload {
@@ -2319,7 +2319,7 @@ pub(super) fn make_servers_updated_notif() -> acp::ExtNotification {
 pub(super) fn make_tools_changed_notif_post_h2(
     session_id: &str,
 ) -> acp::ExtNotification {
-    let payload = xai_grok_shell::extensions::mcp::McpToolsChanged {
+    let payload = xai_tool_types::mcp::McpToolsChanged {
         session_id: session_id.to_string(),
         server_name: "grok_com_linear".to_string(),
         tools: Vec::new(),
@@ -2388,6 +2388,7 @@ mod session_routing;
 mod plugins;
 mod subagents;
 mod subagent_attempt_lifecycle;
+mod pi_subagent_capture;
 mod goals;
 mod interactions;
 mod background_tasks;

@@ -6,9 +6,10 @@ use std::collections::HashSet;
 
 use agent_client_protocol as acp;
 use serde_json::Value;
+#[cfg(feature = "stock-runtime")]
 use xai_grok_shell::session::resolve_local_session_ids_any_cwd;
-use xai_grok_shell::session::unified_list::ListScope;
-use xai_grok_tools::implementations::skills::skill::extract_skill_display_text;
+use xai_grok_shared::session::catalog::ListScope;
+use xai_tool_types::skills::extract_skill_display_text;
 
 use super::helpers::extract_first_user_prompt;
 use crate::app::app_view::SessionPickerEntry;
@@ -91,6 +92,7 @@ pub(super) fn parse_session_list_scope(payload: &Value) -> ListScope {
 }
 
 /// The storage walk and the `chat_history.jsonl` reads belong on the blocking pool.
+#[cfg(feature = "stock-runtime")]
 pub(super) async fn parse_session_picker_entries_blocking(
     payload: Value,
     presence: LocalPresence,
@@ -188,7 +190,7 @@ fn parse_session_picker_entries_with(
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_owned();
-                let info = xai_grok_shell::session::info::Info {
+                let info = xai_grok_shared::session::Info {
                     id: acp::SessionId::new(id.clone()),
                     cwd: info_cwd,
                 };

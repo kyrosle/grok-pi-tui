@@ -16,16 +16,16 @@ use tokio_util::sync::CancellationToken;
 
 use agent_client_protocol as acp;
 use xai_acp_lib::{AcpAgentTx, AcpClientMessageBox, AcpClientRx, acp_send};
-use xai_grok_shell::agent::auth_method::AuthMethodKind;
-use xai_grok_shell::agent::config::Config as AgentConfig;
-use xai_grok_shell::extensions::task::{CancelSubagentRequest, KillTaskRequest};
-use xai_grok_shell::sampling::error::{
-    RATE_LIMITED_ERROR_CODE, error_detail_from_data, format_rate_limited_user_message,
-};
-use xai_grok_shell::sampling::types::{
+use xai_grok_sampling_types::types::{
     REASONING_EFFORT_META_KEY, parse_canonical_effort_token, reasoning_effort_meta_value,
 };
-use xai_grok_shell::util::config as cli_config;
+use xai_grok_shell::agent::auth_method::AuthMethodKind;
+use xai_grok_shell::agent::config::Config as AgentConfig;
+use xai_tool_types::task_wire::{CancelSubagentRequest, KillTaskRequest};
+use xai_grok_shared::session::sampling_error::{
+    RATE_LIMITED_ERROR_CODE, error_detail_from_data, format_rate_limited_user_message,
+};
+use crate::settings_config as cli_config;
 use xai_grok_telemetry::startup::PendingStartup;
 
 use crate::acp::model_state::{EffortTokenError, ModelState};
@@ -396,7 +396,7 @@ impl HeadlessEmitter {
 }
 
 pub(crate) fn attach_result_usage(result: &mut serde_json::Value, usage: &serde_json::Value) {
-    xai_grok_shell::extensions::notification::attach_result_usage_fail_closed(result, usage);
+    xai_grok_shared::session::notification::attach_result_usage_fail_closed(result, usage);
 }
 
 /// Snake_case wire token for an ACP stop reason.
@@ -483,8 +483,8 @@ async fn authenticate(
     let method_id = crate::acp::select_eager_auth_method(auths, default_auth_method_id)
         .ok_or_else(|| {
             use std::io::IsTerminal;
-            let interactive = std::io::stdin().is_terminal()
-                && !xai_grok_shell::util::clipboard::is_remote_session();
+            let interactive =
+                std::io::stdin().is_terminal() && !xai_grok_shared::clipboard::is_remote_session();
             anyhow::anyhow!("{}", auth_required_message(interactive))
         })?;
     let kind = AuthMethodKind::from_id(&method_id);
@@ -492,7 +492,7 @@ async fn authenticate(
     if kind.needs_interactive_login() {
         use std::io::IsTerminal;
         let interactive =
-            std::io::stdin().is_terminal() && !xai_grok_shell::util::clipboard::is_remote_session();
+            std::io::stdin().is_terminal() && !xai_grok_shared::clipboard::is_remote_session();
         anyhow::bail!("{}", auth_required_message(interactive));
     }
     let is_api_key_auth = kind.is_api_key();
@@ -870,7 +870,7 @@ pub async fn run_single_turn(
     }
 
     let t_spawn = Instant::now();
-    let raw_config = xai_grok_shell::config::load_effective_config()
+    let raw_config = crate::load_effective_config()
         .map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
     let mut agent_config = AgentConfig::new_from_toml_cfg(&raw_config)
         .map_err(|e| anyhow::anyhow!("Failed to create agent config: {e}"))?;
@@ -902,11 +902,11 @@ pub async fn run_single_turn(
 
     agent_config.mode = xai_grok_shell::agent::config::AgentMode::Headless;
     agent_config.default_yolo_mode = options.yolo;
-    agent_config.default_auto_mode = xai_grok_shell::util::config::effective_auto_for_launch(
+    agent_config.default_auto_mode = crate::settings_config::effective_auto_for_launch(
         options.yolo,
         options.permission_mode_flag.as_deref(),
         None,
-        xai_grok_shell::util::config::PermissionMode::Ask,
+        crate::settings_config::PermissionMode::Ask,
     );
 
     apply_agent_flag(&options.agent, &mut agent_config);
@@ -1480,7 +1480,7 @@ pub async fn run_single_turn(
                 .as_ref()
                 .and_then(|m| m.get(crate::app::CANCELLATION_CATEGORY_KEY))
                 .and_then(|v| v.as_str())
-                == Some(xai_grok_shell::session::commands::MAX_TURNS_REACHED_CATEGORY);
+                == Some(xai_grok_shared::session::completion::MAX_TURNS_REACHED_CATEGORY);
             if is_max_turns {
                 emitter.on_max_turns();
                 emitter.on_end(&stop_reason, sid, rid);
@@ -1500,7 +1500,7 @@ pub async fn run_single_turn(
             } else {
                 err.to_string()
             };
-            if let Some(usage) = xai_grok_shell::sampling::error::prompt_usage_from_error(&err) {
+            if let Some(usage) = xai_grok_shared::session::sampling_error::prompt_usage_from_error(&err) {
                 match serde_json::to_value(&usage) {
                     Ok(v) => emitter.usage = Some(v),
                     // Log rather than swallow: a serialize failure would drop the frozen spend fields.
@@ -1511,7 +1511,7 @@ pub async fn run_single_turn(
                 }
             }
             let stop_reason_override =
-                (xai_grok_shell::sampling::error::stop_reason_for_turn_error(&err) == "MaxTokens")
+                (xai_grok_shared::session::sampling_error::stop_reason_for_turn_error(&err) == "MaxTokens")
                     .then_some("max_tokens");
             emitter.on_error(&msg, stop_reason_override);
             Err(anyhow::anyhow!("{msg}"))
@@ -1631,7 +1631,7 @@ fn reap_request_for_work(
             serde_json::value::to_raw_value(&KillTaskRequest {
                 session_id: session_id.0.to_string(),
                 task_id: id.clone(),
-                source: xai_grok_shell::extensions::task::TaskKillSource::Teardown,
+                source: xai_tool_types::task_wire::TaskKillSource::Teardown,
             })?,
         ),
     };

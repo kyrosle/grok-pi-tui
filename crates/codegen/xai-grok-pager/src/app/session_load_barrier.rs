@@ -330,7 +330,7 @@ mod tests {
     fn loaded_with_memory_mode(id: usize, session: &str) -> TaskResult {
         TaskResult::WithPinnedMemoryMode {
             agent_id: AgentId(id),
-            memory_mode: Some(xai_grok_shell::config::MemoryMode::V2),
+            memory_mode: Some(xai_grok_config_types::MemoryMode::V2),
             result: Box::new(loaded(id, session)),
         }
     }

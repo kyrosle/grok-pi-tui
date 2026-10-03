@@ -11,8 +11,12 @@ description = "Canonical tool-description types for the xAI platform"
 prompt-render = ["dep:minijinja"]
 
 [dependencies]
+strip-ansi-escapes = { workspace = true }
+similar = { workspace = true }
+url = { workspace = true }
+chrono = { workspace = true }
 async-trait = { workspace = true }
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["from"] }
 strum = { version = "0.26", features = ["derive"] }
 indexmap = { workspace = true }
 minijinja = { workspace = true, features = ["custom_syntax"], optional = true }

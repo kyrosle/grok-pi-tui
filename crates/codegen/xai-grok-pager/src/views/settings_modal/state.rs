@@ -13,7 +13,7 @@ use crate::settings::{
 };
 use crate::views::modal_window::ModalWindowState;
 
-use xai_grok_shell::agent::config::UiConfig;
+use xai_grok_shared::ui_config::UiConfig;
 
 // ---------------------------------------------------------------------------
 // Public constants
@@ -1131,7 +1131,7 @@ fn build_tabs(rows: &[RowEntry]) -> Vec<SettingCategory> {
 
 /// Construct the typed `Action::Set*` for a Bool setting.
 pub(super) fn action_for_bool(key: SettingKey, new: bool) -> Option<Action> {
-    if let Some(spec) = xai_grok_shell::host_features::feature_spec_by_setting_key(key) {
+    if let Some(spec) = xai_grok_shared::host_features::feature_spec_by_setting_key(key) {
         return Some(Action::SetHostFeatureBool {
             key: spec.key,
             enabled: new,

@@ -719,7 +719,7 @@ pub struct WelcomeRenderParams<'a> {
     pub foreign_resume_hint: Option<&'a xai_grok_foreign_sessions::RecentForeignSession>,
     pub is_api_key_auth: bool,
     pub session_picker_content_results:
-        Option<&'a [xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+        Option<&'a [xai_grok_shared::session::catalog::SearchSessionHit]>,
     pub session_picker_content_loading: bool,
     /// The query the picker entries were server-fetched with (see [`crate::views::session_picker::effective_filter_query`]).
     pub session_picker_entries_query: Option<&'a str>,

@@ -200,16 +200,16 @@ fn blendable_rgb(color: Color) -> Option<(u8, u8, u8)> {
 /// - `opacity = 0.0`: returns `base` (fully faded)
 /// - `opacity = 1.0`: returns `original` (no change)
 ///
-/// Supports `Color::Rgb`, `Color::Indexed`, and `Color::Reset` (synthetic
-/// dark canvas so transparent themes keep wave/dim accents alive). When
+/// Supports `Color::Rgb` and `Color::Indexed`, with a synthetic dark canvas
+/// for a `Color::Reset` base so transparent themes keep wave accents alive. When
 /// either input is `Color::Indexed`, the blended result is quantized back
 /// to the nearest 256-color index so the output stays terminal-compatible.
 ///
-/// Returns `None` for named ANSI colors (Color::Red, etc.) since their RGB
-/// values are terminal-dependent.
+/// Returns `None` for a Reset foreground or named ANSI colors (Color::Red,
+/// etc.) since their RGB values are terminal-dependent.
 pub fn blend_color(base: Color, original: Color, opacity: f32) -> Option<Color> {
     let (base_r, base_g, base_b) = blendable_rgb(base)?;
-    let (orig_r, orig_g, orig_b) = blendable_rgb(original)?;
+    let (orig_r, orig_g, orig_b) = color_to_rgb(original)?;
 
     let r = blend_channel(base_r, orig_r, opacity);
     let g = blend_channel(base_g, orig_g, opacity);
@@ -524,6 +524,15 @@ mod tests {
         assert_eq!(full, Color::Rgb(100, 150, 200));
         assert_ne!(half, full);
         assert_ne!(half, faded);
+    }
+
+    #[test]
+    fn test_blend_color_reset_foreground_stays_unknown() {
+        for base in [Color::Reset, Color::Rgb(100, 150, 200), Color::Indexed(7)] {
+            for opacity in [0.0, 0.5, 1.0] {
+                assert_eq!(blend_color(base, Color::Reset, opacity), None);
+            }
+        }
     }
 
     #[test]

@@ -18,11 +18,7 @@ struct SessionUsageRequest {
 }
 
 /// Wire response for `x.ai/session/usage`.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionUsageResponse {
-    pub usage: PromptUsage,
-}
+pub use xai_grok_shared::session::usage::SessionUsageResponse;
 
 #[tracing::instrument(skip_all, fields(method = %args.method))]
 pub async fn handle(agent: &MvpAgent, args: &acp::ExtRequest) -> ExtResult {

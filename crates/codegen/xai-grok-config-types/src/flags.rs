@@ -159,3 +159,98 @@ pub struct LazinessDetectorPerModelConfig {
     #[serde(default)]
     pub include_reasoning: Option<bool>,
 }
+
+/// Canonical resolver for `mcp.liveness_watchers`. Stacks the full 7-step `BoolFlag` precedence: `requirement > cli > env (GROK_MCP_LIVENESS_WATCHERS) > config > managed > feature_flag > default (true)`.
+/// `util::config::resolve_mcp_liveness_watchers` delegates here so the precedence is single-sourced.
+/// The default is `true`, turning the watcher and dispatcher on by default; the flag exists primarily as a kill switch during the rollout.
+pub fn resolve_mcp_liveness_watchers(
+    requirement: Option<bool>,
+    cli: Option<bool>,
+    config: Option<bool>,
+    managed: Option<bool>,
+    feature_flag: Option<bool>,
+) -> Resolved<bool> {
+    BoolFlag::env("GROK_MCP_LIVENESS_WATCHERS")
+        .requirement(requirement)
+        .cli(cli)
+        .config(config)
+        .managed(managed)
+        .feature_flag(feature_flag)
+        .default(true)
+        .resolve()
+}
+/// Canonical resolver for `mcp.auto_restart`. Stacks the full 7-step `BoolFlag` precedence: `requirement > cli > env (GROK_MCP_AUTO_RESTART) > config > managed > feature_flag > default (true)`.
+/// Mirrors [`resolve_mcp_liveness_watchers`]. `util::config::resolve_mcp_auto_restart` delegates here so the precedence is single-sourced.
+/// Recovery is on by default; opt out via `GROK_MCP_AUTO_RESTART=false`, `[features] mcp_auto_restart`, or `requirements.toml`.
+pub fn resolve_mcp_auto_restart(
+    requirement: Option<bool>,
+    cli: Option<bool>,
+    config: Option<bool>,
+    managed: Option<bool>,
+    feature_flag: Option<bool>,
+) -> Resolved<bool> {
+    BoolFlag::env("GROK_MCP_AUTO_RESTART")
+        .requirement(requirement)
+        .cli(cli)
+        .config(config)
+        .managed(managed)
+        .feature_flag(feature_flag)
+        .default(true)
+        .resolve()
+}
+/// Kill switch for the transient turn-resubmit arm.
+/// Standard `BoolFlag` precedence; env `GROK_TURN_TRANSIENT_RETRY`; default on.
+pub fn resolve_turn_transient_retry(
+    requirement: Option<bool>,
+    cli: Option<bool>,
+    config: Option<bool>,
+    managed: Option<bool>,
+    feature_flag: Option<bool>,
+) -> Resolved<bool> {
+    BoolFlag::env("GROK_TURN_TRANSIENT_RETRY")
+        .requirement(requirement)
+        .cli(cli)
+        .config(config)
+        .managed(managed)
+        .feature_flag(feature_flag)
+        .default(true)
+        .resolve()
+}
+/// Canonical resolver for `mcp.push_server_status`.
+/// Stacks the same 7-step `BoolFlag` precedence as [`resolve_mcp_liveness_watchers`]: `requirement > cli > env (GROK_MCP_PUSH_SERVER_STATUS) > config > managed > feature_flag > default (true)`.
+/// `util::config::resolve_mcp_push_server_status` delegates here so the precedence is single-sourced. The default is `true`: the pager's subscription to `x.ai/mcp/server_status` is wired on by default. The flag exists primarily as a kill switch.
+pub fn resolve_mcp_push_server_status(
+    requirement: Option<bool>,
+    cli: Option<bool>,
+    config: Option<bool>,
+    managed: Option<bool>,
+    feature_flag: Option<bool>,
+) -> Resolved<bool> {
+    BoolFlag::env("GROK_MCP_PUSH_SERVER_STATUS")
+        .requirement(requirement)
+        .cli(cli)
+        .config(config)
+        .managed(managed)
+        .feature_flag(feature_flag)
+        .default(true)
+        .resolve()
+}
+/// Canonical resolver for `mcp.recursive_config_watch`.
+/// Stacks the same 7-step `BoolFlag` precedence as [`resolve_mcp_liveness_watchers`]: `requirement > cli > env (GROK_MCP_RECURSIVE_CONFIG_WATCH) > config > managed > feature_flag > default (true)`.
+/// `util::config::resolve_mcp_recursive_config_watch` delegates here so the precedence is single-sourced. The default is `true`. It turns the two narrow non-recursive cwd watches on by default. The leader then falls back to the prior behavior: no cwd watches, and user-triggered refresh is the only project-config reload path.
+pub fn resolve_mcp_recursive_config_watch(
+    requirement: Option<bool>,
+    cli: Option<bool>,
+    config: Option<bool>,
+    managed: Option<bool>,
+    feature_flag: Option<bool>,
+) -> Resolved<bool> {
+    BoolFlag::env("GROK_MCP_RECURSIVE_CONFIG_WATCH")
+        .requirement(requirement)
+        .cli(cli)
+        .config(config)
+        .managed(managed)
+        .feature_flag(feature_flag)
+        .default(true)
+        .resolve()
+}

@@ -19,6 +19,7 @@ pub mod fork_picker;
 pub mod fps_hud;
 pub mod goal_detail;
 pub mod history_search;
+#[cfg(feature = "stock-runtime")]
 pub mod import_claude_modal;
 pub mod jump;
 pub mod list_pane;

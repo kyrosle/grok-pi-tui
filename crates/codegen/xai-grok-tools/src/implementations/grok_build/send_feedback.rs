@@ -10,7 +10,7 @@ use xai_grok_feedback::{
 use crate::types::resources::SessionFolder;
 use crate::types::tool::{ToolKind, ToolNamespace};
 
-pub const SEND_FEEDBACK_TOOL_NAME: &str = "send_feedback";
+pub use xai_tool_types::tool_names::SEND_FEEDBACK_TOOL_NAME;
 const SUCCESS_MESSAGE: &str = "Local feedback draft saved.";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

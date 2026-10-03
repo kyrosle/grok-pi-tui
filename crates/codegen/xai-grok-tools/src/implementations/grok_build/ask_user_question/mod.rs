@@ -55,7 +55,7 @@ pub const RESPONSE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs
 /// Default for `timeout_enabled` across every resolver tier and settings surface: the questionnaire
 /// timer is armed unless something disarms it. Single source — the shell resolver's `.default(...)`
 /// and the pager's settings registry both anchor on this const.
-pub const DEFAULT_ASK_USER_QUESTION_TIMEOUT_ENABLED: bool = true;
+pub use xai_tool_types::questions::DEFAULT_ASK_USER_QUESTION_TIMEOUT_ENABLED;
 
 /// Env var: override [`RESPONSE_TIMEOUT`] with a duration in **seconds**.
 pub const RESPONSE_TIMEOUT_ENV: &str = "GROK_ASK_USER_QUESTION_TIMEOUT_SECS";

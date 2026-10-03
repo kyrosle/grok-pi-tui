@@ -97,7 +97,7 @@ pub(crate) fn test_app() -> AppView {
         models: ModelState::default(),
         registry: ActionRegistry::defaults(),
         settings_registry: std::sync::Arc::new(crate::settings::SettingsRegistry::defaults()),
-        current_ui: xai_grok_shell::agent::config::UiConfig::default(),
+        current_ui: xai_grok_shared::ui_config::UiConfig::default(),
         status_line: Default::default(),
         cwd: std::path::PathBuf::from("/tmp"),
         cwd_has_git_ancestor: false,
@@ -664,9 +664,11 @@ fn remote_tui_yields_to_pi_question_then_resumes_without_editing_draft() {
     let old = agent.question_view.take().unwrap();
     let (tx, _rx) = tokio::sync::oneshot::channel();
     agent.question_view = Some(QuestionViewState::with_response_tx(
-        "pi-extension-ui:child".into(), old.questions,
-        crate::views::prompt_widget::StashedPrompt::default(), Some(tx),
-        xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionMode::Default,
+        "pi-extension-ui:child".into(),
+        old.questions,
+        crate::views::prompt_widget::StashedPrompt::default(),
+        Some(tx),
+        xai_tool_types::questions::AskUserQuestionMode::Default,
     ));
     app.handle_input(&key_event(KeyCode::Esc, KeyModifiers::NONE));
     assert!(!app.pending_effects.iter().any(|e| matches!(
@@ -3763,7 +3765,6 @@ fn esc_running_turn_is_swallowed_when_ctrl_c_is_required() {
     );
 }
 #[test]
-#[test]
 fn esc_from_scrollback_pane_running_turn_vim_mode_still_cancels_by_default() {
     let mut app = test_app_with_agent();
     let id = super::super::agent::AgentId(0);
@@ -6336,7 +6337,7 @@ fn overlay_left_arrow_file_search_open_does_not_exit() {
         let ctx = crate::views::file_search::context::detect("@", 1).expect("@-context must parse");
         agent.prompt.file_search.set_test_state(
             ctx,
-            vec![xai_grok_workspace::file_system::FuzzyMatchResult {
+            vec![xai_fuzzy_file_search::FuzzyMatchResult {
                 path: nucleo::Utf32String::from("src"),
                 score: 100,
                 indices: Vec::new(),
@@ -6653,9 +6654,7 @@ fn install_question_overlay(
     n_questions: usize,
 ) {
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let questions: Vec<Question> = (0..n_questions)
         .map(|i| Question {
             question: format!("Q{i}?"),

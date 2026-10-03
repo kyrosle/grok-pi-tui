@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn roster_list_response_survives_result_envelope() {
         use xai_grok_shell::agent::roster as agent;
-        use xai_grok_shell::session::ExtMethodResult;
+        use xai_grok_shared::session::result::ExtMethodResult;
 
         let agent_resp = agent::RosterListResponse {
             sessions: vec![agent_entry()],

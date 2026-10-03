@@ -94,6 +94,7 @@ impl CodemodeCallRow {
 
 #[derive(Debug, Clone)]
 pub struct CodemodeToolCallBlock {
+    pub images: Vec<crate::prompt_images::ScrollbackImageRef>,
     pub code: String,
     pub calls: Vec<CodemodeCallRow>,
     /// Script output with the `Script completed` header already stripped.
@@ -108,6 +109,7 @@ pub struct CodemodeToolCallBlock {
 impl CodemodeToolCallBlock {
     pub fn new(code: impl Into<String>) -> Self {
         Self {
+            images: Vec::new(),
             code: code.into(),
             calls: Vec::new(),
             output: None,
@@ -443,9 +445,32 @@ fn format_cost(cost: f64) -> String {
 }
 
 impl BlockContent for CodemodeToolCallBlock {
+    fn image_references(&self) -> &[crate::prompt_images::ScrollbackImageRef] {
+        &self.images
+    }
+
+    fn inline_media(&self) -> Option<crate::prompt_images::InlineMediaInfo> {
+        let image = self.images.first()?;
+        let (width, height) = image.dimensions?;
+        Some(crate::prompt_images::InlineMediaInfo {
+            path: image.path.clone(),
+            width,
+            height,
+            is_video: false,
+            alt_text: image.alt_text.clone(),
+        })
+    }
+
+    fn inline_open_button(&self) -> Option<(std::path::PathBuf, bool)> {
+        if crate::terminal::image::scrollback_inline_overlay_active() {
+            return None;
+        }
+        self.images.first().map(|image| (image.path.clone(), false))
+    }
+
     fn output(&self, ctx: &BlockContext) -> BlockOutput {
         let theme = Theme::current();
-        match ctx.mode {
+        let mut output = match ctx.mode {
             DisplayMode::Collapsed => BlockOutput {
                 lines: vec![
                     self.header_line(
@@ -458,7 +483,29 @@ impl BlockContent for CodemodeToolCallBlock {
                 ],
             },
             DisplayMode::Truncated | DisplayMode::Expanded => self.render_body(ctx),
+        };
+        if let Some((_, is_video)) = self.inline_open_button() {
+            let label = crate::scrollback::render::media_open_button_label(is_video);
+            let col = crate::scrollback::render::media_open_button_col(
+                ctx.content_width() as u16,
+                is_video,
+            );
+            output.lines.push(Line::default().into());
+            output.lines.push(
+                Line::from(vec![
+                    Span::raw(" ".repeat(col as usize)),
+                    Span::styled(
+                        label,
+                        ratatui::style::Style::default()
+                            .fg(theme.md_code)
+                            .add_modifier(ratatui::style::Modifier::BOLD),
+                    ),
+                ])
+                .into(),
+            );
+            output.lines.push(Line::default().into());
         }
+        output
     }
 
     fn accent(&self, ctx: &BlockContext) -> Option<AccentStyle> {
@@ -645,7 +692,7 @@ mod tests {
     fn expanded_shows_all_calls_errors_and_full_output() {
         let mut block = sample_block();
         block.calls.push(CodemodeCallRow {
-            name: "grep",
+            name: "grep".to_string(),
             args: "{ \"pattern\": \"todo\" }".to_string(),
             status: CodemodeCallStatus::Error,
             duration_ms: Some(2100),

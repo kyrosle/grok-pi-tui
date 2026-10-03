@@ -16,7 +16,7 @@ use super::cancel_latency::TurnEnd;
 
 /// `_meta.cancellationCategory` of a hook-denied turn end: renders the "blocked by a hook" marker instead of "cancelled by user" on every rail.
 pub(crate) const HOOK_DENIED_CATEGORY: &str =
-    xai_grok_shell::session::commands::HOOK_DENIED_CATEGORY;
+    xai_grok_shared::session::completion::HOOK_DENIED_CATEGORY;
 
 /// `_meta` key of a cancelled terminal's trigger (`"send_now"`, `"ctrl_c"`, …).
 pub(crate) const CANCEL_TRIGGER_KEY: &str = "cancelTrigger";
@@ -26,10 +26,10 @@ pub(crate) const CANCELLATION_CATEGORY_KEY: &str = "cancellationCategory";
 /// It is stamped beside the category; absent on older shells.
 pub(crate) const CANCELLATION_CONTEXT_KEY: &str = "cancellationContext";
 /// `_meta` key distinguishing a queued prompt that never ran from a real cancel.
-pub(crate) const COMPLETION_KIND_KEY: &str = xai_grok_shell::session::commands::COMPLETION_KIND_KEY;
-/// `_meta.completionKind` of [`xai_grok_shell::session::commands::PromptCompletionKind::RemovedFromQueue`].
+pub(crate) const COMPLETION_KIND_KEY: &str = xai_grok_shared::session::completion::COMPLETION_KIND_KEY;
+/// `_meta.completionKind` of [`xai_grok_shared::session::completion::PromptCompletionKind::RemovedFromQueue`].
 pub(crate) const REMOVED_FROM_QUEUE_KIND: &str =
-    xai_grok_shell::session::commands::REMOVED_FROM_QUEUE_KIND;
+    xai_grok_shared::session::completion::REMOVED_FROM_QUEUE_KIND;
 
 /// Unknown tokens stay [`TurnStopReason::Unknown`], which maps to `TurnCompleted` (live `_` arm).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -184,7 +184,7 @@ pub(super) fn note_hook_blocked_turn(
         Some((row_id, text)) => {
             // One parse point for the wire context
             // The shell serializes `CancellationContext` (camelCase); this deserializes into the same shared type instead of reading keys by string
-            let ctx: Option<xai_grok_shell::session::commands::CancellationContext> =
+            let ctx: Option<xai_grok_shared::session::completion::CancellationContext> =
                 cancellation_context.and_then(|v| serde_json::from_value(v.clone()).ok());
             let blocked = crate::app::agent::BlockedPromptContext {
                 row_id,
@@ -229,9 +229,7 @@ fn open_prompt_blocked_card(
     prompt_text: String,
 ) {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
 
     if agent.question_view.is_some()
         || matches!(

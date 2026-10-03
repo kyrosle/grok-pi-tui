@@ -9,6 +9,7 @@ default = ["stock-runtime"]
 # Stock Grok agent, storage, tools, workspace, and transport runtime.
 # Native Pi hosts use no-default-features and the real contracts re-exports.
 stock-runtime = [
+    "xai-grok-shared/stock-runtime",
     "dep:dunce",
     "dep:xai-grok-announcements",
     "dep:xai-prompt-queue",

@@ -1599,29 +1599,7 @@ pub(crate) fn resolve_effective_plugins_config(
     plugins_cfg
 }
 pub use xai_grok_config::{deep_merge_toml, expand_env_vars_in_string, expand_env_vars_in_toml};
-/// Locked read-modify-write of `~/.grok/config.toml`: the whole window runs under the config-init
-/// flock and lands via atomic replace; unchanged configs skip the write.
-fn update_config_toml_locked(
-    grok_home: &std::path::Path,
-    mutate: impl FnOnce(&mut toml::value::Table) -> Result<bool, Box<dyn std::error::Error>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let config_path = grok_home.join("config.toml");
-    let _flock = crate::util::config::acquire_init_lock(grok_home)?;
-    let content = crate::util::config::read_to_string_or_empty(&config_path)?;
-    let mut config: toml::Value = if content.is_empty() {
-        toml::Value::Table(toml::map::Map::new())
-    } else {
-        toml::from_str(&content).map_err(|e| format!("failed to parse config.toml: {e}"))?
-    };
-    let table = config
-        .as_table_mut()
-        .ok_or("config.toml root is not a table")?;
-    if !mutate(table)? {
-        return Ok(());
-    }
-    crate::util::config::atomic_write_string(&config_path, &toml::to_string_pretty(&config)?)?;
-    Ok(())
-}
+pub(crate) use xai_grok_shared::config::plugin_cta::update_config_toml_locked;
 /// Append `value` to the `[plugins].<list>` string array (created if missing)
 /// unless already present. Returns whether the config changed.
 fn plugins_list_add(
@@ -1663,16 +1641,7 @@ fn plugins_list_remove(table: &mut toml::value::Table, list: &str, value: &str) 
     entries.retain(|v| v.as_str().is_none_or(|s| s != value));
     entries.len() != before
 }
-/// Run one `update_config_toml_locked` writer on the blocking pool: the flock poll blocks, so
-/// LocalSet callers must hop here. Errors are stringified to cross the spawn boundary.
-async fn config_write_blocking<F>(write: F) -> Result<(), String>
-where
-    F: FnOnce() -> Result<(), Box<dyn std::error::Error>> + Send + 'static,
-{
-    tokio::task::spawn_blocking(move || write().map_err(|e| e.to_string()))
-        .await
-        .map_err(|e| format!("config write task failed: {e}"))?
-}
+pub(crate) use xai_grok_shared::config::plugin_cta::config_write_blocking;
 /// Async [`add_plugin_path`] for session callers (see [`config_write_blocking`]).
 pub(crate) async fn run_add_plugin_path(path: String) -> Result<(), String> {
     config_write_blocking(move || add_plugin_path(&path)).await
@@ -1730,80 +1699,10 @@ pub fn remove_disabled_plugin(plugin_id: &str) -> Result<(), Box<dyn std::error:
         Ok(plugins_list_remove(table, "disabled", plugin_id))
     })
 }
-/// Async [`add_dismissed_plugin_cta`] for UI callers (see [`config_write_blocking`]): the locked
-/// write sleep-polls the config-init flock, so it must stay off the render path.
-pub async fn run_add_dismissed_plugin_cta(plugin_id: String) -> Result<(), String> {
-    config_write_blocking(move || add_dismissed_plugin_cta(&plugin_id)).await
-}
-/// Add a plugin to `[plugin_cta].dismissed` in `~/.grok/config.toml`.
-/// Creates the `[plugin_cta]` section and `dismissed` array if they don't exist.
-/// Deduplicates: if already present, this is a no-op.
-pub fn add_dismissed_plugin_cta(plugin_id: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let config_path = crate::util::grok_home::grok_home().join("config.toml");
-    add_dismissed_plugin_cta_to_file(plugin_id, &config_path)
-}
-/// Add a dismissed plugin CTA to a specific config file (path-parameterized for tests); runs
-/// under the config-init flock with an atomic replace like every config.toml writer.
-#[doc(hidden)]
-pub fn add_dismissed_plugin_cta_to_file(
-    plugin_id: &str,
-    config_path: &std::path::Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let grok_home = config_path
-        .parent()
-        .ok_or("config.toml path has no parent directory")?;
-    update_config_toml_locked(grok_home, |table| {
-        let plugin_cta = table
-            .entry("plugin_cta".to_string())
-            .or_insert_with(|| toml::Value::Table(toml::map::Map::new()))
-            .as_table_mut()
-            .ok_or("[plugin_cta] is not a table")?;
-        let dismissed = plugin_cta
-            .entry("dismissed".to_string())
-            .or_insert_with(|| toml::Value::Array(vec![]))
-            .as_array_mut()
-            .ok_or("[plugin_cta].dismissed is not an array")?;
-        if dismissed
-            .iter()
-            .any(|v| v.as_str().is_some_and(|s| s == plugin_id))
-        {
-            return Ok(false);
-        }
-        dismissed.push(toml::Value::String(plugin_id.to_string()));
-        Ok(true)
-    })
-}
-/// All plugin ids listed in `[plugin_cta].dismissed` in `~/.grok/config.toml`.
-///
-/// Read once (e.g. on catalog load) and cached so the matched-debounce recompute doesn't parse the config from disk on the UI thread.
-pub fn dismissed_plugin_ctas() -> std::collections::HashSet<String> {
-    let config_path = crate::util::grok_home::grok_home().join("config.toml");
-    dismissed_plugin_ctas_in_file(&config_path)
-}
-/// Read the dismissed plugin CTA set from a specific config file (for tests).
-#[doc(hidden)]
-pub fn dismissed_plugin_ctas_in_file(
-    config_path: &std::path::Path,
-) -> std::collections::HashSet<String> {
-    let Ok(content) = std::fs::read_to_string(config_path) else {
-        return std::collections::HashSet::new();
-    };
-    let Ok(config) = toml::from_str::<toml::Value>(&content) else {
-        return std::collections::HashSet::new();
-    };
-    config
-        .as_table()
-        .and_then(|t| t.get("plugin_cta"))
-        .and_then(|v| v.as_table())
-        .and_then(|t| t.get("dismissed"))
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default()
-}
+pub use xai_grok_shared::config::plugin_cta::{
+    add_dismissed_plugin_cta, add_dismissed_plugin_cta_to_file, dismissed_plugin_ctas,
+    dismissed_plugin_ctas_in_file, run_add_dismissed_plugin_cta,
+};
 /// Validate that a hook path is safe to add to `~/.grok/hooks-paths`.
 /// CWE-427: Only paths under `~/.grok/` are allowed to prevent arbitrary hook path injection that bypasses the project trust gate.
 /// Paths are canonicalized (resolving symlinks and `..`) before checking.

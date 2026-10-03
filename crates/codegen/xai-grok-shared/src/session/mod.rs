@@ -25,3 +25,27 @@ pub fn count_detail(count: u64, noun: &str) -> String {
     let suffix = if count == 1 { "" } else { "s" };
     format!("{count} {noun}{suffix}")
 }
+
+pub mod notification;
+pub mod prompt_origin;
+pub mod chunk_meta;
+
+pub mod sampling_error;
+
+pub mod catalog;
+pub mod title;
+pub mod result;
+pub mod prompt_meta;
+pub mod usage;
+
+pub mod feedback;
+
+pub mod billing;
+
+pub mod completion;
+
+pub mod compact;
+
+pub mod user_echo;
+
+pub mod share;

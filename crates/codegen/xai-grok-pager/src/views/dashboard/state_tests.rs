@@ -560,9 +560,9 @@ fn parse_row_state_token_all_synonyms() {
 fn rename_at_cap_drops_extra_char() {
     assert_eq!(
         MAX_RENAME_SCALARS,
-        xai_grok_shell::session::persistence::MAX_TITLE_SCALARS
+        xai_grok_shared::session::title::MAX_TITLE_SCALARS
     );
-    assert_eq!(xai_grok_shell::session::persistence::MAX_TITLE_SCALARS, 100);
+    assert_eq!(xai_grok_shared::session::title::MAX_TITLE_SCALARS, 100);
     let mut draft = RenameDraft::new(
         DashboardRowId::TopLevel(AgentId(0)),
         "a".repeat(MAX_RENAME_SCALARS),

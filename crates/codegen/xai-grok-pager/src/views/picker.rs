@@ -3496,6 +3496,7 @@ mod tests {
         let area = Rect::new(0, 0, 24, 1);
         let row = PickerRow {
             label: "Row",
+            label_color: None,
             right_label: "",
             selected: true,
             expanded: false,

@@ -1,17 +1,24 @@
 //! Canonical, extensible tool types.
 pub mod auth;
-pub mod client;
 pub mod classification;
 pub mod claude_alias;
+pub mod client;
+pub mod config_source;
 pub mod definition;
 pub mod edit;
 mod ext;
+pub mod mcp_elicitation;
 pub mod memory;
 pub mod memory_v2;
+pub mod plan;
+pub mod presentation;
 pub mod questions;
 mod schema_utils;
 pub mod serde_lenient;
+pub mod session_mode;
+pub mod skills;
 mod task;
+pub mod task_snapshot;
 pub mod taxonomy;
 pub mod todo;
 mod types;
@@ -43,3 +50,19 @@ pub use task::{
 pub use types::{
     ArgumentType, SchemaType, ToolArgument, ToolDescription, ValidationError, ValidationErrors,
 };
+
+pub mod scheduled_task;
+
+pub mod output;
+pub mod output_dependencies;
+
+pub mod command_display;
+pub mod tool_names;
+
+pub mod schedule_presentation;
+
+pub mod task_wire;
+
+pub mod mcp;
+
+pub mod argument_schema;

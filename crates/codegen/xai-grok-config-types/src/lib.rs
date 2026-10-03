@@ -1643,3 +1643,15 @@ mod tests {
         }
     }
 }
+
+mod native_sections;
+pub use native_sections::*;
+pub mod compat;
+pub use compat::*;
+
+pub mod permission_policy;
+pub use permission_policy::*;
+
+pub mod agent_permission;
+mod model_switch;
+pub use model_switch::*;

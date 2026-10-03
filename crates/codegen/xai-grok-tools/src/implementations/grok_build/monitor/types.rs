@@ -68,18 +68,7 @@ pub struct MonitorInput {
     pub persistent: bool,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct MonitorOutput {
-    /// ID of the background monitor task (used with kill_command_or_subagent to cancel).
-    pub task_id: String,
-    /// Timeout deadline in milliseconds. 0 when persistent.
-    pub timeout_ms: u64,
-    /// Whether the monitor runs until kill_command_or_subagent or session end.
-    pub persistent: bool,
-}
-
-impl xai_tool_runtime::ToolOutput for MonitorOutput {}
+pub use xai_tool_types::output_dependencies::MonitorOutput;
 
 #[derive(thiserror::Error, Debug)]
 pub enum MonitorError {

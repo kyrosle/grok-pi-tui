@@ -351,7 +351,7 @@ fn strip_osc_terminator(body: &[u8]) -> &[u8] {
 }
 
 /// Write decoded clipboard payload to the local system clipboard.
-/// Delegates to [`xai_grok_shell::util::clipboard::set_text`], which uses `pbcopy` on macOS and `arboard` elsewhere.
+/// Delegates to [`xai_grok_shared::clipboard::set_text`], which uses `pbcopy` on macOS and `arboard` elsewhere.
 /// Failures are logged but do not propagate: clipboard access is best-effort.
 fn set_local_clipboard(data: &[u8]) {
     let text = match std::str::from_utf8(data) {
@@ -361,7 +361,7 @@ fn set_local_clipboard(data: &[u8]) {
             return;
         }
     };
-    if let Err(e) = xai_grok_shell::util::clipboard::set_text(text) {
+    if let Err(e) = xai_grok_shared::clipboard::set_text(text) {
         tracing::warn!("clipboard copy failed: {e}");
     }
 }

@@ -1,5 +1,6 @@
 mod channel;
 mod common;
+mod connection_status;
 mod gateway;
 mod line_reader;
 mod message;
@@ -25,6 +26,7 @@ pub use self::{
 
 pub use self::line_reader::LineBufferedRead;
 pub use self::stdin_reader::spawn_stdin_line_reader;
+pub use connection_status::ConnectionStatus;
 
 #[doc(hidden)]
 pub use self::common::compact_json;

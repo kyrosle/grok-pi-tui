@@ -13,6 +13,7 @@ default-run = "xai-grok-pager"
 # (cargo cycle). The binary installs the minimal-mode IoC hooks at startup.
 [[bin]]
 name = "xai-grok-pager"
+required-features = ["stock-runtime"]
 path = "src/main.rs"
 
 # Pi uses this second composition root, but all rendering and input remain in
@@ -22,19 +23,20 @@ name = "grok-pi"
 path = "src/bin/grok-pi.rs"
 
 [dependencies]
+xai-grok-shared = { workspace = true }
 # The pager library (all application logic + the public API main.rs drives).
-xai-grok-pager = { path = "../xai-grok-pager" }
+xai-grok-pager = { path = "../xai-grok-pager", default-features = false }
 # Optional scrollback-native render mode, wired in via the fn-pointer seam.
-xai-grok-pager-minimal = { path = "../xai-grok-pager-minimal" }
+xai-grok-pager-minimal = { path = "../xai-grok-pager-minimal", default-features = false }
 pi-grok-adapter = { path = "../pi-grok-adapter" }
 
 # Agent runtime + leader/stdio/headless entry points.
-xai-grok-login = { workspace = true }
-xai-grok-shell = { workspace = true }
-xai-grok-update = { path = "../xai-grok-update" }
+xai-grok-login = { workspace = true, optional = true }
+xai-grok-shell = { workspace = true, optional = true }
+xai-grok-update = { path = "../xai-grok-update", default-features = false }
 xai-grok-version = { workspace = true }
 xai-grok-telemetry = { workspace = true }
-xai-grok-workspace = { workspace = true }
+xai-grok-workspace = { workspace = true, optional = true }
 xai-crash-handler = { path = "../xai-crash-handler" }
 xai-acp-lib = { workspace = true }
 agent-client-protocol = { workspace = true }
@@ -103,18 +105,21 @@ clap = { workspace = true, features = ["derive"] }
 
 [features]
 default = [
+    "stock-runtime",
     "jemalloc",
     "sandbox-enforce",
     ]
 default-bazel = [
+    "stock-runtime",
     "jemalloc",
     "sandbox-enforce",
     "local-workspace",
     ]
+stock-runtime = ["xai-grok-update/stock-runtime", "xai-grok-pager/stock-runtime", "xai-grok-pager-minimal/stock-runtime", "dep:xai-grok-shell", "dep:xai-grok-workspace", "dep:xai-grok-login"]
 jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-sys", "dep:tikv-jemalloc-ctl"]
 # xai-grok-workspace no longer enables sandbox-enforce by default, so enable it here.
-sandbox-enforce = ["xai-grok-pager/sandbox-enforce", "xai-grok-workspace/sandbox-enforce"]
-local-workspace = ["xai-grok-pager/local-workspace"]
+sandbox-enforce = ["xai-grok-pager/sandbox-enforce", "xai-grok-workspace?/sandbox-enforce"]
+local-workspace = ["stock-runtime", "xai-grok-pager/local-workspace"]
 release-dist = [
     "xai-grok-pager/release-dist",
     ]

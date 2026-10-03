@@ -520,7 +520,7 @@ fn push_bash_allow_always(
 ) -> tokio::sync::oneshot::Receiver<Result<acp::RequestPermissionResponse, acp::Error>> {
     use crate::views::permission_view::PermissionViewState;
     use std::sync::Arc;
-    use xai_grok_workspace::permission::bash_command_splitting::BashCommandHighlights;
+    use xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights;
 
     let (tx, rx) = tokio::sync::oneshot::channel();
     let request = acp::RequestPermissionRequest::new(
@@ -574,7 +574,7 @@ fn push_bash_allow_always(
 
 fn selected_terms(
     resp: acp::RequestPermissionResponse,
-) -> xai_grok_workspace::permission::BashCommandSelectedTerms {
+) -> xai_grok_shared::permissions::BashCommandSelectedTerms {
     let meta = resp.meta.expect("bash selection meta");
     serde_json::from_value(serde_json::Value::Object(meta)).expect("selection terms")
 }

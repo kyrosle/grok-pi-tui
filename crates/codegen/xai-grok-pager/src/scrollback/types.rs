@@ -740,12 +740,13 @@ mod tests {
     }
 
     #[test]
-    fn block_line_exhaustive_literal_keeps_legacy_shape() {
+    fn block_line_exhaustive_literal_includes_layout_metadata() {
         let _line = BlockLine {
             content: Line::default(),
             background: None,
             background_is_panel: false,
             bg_start_col: 0,
+            indent_width: 0,
             wrap: WrapMode::Word,
             selectable: Selectable::All,
             selection_range: None,

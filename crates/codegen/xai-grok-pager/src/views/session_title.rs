@@ -29,8 +29,7 @@ pub fn entry_title(agent: &AgentView) -> String {
     if let Some(title) = agent.generated_session_title.as_deref() {
         let trimmed = title.trim();
         if !trimmed.is_empty() {
-            let clean =
-                xai_grok_tools::implementations::skills::skill::extract_skill_display_text(trimmed);
+            let clean = xai_tool_types::skills::extract_skill_display_text(trimmed);
             let text = clean.as_deref().unwrap_or(trimmed);
             return truncate_title(&sanitize_display_text(text));
         }
@@ -38,8 +37,7 @@ pub fn entry_title(agent: &AgentView) -> String {
     if let Some(text) = first_user_prompt_text(agent) {
         let trimmed = text.trim();
         if !trimmed.is_empty() {
-            let clean =
-                xai_grok_tools::implementations::skills::skill::extract_skill_display_text(trimmed);
+            let clean = xai_tool_types::skills::extract_skill_display_text(trimmed);
             let display = clean.as_deref().unwrap_or(trimmed);
             return truncate_title(&sanitize_display_text(display));
         }
@@ -149,7 +147,7 @@ fn truncate_title(text: &str) -> String {
 /// Strip C0/C1 and bidi/format controls that could inject terminal escape sequences or spoof the
 /// title.
 pub(crate) fn sanitize_display_text(s: &str) -> Cow<'_, str> {
-    use xai_grok_shell::session::persistence::is_forbidden_title_char;
+    use xai_grok_shared::session::title::is_forbidden_title_char;
     if s.chars().any(is_forbidden_title_char) {
         Cow::Owned(
             s.chars()

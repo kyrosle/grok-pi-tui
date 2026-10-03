@@ -287,23 +287,7 @@ impl std::fmt::Debug for WorkflowLaunchHandle {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct WorkflowToolOutput {
-    pub run_id: String,
-    #[schemars(
-        description = "Alias of run_id; workflow runs are not background tasks — do not pass to task_output/wait_tasks. Completion notifies automatically."
-    )]
-    pub task_id: String,
-    #[schemars(
-        description = "The session-unique display handle for this run, such as review-changes or review-changes-2. Use it in user-facing status and /workflow management; keep run_id internal."
-    )]
-    pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub script_path: Option<String>,
-    pub message: String,
-}
-
-impl xai_tool_runtime::ToolOutput for WorkflowToolOutput {}
+pub use xai_tool_types::output_dependencies::WorkflowToolOutput;
 
 #[derive(Debug, Default)]
 pub struct WorkflowTool;

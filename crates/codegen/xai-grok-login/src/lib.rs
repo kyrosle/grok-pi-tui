@@ -73,3 +73,5 @@ pub use model::{TOKEN_TTL, UserInfo, default_coding_data_retention_opt_out, is_e
 pub use refresh::DiagnosticUploader;
 pub use storage::auth_json_path;
 pub use storage::{clear_api_key, read_api_key, read_auth_json, store_api_key};
+
+pub mod tier;

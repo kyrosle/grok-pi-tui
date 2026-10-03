@@ -222,3 +222,6 @@ impl AskUserQuestionExtResponse {
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────
+
+/// Historical default for native ask-user-question timeout handling.
+pub const DEFAULT_ASK_USER_QUESTION_TIMEOUT_ENABLED: bool = true;

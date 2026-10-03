@@ -143,7 +143,7 @@ fn respond<T: Serialize>(result: Result<T, impl std::fmt::Display>) -> ExtResult
 fn respond_pty<T: Serialize>(result: Result<T, terminal::TerminalExtError>) -> ExtResult {
     let ext_result: ExtMethodResult<T> = match result {
         Ok(value) => ExtMethodResult::success(value),
-        Err(err) => err.into(),
+        Err(err) => crate::session::result::terminal_error_result(err),
     };
     ext_result
         .to_ext_response()

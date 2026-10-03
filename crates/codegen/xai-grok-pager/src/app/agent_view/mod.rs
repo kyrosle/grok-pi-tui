@@ -888,7 +888,7 @@ pub struct AgentView {
     /// Currently hovered modal button key (for highlight).
     pub(crate) modal_hovered_key: Option<char>,
     /// Cached server-reported context state.
-    pub context_state: Option<xai_grok_shell::session::ContextInfo>,
+    pub context_state: Option<xai_grok_shared::session::ContextInfo>,
     pub status_context: Option<xai_grok_status_line::StatusLineContext>,
     /// Held across a frame that clamps the row away, so a script keeps the size
     /// it last painted at.
@@ -1208,6 +1208,7 @@ pub struct AgentView {
         crate::views::feedback_modal::ParkedFeedbackTraceConsent,
     )>,
     /// Active agents modal popup. When `Some`, blocks all input and renders as a centered overlay. Opened by `/config-agents` or `/agents`.
+    #[cfg(feature = "stock-runtime")]
     pub(crate) agents_modal: Option<crate::views::agents_modal::AgentsModalState>,
     pub(crate) persona_detail: Option<crate::views::persona_detail::PersonaDetailState>,
     /// Active /btw side question overlay. When `Some`, renders as a dismissible
@@ -1274,7 +1275,7 @@ pub struct AgentView {
     pub(crate) question_view: Option<QuestionViewState>,
     pub(crate) elicitation_view: Option<ElicitationViewState>,
     pub(crate) pending_elicitation: Option<(
-        xai_grok_tools::mcp_elicitation::McpElicitExtRequest,
+        xai_tool_types::mcp_elicitation::McpElicitExtRequest,
         tokio::sync::oneshot::Sender<xai_acp_lib::AcpResult<agent_client_protocol::ExtResponse>>,
     )>,
     pub(crate) elicit_hits: Vec<(
@@ -1315,7 +1316,7 @@ pub struct AgentView {
     pub(crate) plan_mode_pending: Option<bool>,
     /// Session mode to apply once this agent's ACP session exists. Set when the agent is spawned from the dashboard with `/plan` active (the session does not exist yet, so the mode can't be sent immediately).
     /// Consumed in the `SessionCreated` / `WorktreeSessionCreated` handlers, mirroring `AgentSession.deferred_model_switch`.
-    pub(crate) deferred_session_mode: Option<xai_grok_tools::types::SessionMode>,
+    pub(crate) deferred_session_mode: Option<xai_tool_types::session_mode::SessionMode>,
     /// Permission mode chosen on Welcome before the ACP session exists.
     /// `PersistPermissionMode` with no session id cannot notify the shell, so `SessionCreated` replays this against the bound id.
     /// `SessionCreated` replays this against the bound id.
@@ -1434,7 +1435,7 @@ pub struct AgentView {
     /// Persistent-memory implementation pinned when this session's actor
     /// spawned. Remember-note effects carry this value rather than consulting
     /// mutable disk configuration mid-session.
-    pub memory_mode: Option<xai_grok_shell::config::MemoryMode>,
+    pub memory_mode: Option<xai_grok_config_types::MemoryMode>,
     /// Mirrors `AppView::usage_visible` (credit warning + `/usage manage`).
     pub billing_surface_visible: bool,
     /// Whether `/usage` is offered. Mirrors `!AppView::has_external_auth_provider`.
@@ -1933,8 +1934,7 @@ fn is_hash_key(key: &KeyEvent) -> bool {
 }
 /// Check `[features] remember_mode` in config.toml. Defaults to `false`.
 fn remember_mode_enabled() -> bool {
-    let path =
-        xai_grok_tools::util::grok_home::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
+    let path = xai_grok_config::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
     let Some(doc) = crate::config_toml_edit::read_config_document_for_edit(&path) else {
         return false;
     };
@@ -2048,7 +2048,7 @@ fn resolve_action(action_id: Option<ActionId>) -> Option<InputOutcome> {
 fn question_visible_h(
     scroll_region: Option<(u16, u16)>,
     prompt_height: u16,
-    question: &xai_grok_tools::implementations::grok_build::ask_user_question::Question,
+    question: &xai_tool_types::questions::Question,
     content_w: usize,
     preview: Option<&str>,
     fullscreen: bool,
@@ -3530,6 +3530,20 @@ mod prompt_input_mode_tests {
             assert!(mode.is_exit_key(&KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)));
             assert!(!mode.is_exit_key(&KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)));
             assert!(!mode.is_exit_key(&KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE)));
+        }
+    }
+}
+
+impl AgentView {
+    /// The Grok agent-configuration component is compiled only in the stock profile.
+    pub(crate) fn stock_agents_modal_open(&self) -> bool {
+        #[cfg(feature = "stock-runtime")]
+        {
+            self.agents_modal.is_some()
+        }
+        #[cfg(not(feature = "stock-runtime"))]
+        {
+            false
         }
     }
 }

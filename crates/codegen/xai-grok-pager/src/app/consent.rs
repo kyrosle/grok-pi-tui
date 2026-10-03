@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use crossterm::event::{Event, KeyEventKind, MouseButton, MouseEventKind};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
-use xai_grok_shell::util::config::{ConsentAnswer, ConsentGate};
+use crate::settings_config::{ConsentAnswer, ConsentGate};
 
 use crate::app::actions::Action;
 use crate::app::app_view::InputOutcome;
@@ -236,7 +236,7 @@ impl ConsentNotice {
     pub fn try_from_remote(gate: &ConsentGate) -> Result<Self, ConsentArmRefusal> {
         let body_source = gate.body.as_deref().unwrap_or_default();
         // Sanitized before the emptiness check: a body of nothing but control characters would otherwise arm a gate with no text to read
-        let body = sanitize_notice_text(xai_grok_tools::util::truncate_str(
+        let body = sanitize_notice_text(xai_tool_types::presentation::truncate_str(
             body_source,
             MAX_CONSENT_BODY_BYTES,
         ));

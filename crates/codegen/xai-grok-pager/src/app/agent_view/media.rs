@@ -84,7 +84,7 @@ impl AgentView {
             KeyCode::Esc | KeyCode::Char('q') => {
                 // Clear the Kitty image before closing.
                 // Old code bypassed STDERR_OUTPUT_LOCK which could interleave mid-frame
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let clear = PostFlush::from(overlay::clear_kitty());
                     let _ = clear.write_to(stderr);
                 });
@@ -108,7 +108,7 @@ impl AgentView {
             .take()
             .is_some_and(|viewer| viewer.image.is_some())
         {
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 let clear = crate::terminal::overlay::PostFlush::from(
                     crate::terminal::overlay::clear_kitty(),
                 );
@@ -386,6 +386,16 @@ impl AgentView {
         (!clear_esc.is_empty()).then_some(clear_esc)
     }
 
+    /// Forget transmitted IDs after a screen clear so the next frame sends the pixels again.
+    pub(crate) fn forget_transmitted_inline_media(&mut self) {
+        self.inline_media_ids.clear();
+        self.inline_media_iterm_emitted.clear();
+        self.last_placed_ids.clear();
+        for child in self.subagent_views.values_mut() {
+            child.forget_transmitted_inline_media();
+        }
+    }
+
     /// Stop inline video playback, dropping the pre-extracted frame set (~50-300 MB), and request a post-draw purge for it.
     /// Returns whether a video was actually playing.
     /// Draw-path callers rely on the deferred request (never a synchronous mid-frame purge); image-only paths must not purge at all.
@@ -526,7 +536,7 @@ impl AgentView {
         {
             let path = path.clone();
             std::thread::spawn(move || {
-                if let Err(e) = xai_grok_shell::util::clipboard::set_image_file(&path) {
+                if let Err(e) = xai_grok_shared::clipboard::set_image_file(&path) {
                     tracing::debug!("copy image failed: {e}");
                 }
             });
@@ -611,7 +621,7 @@ impl AgentView {
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => {
                 // Clear the Kitty image before closing.
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let clear = PostFlush::from(overlay::clear_kitty());
                     let _ = clear.write_to(stderr);
                 });
@@ -643,7 +653,7 @@ impl AgentView {
         match gboom.handle_key(key) {
             crate::gboom::GboomKeyOutcome::Close => {
                 // Clear the kitty image before closing (same as the video viewer) so no stale frame lingers in the cell grid
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let clear = PostFlush::from(overlay::clear_kitty());
                     let _ = clear.write_to(stderr);
                 });
@@ -870,5 +880,42 @@ mod tests {
             before + 1,
             "closing the image viewer must purge after the image drops"
         );
+    }
+}
+
+#[cfg(test)]
+mod repaint_tests {
+    #[test]
+    fn full_repaint_forgets_transmission_in_parent_and_child_but_keeps_pixels() {
+        fn seed(agent: &mut super::AgentView) {
+            let path = std::path::PathBuf::from("cached.png");
+            agent.inline_media_cache.insert(path.clone(), vec![1, 2, 3]);
+            agent.inline_media_ids.insert(path.clone(), 9);
+            agent
+                .inline_media_iterm_emitted
+                .insert(path, ratatui::layout::Rect::new(0, 0, 8, 4));
+            agent.last_placed_ids.insert(9);
+        }
+        fn check(agent: &super::AgentView) {
+            assert!(agent.inline_media_ids.is_empty());
+            assert!(agent.inline_media_iterm_emitted.is_empty());
+            assert!(agent.last_placed_ids.is_empty());
+            assert_eq!(
+                agent
+                    .inline_media_cache
+                    .get(std::path::Path::new("cached.png")),
+                Some(&vec![1, 2, 3])
+            );
+        }
+        let mut parent = crate::test_util::make_agent_view(None, "/tmp");
+        let mut child = crate::test_util::make_agent_view(Some("child"), "/tmp");
+        seed(&mut parent);
+        seed(&mut child);
+        parent
+            .subagent_views
+            .insert("child".into(), Box::new(child));
+        parent.forget_transmitted_inline_media();
+        check(&parent);
+        check(parent.subagent_views.get("child").expect("child kept"));
     }
 }

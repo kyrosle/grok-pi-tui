@@ -1634,3 +1634,13 @@ impl From<SubagentResult> for xai_tool_types::workflow::WorkflowAgentSpawnResult
         }
     }
 }
+
+impl From<SubagentCancelOutcome> for xai_tool_types::task_wire::SubagentCancelOutcomeDto {
+    fn from(outcome: SubagentCancelOutcome) -> Self {
+        match outcome {
+            SubagentCancelOutcome::Cancelled => Self::Cancelled,
+            SubagentCancelOutcome::AlreadyFinished { status } => Self::AlreadyFinished { status },
+            SubagentCancelOutcome::NotFound => Self::NotFound,
+        }
+    }
+}

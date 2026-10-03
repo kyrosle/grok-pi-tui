@@ -10,24 +10,6 @@ use xai_grok_telemetry::region::Parent;
 use xai_grok_workspace::session::git::find_git_root_from_path;
 pub use xai_grok_workspace::worktree::*;
 const WORKTREE_LOG: &str = "xai_worktree";
-impl From<ShellWorktreeType> for WorktreeType {
-    fn from(t: ShellWorktreeType) -> Self {
-        match t {
-            ShellWorktreeType::Linked => WorktreeType::Linked,
-            ShellWorktreeType::Standalone => WorktreeType::Standalone,
-            ShellWorktreeType::Git => WorktreeType::Git,
-        }
-    }
-}
-impl From<WorktreeType> for ShellWorktreeType {
-    fn from(t: WorktreeType) -> Self {
-        match t {
-            WorktreeType::Linked => ShellWorktreeType::Linked,
-            WorktreeType::Standalone => ShellWorktreeType::Standalone,
-            WorktreeType::Git => ShellWorktreeType::Git,
-        }
-    }
-}
 /// Create a worktree for the resume-session flow, detecting jj vs git automatically.
 ///
 /// When `git_ref` is set, forces a clean checkout of that ref (same as the manual `create_from_worktree_sync` path used by `grok -w --ref`).

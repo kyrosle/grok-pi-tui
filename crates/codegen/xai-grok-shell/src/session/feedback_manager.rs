@@ -89,15 +89,7 @@ fn user_feedback_event(
     }
 }
 
-pub(crate) fn new_submission(
-    session_id: String,
-    client_type: ClientType,
-    content: FeedbackContent,
-) -> FeedbackSubmission {
-    let mut s = FeedbackSubmission::with_content(session_id, client_type, content);
-    s.shell_version = Some(xai_grok_version::VERSION.to_string());
-    s
-}
+pub(crate) use xai_grok_shared::session::feedback::new_submission;
 
 #[derive(Debug)]
 pub(crate) struct SubmitFeedbackOptions {

@@ -8,9 +8,7 @@ use crate::views::question_view::QuestionViewState;
 use agent_client_protocol as acp;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::sync::Arc;
-use xai_grok_tools::implementations::grok_build::ask_user_question::{
-    AskUserQuestionMode, Question, QuestionOption,
-};
+use xai_tool_types::questions::{AskUserQuestionMode, Question, QuestionOption};
 
 const SHIFT_TAB: [(KeyCode, KeyModifiers); 3] = [
     (KeyCode::BackTab, KeyModifiers::NONE),

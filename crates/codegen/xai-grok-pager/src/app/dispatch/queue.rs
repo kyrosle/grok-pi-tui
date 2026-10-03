@@ -663,7 +663,12 @@ pub(super) fn maybe_drain_queue(agent: &mut AgentView) -> QueueDrain {
 /// Frame a scheduler-fired prompt as the system reminder the model reads.
 /// The shell wraps the payload in `<user_query>`, so this must not add one.
 fn format_cron_prompt(prompt: &str, task_id: &str, human_schedule: &str) -> String {
-    xai_grok_tools::reminders::format_scheduled_task_prompt(prompt, task_id, "", human_schedule)
+    xai_tool_types::schedule_presentation::format_scheduled_task_prompt(
+        prompt,
+        task_id,
+        "",
+        human_schedule,
+    )
 }
 
 /// Whether [`apply_turn_start_shim`] renders its own user block (i.e. `display_block` is `Some`).
@@ -1382,6 +1387,7 @@ mod tests {
         );
         assert!(out.ends_with("do stuff"));
     }
+    #[test]
     fn compact_drain_pushes_one_marker_paired_with_its_outcome() {
         use crate::app::actions::TaskResult;
         use crate::app::dispatch::task_result::dispatch_task_result;
@@ -1994,7 +2000,7 @@ mod tests {
         assert_eq!(sb.selected(), Some(sb.len() - 1));
 
         crate::appearance::cache::set_page_flip_on_send(
-            xai_grok_shell::agent::config::UiConfig::PAGE_FLIP_ON_SEND_DEFAULT,
+            xai_grok_shared::ui_config::UiConfig::PAGE_FLIP_ON_SEND_DEFAULT,
         );
     }
 

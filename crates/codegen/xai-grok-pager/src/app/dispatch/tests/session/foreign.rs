@@ -1,5 +1,5 @@
 use super::*;
-use xai_grok_shell::session::unified_list::ListScope;
+use xai_grok_shared::session::catalog::ListScope;
 
 use crate::views::modal::ActiveModal;
 use crate::views::session_picker::{PickerItem, SourceFilter, build_entry_map};
@@ -721,7 +721,7 @@ fn failed_headless_welcome_keeps_picker_open() {
 
 #[test]
 fn cycle_refetches_when_crossing_headless() {
-    use xai_grok_shell::session::unified_list::HeadlessPolicy;
+    use xai_grok_shared::session::catalog::HeadlessPolicy;
 
     let mut app = test_app();
     app.session_picker_entries = Some(vec![make_picker_entry("native", "/repo")]);
@@ -827,7 +827,7 @@ fn leaving_headless_drops_stale_natives_and_spins_on_all() {
 
 #[test]
 fn modal_cycle_refetches_when_entering_headless() {
-    use xai_grok_shell::session::unified_list::HeadlessPolicy;
+    use xai_grok_shared::session::catalog::HeadlessPolicy;
 
     let mut app = test_app_with_agent();
     open_session_picker_with(&mut app, vec![make_picker_entry("native", "/repo")]);
@@ -855,7 +855,7 @@ fn modal_cycle_refetches_when_entering_headless() {
 
 #[test]
 fn headless_page_content_search_uses_only_policy() {
-    use xai_grok_shell::session::unified_list::HeadlessPolicy;
+    use xai_grok_shared::session::catalog::HeadlessPolicy;
 
     let mut app = test_app();
     app.session_picker_entries = Some(vec![make_picker_entry("native", "/repo")]);

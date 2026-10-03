@@ -171,7 +171,7 @@
 
     #[test]
     fn retry_exhausted_rate_limited_empty_reason_uses_oauth_fallback() {
-        use xai_grok_shell::sampling::error::RATE_LIMITED_USER_MESSAGE_OAUTH;
+        use xai_grok_shared::session::sampling_error::RATE_LIMITED_USER_MESSAGE_OAUTH;
 
         let empty = RetryState::Exhausted {
             attempts: 3,
@@ -215,7 +215,7 @@
 
     #[test]
     fn retry_exhausted_api_key_rewrites_consumer_subscription_upsell() {
-        use xai_grok_shell::sampling::error::RATE_LIMITED_USER_MESSAGE_API_KEY;
+        use xai_grok_shared::session::sampling_error::RATE_LIMITED_USER_MESSAGE_API_KEY;
 
         let rpm = RetryState::Exhausted {
             attempts: 2,
@@ -300,7 +300,7 @@
 
     #[test]
     fn apply_retry_state_disk_full_pushes_session_event() {
-        use xai_grok_shell::extensions::notification::{
+        use xai_grok_shared::session::notification::{
             DISK_FULL_ERROR_TYPE, DISK_FULL_USER_MESSAGE,
         };
         let mut session = make_session(Some("s1"));
@@ -614,7 +614,7 @@
     /// `PromptResponse` then suppresses the redundant `TurnFailed`.
     #[test]
     fn apply_retry_state_context_length_shows_context_too_large() {
-        use xai_grok_shell::extensions::notification::CONTEXT_LENGTH_ERROR_TYPE;
+        use xai_grok_shared::session::notification::CONTEXT_LENGTH_ERROR_TYPE;
         let mut session = make_session(Some("s1"));
         let mut scrollback = ScrollbackState::new();
         apply_retry_state(
@@ -665,7 +665,7 @@
     /// The overflow path then does NOT stack a second `ContextTooLarge` prompt on top.
     #[test]
     fn apply_retry_state_context_length_does_not_duplicate_compaction_failed() {
-        use xai_grok_shell::extensions::notification::CONTEXT_LENGTH_ERROR_TYPE;
+        use xai_grok_shared::session::notification::CONTEXT_LENGTH_ERROR_TYPE;
         let mut session = make_session(Some("s1"));
         let mut scrollback = ScrollbackState::new();
         scrollback.push_block(RenderBlock::session_event(SessionEvent::CompactionFailed {
@@ -834,7 +834,7 @@
         let failed = XaiSessionUpdate::AutoCompactFailed { error: "e".into() };
         assert_eq!(compaction_context_refresh(&failed), None);
         let cancelled = XaiSessionUpdate::AutoCompactCancelled {
-            reason: xai_grok_shell::extensions::notification::AutoCompactCancelReason::UserCancelled,
+            reason: xai_grok_shared::session::notification::AutoCompactCancelReason::UserCancelled,
         };
         assert_eq!(compaction_context_refresh(&cancelled), None);
     }
@@ -867,7 +867,7 @@
             elapsed_ms: Some(300),
             summary_preview: None,
         };
-        let changed = handle_child_session_notification(update, child_sid, &mut agent, false);
+        let changed = handle_child_session_notification(update, child_sid, &mut agent, false, false, None);
         assert!(changed);
 
         let info = agent.subagent_sessions.get(child_sid).unwrap();
@@ -905,7 +905,7 @@
             percentage: 72,
             reason: "threshold".into(),
         };
-        let _ = handle_child_session_notification(update, child_sid, &mut agent, false);
+        let _ = handle_child_session_notification(update, child_sid, &mut agent, false, false, None);
 
         let child_view = agent.subagent_views.get(child_sid).unwrap();
         assert_eq!(
@@ -924,7 +924,7 @@
             percentage: 85,
             reason: "threshold".into(),
         };
-        let changed = handle_child_session_notification(update, "unknown-child", &mut agent, false);
+        let changed = handle_child_session_notification(update, "unknown-child", &mut agent, false, false, None);
         assert!(!changed);
     }
 
@@ -943,7 +943,7 @@
             elapsed_ms: Some(300),
             summary_preview: None,
         };
-        let changed = handle_child_session_notification(update, child_sid, &mut agent, false);
+        let changed = handle_child_session_notification(update, child_sid, &mut agent, false, false, None);
         // No child_view means nothing visible changed, so it must not trigger a redraw
         assert!(!changed);
         // SubagentInfo is still updated for data correctness even though nothing redraws
@@ -956,7 +956,7 @@
     fn child_unknown_event_returns_false() {
         let mut agent = make_agent(Some("root-sess"));
         let update = XaiSessionUpdate::MemoryFlushStarted;
-        let changed = handle_child_session_notification(update, "child-1", &mut agent, false);
+        let changed = handle_child_session_notification(update, "child-1", &mut agent, false, false, None);
         assert!(!changed);
     }
 
@@ -1182,7 +1182,7 @@
 
     #[test]
     fn retry_failed_encrypted_content_sets_model_incompatible() {
-        use xai_grok_shell::extensions::notification::RetryState;
+        use xai_grok_shared::session::notification::RetryState;
         let mut session = make_session(Some("s1"));
         let mut scrollback = ScrollbackState::new();
 
@@ -1202,7 +1202,7 @@
 
     #[test]
     fn retry_failed_other_type_does_not_set_model_incompatible() {
-        use xai_grok_shell::extensions::notification::RetryState;
+        use xai_grok_shared::session::notification::RetryState;
         let mut session = make_session(Some("s1"));
         let mut scrollback = ScrollbackState::new();
 
@@ -1225,7 +1225,7 @@
         title_is_manual: bool,
     ) -> acp::ExtNotification {
         let meta = if title_is_manual {
-            Some(xai_grok_shell::extensions::notification::title_is_manual_meta())
+            Some(xai_grok_shared::session::notification::title_is_manual_meta())
         } else {
             None
         };
@@ -1370,7 +1370,7 @@
 
     #[test]
     fn auto_title_notification_strips_controls_and_caps() {
-        use xai_grok_shell::session::persistence::MAX_TITLE_SCALARS;
+        use xai_grok_shared::session::title::MAX_TITLE_SCALARS;
         let mut app = make_app_with_agent("sess-1");
         let dirty = format!(
             "ok\u{1b}]0;PWNED\u{07}{}",
@@ -1398,7 +1398,7 @@
 
     #[test]
     fn manual_title_notification_strips_controls_and_caps() {
-        use xai_grok_shell::session::persistence::MAX_TITLE_SCALARS;
+        use xai_grok_shared::session::title::MAX_TITLE_SCALARS;
         let mut app = make_app_with_agent("sess-1");
         let dirty = format!("ok\u{1b}]0;PWNED\u{07}{}", "é".repeat(MAX_TITLE_SCALARS + 5));
         assert!(handle_session_notification(

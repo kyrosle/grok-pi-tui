@@ -1731,7 +1731,7 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
         "pi_herdr" => {
             let _ = dispatch(
                 Action::SetHostFeatureBool {
-                    key: xai_grok_shell::host_features::PI_HERDR,
+                    key: xai_grok_shared::host_features::PI_HERDR,
                     enabled: false,
                 },
                 app,
@@ -1740,7 +1740,7 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
         "pi_subagents" => {
             let _ = dispatch(
                 Action::SetHostFeatureBool {
-                    key: xai_grok_shell::host_features::PI_SUBAGENTS,
+                    key: xai_grok_shared::host_features::PI_SUBAGENTS,
                     enabled: false,
                 },
                 app,
@@ -1749,7 +1749,7 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
         "pi_todo" => {
             let _ = dispatch(
                 Action::SetHostFeatureBool {
-                    key: xai_grok_shell::host_features::PI_TODO,
+                    key: xai_grok_shared::host_features::PI_TODO,
                     enabled: false,
                 },
                 app,
@@ -1770,7 +1770,7 @@ fn set_pi_todo_persists_restart_required_toggle() {
 
     let effects = dispatch(
         Action::SetHostFeatureBool {
-            key: xai_grok_shell::host_features::PI_TODO,
+            key: xai_grok_shared::host_features::PI_TODO,
             enabled: false,
         },
         &mut app,
@@ -1796,7 +1796,7 @@ fn set_pi_subagents_persists_restart_required_toggle() {
 
     let effects = dispatch(
         Action::SetHostFeatureBool {
-            key: xai_grok_shell::host_features::PI_SUBAGENTS,
+            key: xai_grok_shared::host_features::PI_SUBAGENTS,
             enabled: false,
         },
         &mut app,

@@ -38,78 +38,10 @@ pub fn wrap_reminder_with_tag(text: &str, tag: &str) -> String {
     format!("<{tag}>\n{text}\n</{tag}>")
 }
 
-pub(crate) struct ChildPoll<'a> {
-    pub name: &'a str,
-    pub id: &'a str,
-}
-
-pub(crate) struct ScheduleToolNames<'a> {
-    pub delete: &'a str,
-    pub create: &'a str,
-}
-
-pub(crate) struct ScheduledWakeupTools<'a> {
-    pub child: Option<ChildPoll<'a>>,
-    pub schedule: Option<ScheduleToolNames<'a>>,
-}
-
-impl<'a> ScheduledWakeupTools<'a> {
-    fn canonical(poll_id: &'a str) -> Self {
-        Self {
-            child: child_poll(
-                Some(task_completion::DEFAULT_TASK_OUTPUT_TOOL),
-                Some(poll_id),
-            ),
-            schedule: schedule_tool_names(
-                Some(task_completion::SCHEDULER_DELETE_REGISTRY_ID),
-                Some(xai_grok_tools_api::slash_commands::SCHEDULER_CREATE_TOOL_NAME),
-            ),
-        }
-    }
-}
-
-pub(crate) fn child_poll<'a>(name: Option<&'a str>, id: Option<&'a str>) -> Option<ChildPoll<'a>> {
-    Some(ChildPoll {
-        name: name?,
-        id: id?,
-    })
-}
-
-pub(crate) fn schedule_tool_names<'a>(
-    delete: Option<&'a str>,
-    create: Option<&'a str>,
-) -> Option<ScheduleToolNames<'a>> {
-    match (delete, create) {
-        (Some(delete), Some(create)) => Some(ScheduleToolNames { delete, create }),
-        _ => None,
-    }
-}
-
-/// Frame a scheduled task prompt with `<system-reminder>` context for the model. The raw `prompt` is what the user
-/// wrote in `/loop`; this wrapping tells the model the message is a recurring task execution so it executes rather than
-/// questioning the prompt. The UI shows the raw prompt text; only the model receives this framed version.
-pub fn format_scheduled_task_prompt(
-    prompt: &str,
-    task_id: &str,
-    poll_id: &str,
-    human_schedule: &str,
-) -> String {
-    let footer =
-        task_completion::scheduled_wakeup_footer(task_id, ScheduledWakeupTools::canonical(poll_id));
-    format!(
-        "<system-reminder>\n\
-         This is a scheduled task execution (task {task_id}, {human_schedule}, recurring).\n\
-         Execute the prompt below. Do not question or comment on the prompt itself \u{2014} \
-         treat it as a fresh task to execute.\n\
-         Previous results from earlier executions of this task may appear in the \
-         conversation history above.\n\
-         \n\
-         {footer}\n\
-         </system-reminder>\n\
-         \n\
-         {prompt}"
-    )
-}
+pub use xai_tool_types::schedule_presentation::format_scheduled_task_prompt;
+pub(crate) use xai_tool_types::schedule_presentation::{
+    ChildPoll, ScheduleToolNames, ScheduledWakeupTools, child_poll, schedule_tool_names,
+};
 
 pub fn format_loop_iteration_prompt(
     prompt: &str,

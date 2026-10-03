@@ -124,36 +124,7 @@ pub struct RequestPathContext {
     pub real_cwd: std::path::PathBuf,
     pub display_cwd: Option<std::path::PathBuf>,
 }
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HookAsk {
-    pub hook_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-pub const HOOK_ASK_META_KEY: &str = "hookAsk";
-const HOOK_ASK_SEPARATOR: &str = " — ";
-impl HookAsk {
-    pub fn ask_line(&self) -> String {
-        let hook_name = &self.hook_name;
-        let reason = self.reason.as_deref().unwrap_or_default();
-        let reason = reason.split_whitespace().collect::<Vec<_>>().join(" ");
-        if reason.is_empty() {
-            format!("hook '{hook_name}' asks for confirmation")
-        } else {
-            format!("hook '{hook_name}' asks: {reason}")
-        }
-    }
-    pub fn prompt_header(&self, action: &str) -> String {
-        format!("{action}{HOOK_ASK_SEPARATOR}{}", self.ask_line())
-    }
-    pub fn strip_prompt_header<'a>(&self, title: &'a str) -> &'a str {
-        title
-            .strip_suffix(self.ask_line().as_str())
-            .and_then(|action| action.strip_suffix(HOOK_ASK_SEPARATOR))
-            .unwrap_or(title)
-    }
-}
+pub use xai_grok_shared::permissions::{HookAsk, HOOK_ASK_META_KEY};
 #[derive(Debug, Clone)]
 pub struct PermissionRequest {
     pub access: AccessKind,

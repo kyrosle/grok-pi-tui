@@ -17,35 +17,6 @@ use xai_grok_tools::implementations::skills::discovery::{
     is_valid_skill_name, normalize_skill_name, parse_skill_files, scan_md_files, walk_for_skill_md,
 };
 
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq)]
-pub struct SkillsConfig {
-    /// Additional skill locations to load.
-    /// Each entry is a `SKILL.md` file or a directory walked recursively.
-    /// Supports `~` expansion.
-    #[serde(default)]
-    pub paths: Vec<String>,
-
-    /// Path prefixes to exclude.
-    /// Any skill whose resolved path starts with one of these entries is filtered out.
-    /// Supports `~` expansion.
-    #[serde(default)]
-    pub ignore: Vec<String>,
-
-    /// Skill names that are disabled.
-    /// Disabled skills remain in the list (unlike `ignore` which hides them entirely).
-    /// They are excluded from the system prompt and skill tool invocation.
-    #[serde(default)]
-    pub disabled: Vec<String>,
-
-    /// Skill dirs the launcher injects after syncing from the server (tagged `Server` scope).
-    #[serde(default)]
-    pub server_skill_dirs: Vec<String>,
-
-    /// Skill dirs the launcher injects for skills bundled with the platform (tagged `Bundled` scope).
-    #[serde(default)]
-    pub bundled_skill_dirs: Vec<String>,
-}
-
 /// Empty discovery roots still require trust; only the supplied project roots are checked.
 pub fn has_project_skill_dirs_in<'a>(chain_dirs: impl IntoIterator<Item = &'a Path>) -> bool {
     // All vendors must gate regardless of the runtime compatibility settings.
@@ -2679,3 +2650,5 @@ mod tests {
         assert!(rekeyed.path.ends_with("zz-copyfix-japandi2/SKILL.md"));
     }
 }
+
+pub use xai_grok_config_types::SkillsConfig;

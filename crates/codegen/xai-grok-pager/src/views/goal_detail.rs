@@ -7,9 +7,9 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
-use xai_grok_shell::tools::{TodoItem, TodoStatus};
+use xai_tool_types::todo::{TodoItem, TodoStatus};
 
-use xai_grok_shell::extensions::notification::GoalClassifierVerdict;
+use xai_grok_shared::session::notification::GoalClassifierVerdict;
 
 use crate::app::agent::{GoalDisplayState, GoalDisplayStatus};
 use crate::render::SafeBuf;

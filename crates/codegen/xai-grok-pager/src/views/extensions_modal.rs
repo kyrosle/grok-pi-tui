@@ -18,7 +18,7 @@ use crate::views::modal_window::{
     fill_overlay_content, overlay_content_rect, word_wrap,
 };
 use crate::views::picker;
-use xai_grok_tools::implementations::skills::types::SkillInfo;
+use xai_tool_types::skills::SkillInfo;
 
 mod workflows_picker_rows;
 use workflows_picker_rows::build_workflows_picker_rows;
@@ -130,8 +130,8 @@ fn hook_group_sort_key<'a>(source_dir: &'a str, meta: &HookSourceMeta) -> HookGr
 }
 
 fn is_official_marketplace_source(source: &xai_hooks_plugins_types::MarketplaceScanResult) -> bool {
-    source.source_name == xai_grok_plugin_marketplace::OFFICIAL_SOURCE_NAME
-        || xai_grok_plugin_marketplace::is_official_source_url(&source.source_url_or_path)
+    source.source_name == xai_hooks_plugins_types::marketplace::OFFICIAL_SOURCE_NAME
+        || xai_hooks_plugins_types::marketplace::is_official_source_url(&source.source_url_or_path)
 }
 
 /// One marketplace source in display order with plugins sorted A–Z.
@@ -190,8 +190,8 @@ struct SkillGroup {
 
 /// Group rank order: Project, User, Plugin, Bundled, Server, Config.
 fn skill_group(skill: &SkillInfo) -> SkillGroup {
-    use xai_grok_tools::implementations::skills::types::SkillScope;
-    use xai_grok_tools::types::config_source::ConfigSource;
+    use xai_tool_types::config_source::ConfigSource;
+    use xai_tool_types::skills::SkillScope;
 
     if let Some(ref cs) = skill.config_source {
         return match cs {
@@ -617,7 +617,7 @@ pub enum ButtonAction {
     /// Add an MCP server (parsed from inline input).
     AddMcpServer {
         name: String,
-        config: Box<xai_grok_shell::util::config::McpServerConfig>,
+        config: Box<crate::settings_config::McpServerConfig>,
     },
     /// Remove the selected MCP server from config.toml.
     RemoveSelectedMcpServer,
@@ -1739,7 +1739,7 @@ fn derive_name_from_url(url: &str) -> String {
 /// the URL hostname. The `url_or_cmd` field is split on whitespace to extract the command and any
 /// trailing args for stdio transport.
 fn parse_mcp_add_fields(name: &str, url_or_cmd: &str) -> Option<ButtonAction> {
-    use xai_grok_shell::util::config::{McpServerConfig, McpServerTransportConfig};
+    use crate::settings_config::{McpServerConfig, McpServerTransportConfig};
 
     let mut parts = url_or_cmd.split_whitespace();
     let command_or_url = parts.next()?;
@@ -2635,7 +2635,7 @@ fn filter_and_sort_skills(
 fn skill_source_str(skill: &SkillInfo) -> String {
     if let Some(ref cs) = skill.config_source {
         match cs {
-            xai_grok_tools::types::config_source::ConfigSource::User { path } => {
+            xai_tool_types::config_source::ConfigSource::User { path } => {
                 if crate::util::is_under_user_grok_home(path) {
                     crate::util::display_user_grok_path("skills")
                 } else if path.display().to_string().contains("/.claude/") {
@@ -2644,7 +2644,7 @@ fn skill_source_str(skill: &SkillInfo) -> String {
                     "user".into()
                 }
             }
-            xai_grok_tools::types::config_source::ConfigSource::Project { path } => {
+            xai_tool_types::config_source::ConfigSource::Project { path } => {
                 let s = path.display().to_string();
                 if s.contains("/.grok/") {
                     ".grok/skills".into()
@@ -2654,7 +2654,7 @@ fn skill_source_str(skill: &SkillInfo) -> String {
                     "project".into()
                 }
             }
-            xai_grok_tools::types::config_source::ConfigSource::Plugin { plugin_name, .. } => {
+            xai_tool_types::config_source::ConfigSource::Plugin { plugin_name, .. } => {
                 format!("plugin: {}", plugin_name)
             }
             _ => format!("{:?}", skill.scope).to_lowercase(),
@@ -4950,11 +4950,8 @@ mod tests {
 
     // ── Skills search: substring-only, title-first ordering ─────────
 
-    fn make_skill(
-        name: &str,
-        desc: &str,
-    ) -> xai_grok_tools::implementations::skills::types::SkillInfo {
-        xai_grok_tools::implementations::skills::types::SkillInfo {
+    fn make_skill(name: &str, desc: &str) -> xai_tool_types::skills::SkillInfo {
+        xai_tool_types::skills::SkillInfo {
             name: name.to_string(),
             display_name: None,
             description: desc.to_string(),
@@ -4966,7 +4963,7 @@ mod tests {
             compatibility: None,
             metadata: None,
             path: "test".to_string(),
-            scope: xai_grok_tools::implementations::skills::types::SkillScope::User,
+            scope: xai_tool_types::skills::SkillScope::User,
             config_source: None,
             plugin_name: None,
             plugin_version: None,
@@ -5076,11 +5073,11 @@ mod tests {
         name: &str,
         desc: &str,
         plugin: &str,
-    ) -> xai_grok_tools::implementations::skills::types::SkillInfo {
+    ) -> xai_tool_types::skills::SkillInfo {
         let mut skill = make_skill(name, desc);
         skill.plugin_name = Some(plugin.to_string());
-        skill.scope = xai_grok_tools::implementations::skills::types::SkillScope::Plugin;
-        skill.config_source = Some(xai_grok_tools::types::config_source::ConfigSource::Plugin {
+        skill.scope = xai_tool_types::skills::SkillScope::Plugin;
+        skill.config_source = Some(xai_tool_types::config_source::ConfigSource::Plugin {
             plugin_name: plugin.to_string(),
             path: std::path::PathBuf::from(format!("/plugins/{plugin}/skills/{name}/SKILL.md")),
         });
@@ -5835,7 +5832,7 @@ mod tests {
                 assert_eq!(name, "linear");
                 assert!(matches!(
                     config.transport,
-                    xai_grok_shell::util::config::McpServerTransportConfig::StreamableHttp { .. }
+                    crate::settings_config::McpServerTransportConfig::StreamableHttp { .. }
                 ));
             }
             other => panic!("expected AddMcpServer, got {other:?}"),
@@ -5862,7 +5859,7 @@ mod tests {
             Some(ButtonAction::AddMcpServer { name, config }) => {
                 assert_eq!(name, "srv");
                 match config.transport {
-                    xai_grok_shell::util::config::McpServerTransportConfig::Stdio {
+                    crate::settings_config::McpServerTransportConfig::Stdio {
                         command,
                         args,
                         ..
@@ -7808,7 +7805,7 @@ mod tests {
             mp("zeta-mp", "https://example.com/zeta", Some("boom"), &[]),
             mp(
                 "xAI Official",
-                xai_grok_plugin_marketplace::OFFICIAL_SOURCE_GIT_URL,
+                xai_hooks_plugins_types::marketplace::OFFICIAL_SOURCE_GIT_URL,
                 None,
                 &["zeta", "alpha"],
             ),
@@ -7831,21 +7828,17 @@ mod tests {
     #[test]
     fn skills_groups_then_az_by_label() {
         let mut project_z = make_skill("zzz-proj", "project skill");
-        project_z.scope = xai_grok_tools::implementations::skills::types::SkillScope::Local;
-        project_z.config_source = Some(
-            xai_grok_tools::types::config_source::ConfigSource::Project {
-                path: std::path::PathBuf::from("/repo/.grok/skills/zzz"),
-            },
-        );
+        project_z.scope = xai_tool_types::skills::SkillScope::Local;
+        project_z.config_source = Some(xai_tool_types::config_source::ConfigSource::Project {
+            path: std::path::PathBuf::from("/repo/.grok/skills/zzz"),
+        });
         project_z.display_name = Some("zeta-proj".into());
 
         let mut project_a = make_skill("aaa-proj", "other project");
-        project_a.scope = xai_grok_tools::implementations::skills::types::SkillScope::Repo;
-        project_a.config_source = Some(
-            xai_grok_tools::types::config_source::ConfigSource::Project {
-                path: std::path::PathBuf::from("/repo/.grok/skills/aaa"),
-            },
-        );
+        project_a.scope = xai_tool_types::skills::SkillScope::Repo;
+        project_a.config_source = Some(xai_tool_types::config_source::ConfigSource::Project {
+            path: std::path::PathBuf::from("/repo/.grok/skills/aaa"),
+        });
         project_a.display_name = Some("alpha-proj".into());
 
         let mut user_a = make_skill("user-alpha", "user a");

@@ -59,20 +59,7 @@ pub(crate) struct SearchSessionsResponse {
     pub bootstrapping: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchSessionHit {
-    pub session_id: String,
-    pub cwd: String,
-    /// Session title/summary for display
-    pub summary: String,
-    /// RFC 3339 formatted updated_at
-    pub updated_at: String,
-    pub score: f32,
-    pub matched_fields: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub snippet: Option<String>,
-}
+pub use xai_grok_shared::session::catalog::SearchSessionHit;
 
 /// Route `x.ai/session/search` extension method calls.
 pub async fn handle(agent: &MvpAgent, args: &acp::ExtRequest) -> ExtResult {

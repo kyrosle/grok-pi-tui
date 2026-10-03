@@ -42,7 +42,7 @@ pub struct ImageViewerState {
 
 pub fn decode_image_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
     // Unrestricted: accepts any format `image` recognises so paste previews don't fail for non-allow-listed types
-    xai_grok_tools::util::image_validate::validate_image_bytes_unrestricted(bytes, false)
+    xai_grok_image::validate_image_bytes_unrestricted(bytes, false)
         .ok()
         .map(|(w, h, _)| (w, h))
 }
@@ -1526,6 +1526,52 @@ pub struct ScrollbackImageRef {
 }
 
 impl ScrollbackImageRef {
+    /// Materialize an ACP tool image for the existing native viewer. The
+    /// process-private cache deduplicates live updates and historical replay.
+    pub fn from_base64(data: &str, mime_type: &str) -> Option<Self> {
+        use base64::Engine;
+        use std::io::Write;
+
+        let extension = match mime_type {
+            "image/png" => "png",
+            "image/jpeg" => "jpg",
+            "image/gif" => "gif",
+            "image/webp" => "webp",
+            _ => return None,
+        };
+        if data.len() > MAX_SEND_BYTES.div_ceil(3) * 4 {
+            return None;
+        }
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .ok()?;
+        if bytes.len() > MAX_SEND_BYTES || !is_decodable_image(&bytes) {
+            return None;
+        }
+        static CACHE: OnceLock<Option<tempfile::TempDir>> = OnceLock::new();
+        let directory = CACHE
+            .get_or_init(|| {
+                tempfile::Builder::new()
+                    .prefix("grok-pi-tool-images-")
+                    .tempdir()
+                    .ok()
+            })
+            .as_ref()?;
+        let path = directory
+            .path()
+            .join(format!("{}.{}", blake3::hash(&bytes), extension));
+        if !path.exists() {
+            let mut file = tempfile::NamedTempFile::new_in(directory.path()).ok()?;
+            file.write_all(&bytes).ok()?;
+            if let Err(error) = file.persist_noclobber(&path) {
+                if error.error.kind() != std::io::ErrorKind::AlreadyExists {
+                    return None;
+                }
+            }
+        }
+        Self::from_path(path)
+    }
+
     /// Construct from a file path.
     /// Returns `None` if the path doesn't exist, isn't a file, lacks a recognized image extension, or can't be decoded as an image.
     pub fn from_path(path: impl Into<PathBuf>) -> Option<Self> {

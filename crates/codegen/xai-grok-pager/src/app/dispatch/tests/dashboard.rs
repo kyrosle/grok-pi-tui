@@ -83,7 +83,7 @@ fn dashboard_resume_owns_picker_lifecycle_and_leaves_welcome_untouched() {
             generation: generation + 1,
             sessions: vec![],
             partial: None,
-            scope: xai_grok_shell::session::unified_list::ListScope::Cwd,
+            scope: xai_grok_shared::session::catalog::ListScope::Cwd,
             seq,
             query: None,
         }),
@@ -114,7 +114,7 @@ fn dashboard_resume_owns_picker_lifecycle_and_leaves_welcome_untouched() {
             generation,
             sessions: vec![make_picker_entry("late-dashboard", "/late")],
             partial: None,
-            scope: xai_grok_shell::session::unified_list::ListScope::Cwd,
+            scope: xai_grok_shared::session::catalog::ListScope::Cwd,
             seq,
             query: None,
         }),
@@ -325,7 +325,7 @@ fn dashboard_picker_filters_workspace_members_and_strict_loads_fuzzy_pick() {
             generation,
             sessions: vec![visible, recoverable, pinned, optimistic_pinned, alpha, beta],
             partial: None,
-            scope: xai_grok_shell::session::unified_list::ListScope::Cwd,
+            scope: xai_grok_shared::session::catalog::ListScope::Cwd,
             seq: 1,
             query: None,
         }),
@@ -429,7 +429,7 @@ fn v1_dashboard_picker_does_not_consult_workspace_view() {
             generation,
             sessions: vec![make_picker_entry(&session_id, "/tmp")],
             partial: None,
-            scope: xai_grok_shell::session::unified_list::ListScope::Cwd,
+            scope: xai_grok_shared::session::catalog::ListScope::Cwd,
             seq: 1,
             query: None,
         }),
@@ -4385,7 +4385,7 @@ fn dashboard_attach_subagent_switches_to_parent_with_subagent_focused() {
     );
     assert!(
         !parent_view.subagent_views[&child_sid]
-            .current_shortcut_hints(&app.registry)
+            .current_shortcut_hints(&app.registry, false)
             .iter()
             .any(|hint| hint.label == "send to bg")
     );
@@ -5643,7 +5643,7 @@ fn dashboard_rename_end_to_end_top_level_row() {
             Effect::RenameSession { agent_id, title, kind, .. }
                 if *agent_id == id
                     && title == "My renamed session"
-                    && *kind == xai_grok_shell::session::unified_list::SessionKind::Build
+                    && *kind == xai_grok_shared::session::catalog::SessionKind::Build
         )),
         "commit must emit a RenameSession effect, got {effects:?}",
     );
@@ -5683,7 +5683,7 @@ fn dashboard_rename_chat_kind_stamps_kind_chat() {
             Effect::RenameSession { agent_id, title, kind, .. }
                 if *agent_id == id
                     && title == "Chat title"
-                    && *kind == xai_grok_shell::session::unified_list::SessionKind::Chat
+                    && *kind == xai_grok_shared::session::catalog::SessionKind::Chat
         )),
         "chat-lane dashboard rename must send kind=chat, got {effects:?}",
     );
@@ -7158,7 +7158,7 @@ fn dashboard_stop_bg_work_row_stops_without_arming() {
 #[serial_test::serial(GROK_AGENT_DASHBOARD)]
 #[test]
 fn dashboard_stop_running_bg_task_emits_teardown_kill() {
-    use xai_grok_shell::extensions::task::TaskKillSource;
+    use xai_tool_types::task_wire::TaskKillSource;
     let mut app = test_app();
     let _ = dispatch_new_session_inner(&mut app, None);
     let _ = dispatch_new_session_inner(&mut app, None);
@@ -7767,9 +7767,7 @@ fn dashboard_permission_followup_rejects_with_message() {
 fn dashboard_question_answer_sends_and_clears() {
     use crate::views::prompt_widget::StashedPrompt;
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        AskUserQuestionMode, Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{AskUserQuestionMode, Question, QuestionOption};
     let mut app = test_app_with_agent();
     let opt = |label: &str| QuestionOption {
         label: label.to_string(),
@@ -7812,9 +7810,7 @@ fn dashboard_question_answer_walks_multiple_questions() {
     use crate::views::dashboard::peek::{PeekPanelState, compute_peek_fields};
     use crate::views::prompt_widget::StashedPrompt;
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        AskUserQuestionMode, Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{AskUserQuestionMode, Question, QuestionOption};
     let mut app = test_app_with_agent();
     let opt = |label: &str| QuestionOption {
         label: label.to_string(),

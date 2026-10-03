@@ -513,7 +513,7 @@ pub fn record_crash_sample() {
 }
 
 pub fn default_dir() -> PathBuf {
-    xai_grok_shell::util::grok_home::grok_home().join("memtrace")
+    xai_grok_config::grok_home().join("memtrace")
 }
 
 #[derive(Debug, PartialEq, Eq)]

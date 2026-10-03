@@ -5,18 +5,7 @@ use std::path::{Path, PathBuf};
 use agent_client_protocol as acp;
 use clap::ValueEnum;
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
-pub enum OutputFormat {
-    #[default]
-    Plain,
-    Json,
-    /// NDJSON: one ACP session update per line, the agent's native format.
-    #[value(name = "streaming-json")]
-    StreamingJson,
-    /// NDJSON in the Anthropic Messages API wire format.
-    #[value(name = "streaming-messages-json")]
-    StreamingMessagesJson,
-}
+pub use crate::app::cli::OutputFormat;
 
 pub fn parse_json_schema(input: &str) -> anyhow::Result<serde_json::Value> {
     let schema: serde_json::Value = serde_json::from_str(input)

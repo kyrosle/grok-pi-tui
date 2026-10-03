@@ -34,14 +34,22 @@ fn auth_provider_env_set() -> bool {
 }
 
 fn auth_provider_config_set() -> bool {
-    let Ok(raw) = xai_grok_shell::config::load_effective_config() else {
+    let Ok(raw) = crate::load_effective_config() else {
         return false;
     };
-    let Ok(cfg) = xai_grok_shell::agent::config::Config::new_from_toml_cfg(&raw) else {
-        return false;
+    #[cfg(feature = "stock-runtime")]
+    let auth = {
+        let Ok(cfg) = xai_grok_shell::agent::config::Config::new_from_toml_cfg(&raw) else {
+            return false;
+        };
+        cfg.grok_com_config
     };
-    cfg.grok_com_config
-        .auth_provider_command
+    #[cfg(not(feature = "stock-runtime"))]
+    let auth = match xai_grok_login::GrokComConfig::from_toml(&raw) {
+        Ok(config) => config,
+        Err(_) => return false,
+    };
+    auth.auth_provider_command
         .as_deref()
         .is_some_and(|s| !s.trim().is_empty())
 }

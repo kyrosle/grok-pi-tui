@@ -1095,7 +1095,7 @@ fn inline_feedback_saves_at_most_four_images() {
     queue_inline_feedback_with_images(
         &mut app,
         id,
-        &["image/png"; xai_grok_shell::session::MAX_FEEDBACK_IMAGES + 1],
+        &["image/png"; xai_grok_shared::session::feedback::MAX_FEEDBACK_IMAGES + 1],
     );
 
     let drain_effects = drain_idle(&mut app, id);
@@ -1116,7 +1116,7 @@ fn inline_feedback_saves_at_most_four_images() {
     let _ = std::fs::remove_dir_all(&session_dir);
 
     assert_eq!(drafts.expect("drafts readable").len(), 1);
-    let cap = xai_grok_shell::session::MAX_FEEDBACK_IMAGES;
+    let cap = xai_grok_shared::session::feedback::MAX_FEEDBACK_IMAGES;
     assert_eq!(
         on_disk,
         Some((cap, cap + 1)),

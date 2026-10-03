@@ -1202,3 +1202,27 @@ mod tests {
         assert_eq!(data.behind, Some(1));
     }
 }
+
+/// Payload for the `x.ai/git_head_changed` ACP extension notification.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHeadChanged {
+    pub session_id: String,
+    pub branch: Option<String>,
+    #[serde(default)]
+    pub is_worktree: bool,
+    #[serde(default)]
+    pub main_repo: Option<String>,
+}
+
+/// Depth of a `--restore-code` restoration.
+///
+/// Serialised to `"full"` / `"head_only"` on the wire (camelCase / snake_case agnostic; the variants are themselves snake_case-style).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RestoreDegree {
+    /// HEAD checkout plus staged/unstaged/untracked applied from GCS archive.
+    Full,
+    /// HEAD checkout only; no archive applied.
+    HeadOnly,
+}

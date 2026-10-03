@@ -41,6 +41,7 @@ pub mod mcp_methods {
     pub const TOOLS_CHANGED: &str = "x.ai/mcp/tools_changed";
     pub const INIT_PROGRESS: &str = "x.ai/mcp/init_progress";
 }
+pub use xai_tool_types::mcp::{McpServerSource, McpToolEntry, McpToolsChanged, McpSessionStatus};
 use crate::agent::MvpAgent;
 use crate::session::mcp_servers::{MCP_TOOL_NAME_DELIMITER, McpClient, McpState, SharedMcpState};
 
@@ -122,12 +123,7 @@ pub struct McpEnvVar {
     pub value: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum McpServerSource {
-    Managed,
-    Local,
-}
+
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,30 +143,9 @@ pub struct McpServerSessionState {
     pub blocked_reason: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum McpSessionStatus {
-    Ready,
-    Initializing,
-    SetupRequired,
-    Unavailable,
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct McpToolEntry {
-    pub name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    #[serde(rename = "_meta", default, skip_serializing_if = "Option::is_none")]
-    pub meta: Option<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub icons: Vec<xai_grok_mcp::servers::McpIcon>,
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
+
+
 
 // ── Wire types: mcp/call ────────────────────────────────────────────
 
@@ -232,21 +207,7 @@ pub struct McpServersUpdated {
 
 /// Per-server tool-list change push. Emitted by [`crate::session::acp_session::AcpSession`] on the post-handshake, auth-recovery, and toggle-tool paths.
 /// The `session_id` field lets the pager route the push to the owning agent via `find_session_match`. Falling back to `app.active_view` was a latent multi-agent bug.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct McpToolsChanged {
-    /// Session that owns this push.
-    /// The pager routes via `find_session_match` so a background-agent push does not land on the foregrounded agent's modal.
-    pub session_id: String,
-    /// MCP server whose tool list changed. Currently unread by the pager. The pager treats every `tools_changed` push as a trigger to schedule a debounced `mcp/list` refetch and re-reads the full catalog.
-    /// The toggle-tool path therefore leaves this empty for forward-compat. A future field-aware pager optimization would need to special-case empty as "not scoped to one server"; no consumer reads that today.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub server_name: String,
-    /// New tool entries for the named server. Currently unread by the pager for the same reason as `server_name` above. Empty on the toggle-tool path.
-    /// Populated on the post-handshake and auth-recovery paths so future field-aware consumers can avoid the `mcp/list` round trip.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tools: Vec<McpToolEntry>,
-}
+
 
 // Re-export the `x.ai/mcp/server_status` schema and method constant from the dispatcher module External callers then have a single import point alongside the other `x.ai/mcp/*` types
 // The canonical definitions stay in [`crate::session::mcp_dispatcher`]: their primary consumer is the dispatcher loop and its unit tests

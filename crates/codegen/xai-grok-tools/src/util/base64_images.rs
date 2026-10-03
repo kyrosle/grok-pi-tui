@@ -9,11 +9,7 @@ use regex::Regex;
 
 /// Image payload captured before text truncation for session harvest
 /// (multimodal vision follow-ups).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct ExtractedImage {
-    pub data: String,
-    pub mime_type: String,
-}
+pub use xai_tool_types::output_dependencies::ExtractedImage;
 
 pub struct ExtractionResult {
     pub text: String,

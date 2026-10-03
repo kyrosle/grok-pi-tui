@@ -35,6 +35,7 @@ use crate::scrollback::entry::{EntryId, ScrollbackEntry};
 use crate::scrollback::state::ScrollbackState;
 use crate::theme::Theme;
 use crate::views::extensions_modal::{ExtensionsModalState, StatusFilter};
+use crate::views::feedback_modal::FeedbackModalState;
 use crate::views::mcps_modal::{McpServerDisplayStatus, McpServerInfo};
 use crate::views::modal::CancelTurnViewState;
 use crate::views::picker::{PickerEntry, PickerField, PickerState};
@@ -134,6 +135,16 @@ pub(crate) struct MinimalState {
     /// Minimal prints the whole plan as a normal committed block (rather than under the prompt), so this de-dupes the per-frame push.
     /// Each revision is a fresh ExitPlanMode with a new id, so every revised plan still commits as its own block.
     pub(crate) committed_plan_tool_call_id: Option<String>,
+    /// Layout the history was printed in, and a pending reprint after a resize.
+    pub(crate) reprint: crate::minimal_reprint::ReprintState,
+}
+
+impl MinimalState {
+    /// The sliced `/transcript` build and a waiting reprint advance only inside a draw.
+    /// Ticks keep drawing while either is pending.
+    pub(crate) fn needs_frames(&self) -> bool {
+        self.transcript.is_some() || self.reprint.is_waiting()
+    }
 }
 
 /// `AppView::minimal_state.show_todos`.
@@ -351,8 +362,9 @@ pub fn minimal_btw_surface_available(v: &AgentView) -> bool {
         && !(v.show_goal_detail && v.goal_state.is_some())
         && v.line_viewer.is_none()
         && v.extensions_modal.is_none()
+        && v.feedback_modal.is_none()
         && v.persona_detail.is_none()
-        && v.agents_modal.is_none()
+        && !v.stock_agents_modal_open()
         && v.block_viewer.is_none()
         && v.active_modal.is_none()
         && v.no_input_overlay_pending()
@@ -833,4 +845,21 @@ pub fn set_auto_mode_for_test(session: &mut AgentSession, on: bool) {
 #[cfg(any(test, feature = "test-support"))]
 pub fn set_show_thinking_blocks(enabled: bool) {
     crate::appearance::cache::set_show_thinking_blocks(enabled);
+}
+
+/// `AgentView::feedback_modal`.
+pub fn feedback_modal(v: &AgentView) -> Option<&FeedbackModalState> {
+    v.feedback_modal.as_ref()
+}
+
+/// `AgentView::feedback_modal` (mutable).
+/// Minimal reuses the full-TUI modal renderer; it takes `&mut FeedbackModalState` and updates tab/label-row state stored during render.
+pub fn feedback_modal_mut(v: &mut AgentView) -> Option<&mut FeedbackModalState> {
+    v.feedback_modal.as_mut()
+}
+
+/// Test-only setter for `AgentView::feedback_modal`.
+#[cfg(any(test, feature = "test-support"))]
+pub fn set_feedback_modal(v: &mut AgentView, val: Option<FeedbackModalState>) {
+    v.feedback_modal = val;
 }

@@ -16,7 +16,7 @@ use crate::app::app_view::InputOutcome;
 use crate::input::line_editor::{LineEditOutcome, LineEditor};
 use crate::key;
 use crate::views::prompt_widget::{PromptEvent, PromptWidget};
-use xai_grok_shell::session::persistence::MAX_TITLE_SCALARS as MAX_RENAME_SCALARS;
+use xai_grok_shared::session::title::MAX_TITLE_SCALARS as MAX_RENAME_SCALARS;
 
 const PROMPT_MULTI_CLICK_MS: u128 = 300;
 
@@ -646,7 +646,7 @@ impl DashboardDispatchMode {
 #[derive(Debug, Clone)]
 pub struct PendingDispatchModel {
     pub id: agent_client_protocol::ModelId,
-    pub effort: Option<xai_grok_shell::sampling::types::ReasoningEffort>,
+    pub effort: Option<xai_grok_sampling_types::types::ReasoningEffort>,
     pub display: String,
 }
 
@@ -2461,13 +2461,9 @@ impl DashboardState {
         // A question that arrived on the peeked row mid-probe makes the reply text-only on the wire: attachments are discarded LOUDLY below (the
         // attach helper's silent question no-op would drop them with zero feedback), and the caption/wrap paths stay suppressed
         let peek_in_question = peek && self.peek.as_ref().is_some_and(|p| p.question.is_some());
-        let insert_deferred_text = !peek_in_question
-            && matches!(
-                &image,
-                ProbedAttachment::NoRaster
-                    | ProbedAttachment::ProbeDropped
-                    | ProbedAttachment::ProbeFailed
-            );
+        let text_on_miss = (!peek_in_question)
+            .then(|| ctx.source.text_to_insert_on_miss(&image))
+            .flatten();
         let mut attachment = match image {
             ProbedAttachment::Image(pasted) => {
                 if peek_in_question {
@@ -2523,14 +2519,7 @@ impl DashboardState {
         } else {
             None
         };
-        let text = if insert_deferred_text {
-            ctx.source
-                .text_to_insert_on_miss()
-                .filter(|text| !text.trim().is_empty())
-                .map(|text| self.insert_pasted_caption(Some(text), peek).1)
-        } else {
-            None
-        };
+        let text = text_on_miss.map(|text| self.insert_pasted_caption(Some(text), peek).1);
         let completion = crate::app::actions::reduce_clipboard_paste_completion(
             &ctx.source,
             attachment,
@@ -4519,7 +4508,10 @@ pub fn write_persisted_to_path(
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let mut doc = match crate::config_toml_edit::read_config_document_for_edit(path) {
+    let _config_lock = xai_grok_shared::config::acquire_init_lock(
+        path.parent().unwrap_or_else(|| std::path::Path::new(".")),
+    )?;
+    let mut doc = match crate::config_toml_edit::try_read_config_document_for_edit(path)? {
         Some(d) => d,
         None => {
             // File exists but is unparseable
@@ -4582,7 +4574,7 @@ fn atomic_write(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 fn config_path() -> Option<PathBuf> {
-    let home = xai_grok_shell::util::grok_home::grok_home();
+    let home = xai_grok_config::grok_home();
     Some(home.join(xai_grok_config::USER_CONFIG_FILENAME))
 }
 

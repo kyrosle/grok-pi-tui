@@ -45,3 +45,55 @@ pub struct TodoItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub meta: Option<serde_json::Value>,
 }
+
+use indexmap::IndexMap;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TodoState {
+    todos: IndexMap<TodoId, TodoItem>,
+}
+impl TodoState {
+    pub fn push(&mut self, id: TodoId, todo: TodoItem) {
+        self.todos.insert(id, todo);
+    }
+
+    pub fn clear(&mut self) {
+        self.todos.clear();
+    }
+
+    pub fn update(
+        &mut self,
+        id: &TodoId,
+        content: Option<&str>,
+        status: Option<TodoStatus>,
+    ) -> bool {
+        let Some(todo) = self.todos.get_mut(id) else {
+            return false;
+        };
+        if let Some(content) = content
+            && !content.is_empty()
+        {
+            todo.content = content.into();
+        }
+        if let Some(status) = status {
+            todo.status = status;
+        }
+        true
+    }
+
+    pub fn todo_items(&self) -> impl Iterator<Item = &TodoItem> + '_ {
+        self.todos.values()
+    }
+
+    pub fn todo_items_with_ids(&self) -> impl Iterator<Item = (&TodoId, &TodoItem)> + '_ {
+        self.todos.iter()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.todos.is_empty()
+    }
+
+    pub fn has_id(&self, id: &str) -> bool {
+        self.todos.contains_key(id)
+    }
+}

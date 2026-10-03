@@ -5,23 +5,29 @@ use std::path::Path;
 
 #[must_use]
 pub(crate) fn read_config_document_for_edit(path: &Path) -> Option<toml_edit::DocumentMut> {
-    #[allow(clippy::manual_unwrap_or_default)]
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(_) => String::new(),
-    };
+    match try_read_config_document_for_edit(path) {
+        Ok(document) => document,
+        Err(error) => {
+            tracing::warn!(path = %path.display(), %error, "refusing to edit unreadable config.toml");
+            None
+        }
+    }
+}
+
+pub(crate) fn try_read_config_document_for_edit(path: &Path) -> std::io::Result<Option<toml_edit::DocumentMut>> {
+    let content = xai_grok_shared::config::read_to_string_or_empty(path)?;
     match content.parse() {
-        Ok(d) => Some(d),
+        Ok(d) => Ok(Some(d)),
         Err(e) => {
             if content.trim().is_empty() {
-                return Some(toml_edit::DocumentMut::new());
+                return Ok(Some(toml_edit::DocumentMut::new()));
             }
             tracing::warn!(
                 path = %path.display(),
                 error = %e,
                 "config.toml is not valid TOML; refusing to overwrite"
             );
-            None
+            Ok(None)
         }
     }
 }
@@ -29,8 +35,7 @@ pub(crate) fn read_config_document_for_edit(path: &Path) -> Option<toml_edit::Do
 /// Set `[hints].<key>` to `value` in `~/.grok/config.toml`, preserving every other key and table. No-ops when the
 /// existing file is non-blank but unparseable, so a malformed config is never clobbered.
 pub(crate) fn set_hint(key: &str, value: impl Into<toml_edit::Value>) -> std::io::Result<()> {
-    let path =
-        xai_grok_tools::util::grok_home::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
+    let path = xai_grok_config::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
     set_hint_at(&path, key, value)
 }
 
@@ -39,11 +44,12 @@ fn set_hint_at(path: &Path, key: &str, value: impl Into<toml_edit::Value>) -> st
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let Some(mut doc) = read_config_document_for_edit(path) else {
+    let _lock = xai_grok_shared::config::acquire_init_lock(path.parent().unwrap_or_else(|| Path::new(".")))?;
+    let Some(mut doc) = try_read_config_document_for_edit(path)? else {
         return Ok(());
     };
     doc["hints"][key] = toml_edit::value(value);
-    std::fs::write(path, doc.to_string())
+    xai_grok_shared::config::atomic_write_string(path, &doc.to_string())
 }
 
 #[cfg(test)]
@@ -191,5 +197,20 @@ mod tests {
             body.contains("compact_mode"),
             "sibling [ui] keys should be preserved"
         );
+    }
+}
+
+#[cfg(test)]
+mod hard_read_tests {
+    use super::*;
+    #[test]
+    fn hint_write_propagates_hard_read_error_without_mutating_directory() {
+        let home = tempfile::tempdir().unwrap();
+        let path = home.path().join("config.toml");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("marker"), "keep").unwrap();
+        assert!(set_hint_at(&path, "memory_modal_fullscreen", true).is_err());
+        assert!(read_config_document_for_edit(&path).is_none());
+        assert_eq!(std::fs::read_to_string(path.join("marker")).unwrap(), "keep");
     }
 }

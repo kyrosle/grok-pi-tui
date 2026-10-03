@@ -216,9 +216,7 @@ fn cancel_turn_without_subagents_cancels_immediately() {
 fn cancel_turn_dismisses_open_ask_question_as_cancelled() {
     use crate::views::prompt_widget::StashedPrompt;
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        AskUserQuestionMode, Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{AskUserQuestionMode, Question, QuestionOption};
     let mut app = test_app_with_agent();
     let id = AgentId(0);
     let question = Question {
@@ -2335,7 +2333,7 @@ fn bg_task_killed_keeps_pending_kill_on_killed_outcome() {
 
 #[test]
 fn kill_bg_task_action_emits_client_ui_source() {
-    use xai_grok_shell::extensions::task::TaskKillSource;
+    use xai_tool_types::task_wire::TaskKillSource;
 
     let mut app = test_app_with_agent();
     {

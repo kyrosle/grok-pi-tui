@@ -19,6 +19,7 @@ pub struct ExportArgs {
     pub clipboard: bool,
 }
 
+#[cfg(feature = "stock-runtime")]
 pub fn run(args: ExportArgs) -> Result<()> {
     tracing::info!(session_id = %args.session_id, "export_cmd: starting session export");
 

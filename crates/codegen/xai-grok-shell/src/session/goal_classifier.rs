@@ -1840,7 +1840,7 @@ pub(crate) async fn run_verification_stage(
         GoalClassifierVerdict::NotAchieved
     };
     emit_event(Event::GoalClassifierVerdict {
-        verdict: verdict.into(),
+        verdict: crate::session::events::goal_classifier_verdict_telemetry(verdict),
         attempt: inputs.attempt,
         latency_ms,
     });

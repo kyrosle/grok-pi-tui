@@ -194,16 +194,6 @@ pub enum ClassifierMessageRole {
 /// - `no_user_tool_prefix`: drops the conversation transcript (the `User:` / tool-call turns); keeps AGENTS.md.
 /// - `bare_instructions`: system, proposed action, and the JSON instruction (no AGENTS.md, no transcript).
 /// - `just_command`: system and the command to judge only (json_schema still enforces the output shape).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClassifierPromptType {
-    #[default]
-    Full,
-    NoUserToolPrefix,
-    BareInstructions,
-    JustCommand,
-}
-
 /// One message in the classifier request array (role and rendered text).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassifierMessage {
@@ -541,40 +531,7 @@ const ROUTINE_PREFIXES: &[&str] = &[
     "set", // shell options affect only the spawned shell
 ];
 
-/// kubectl flags that select caller-controlled config / endpoint / auth / identity (including shorthands).
-/// Shared with `manager.rs::kubectl_has_unsafe_flag` so the two classifiers cannot drift.
-pub(crate) const KUBECTL_UNSAFE_FLAGS: &[&str] = &[
-    "--kubeconfig",
-    "--context",
-    "--cluster",
-    "--server",
-    "-s",
-    "--token",
-    "--user",
-    "--as",
-    "--as-group",
-    "--as-uid",
-    "--as-user-extra",
-    "--username",
-    "--password",
-    "--client-certificate",
-    "--client-key",
-    "--certificate-authority",
-];
-
-/// ripgrep flags that spawn a caller-controlled binary. Shared with `manager.rs`.
-pub(crate) const RG_UNSAFE_FLAGS: &[&str] = &["--pre", "--hostname-bin"];
-
-/// True when `words` is `rg` with a [`RG_UNSAFE_FLAGS`] entry (`--pre-glob` excluded).
-pub(crate) fn rg_has_unsafe_flag(words: &[String]) -> bool {
-    if crate::permission::policy::normalized_command_head(words).as_deref() != Some("rg") {
-        return false;
-    }
-    words.iter().skip(1).any(|w| {
-        let name = w.split_once('=').map_or(w.as_str(), |(name, _)| name);
-        RG_UNSAFE_FLAGS.contains(&name)
-    })
-}
+pub(crate) use xai_grok_shared::permissions::bash_scope::{KUBECTL_UNSAFE_FLAGS, RG_UNSAFE_FLAGS, rg_has_unsafe_flag};
 
 /// Env var KEYs safe to set for a routine command: cosmetic / logging only, with no effect on which binary runs or how it resolves code.
 /// Anything else (LD_PRELOAD, DYLD_*, PATH, NODE_OPTIONS, PYTHONPATH, GIT_SSH_COMMAND, FOO, ...) is treated as exec-affecting and blocks.
@@ -3352,3 +3309,5 @@ mod tests {
         }
     }
 }
+
+pub use xai_grok_config_types::ClassifierPromptType;

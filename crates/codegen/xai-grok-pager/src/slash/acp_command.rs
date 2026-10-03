@@ -6,7 +6,7 @@
 //! Skills (`SkillMeta::Skill`) are also passed through as `/name args` for the shell to expand, but marked `InjectSkill` for rendering.
 
 use agent_client_protocol as acp;
-use xai_grok_tools::implementations::skills::types::SkillScope;
+use xai_tool_types::skills::SkillScope;
 
 use super::command::{
     AppCtx, ArgItem, CommandExecCtx, CommandProvenance, CommandResult, SlashCommand,

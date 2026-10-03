@@ -1,4 +1,16 @@
-pub use crate::headless::OutputFormat;
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Plain,
+    Json,
+    /// NDJSON: one ACP session update per line, the agent's native format.
+    #[value(name = "streaming-json")]
+    StreamingJson,
+    /// NDJSON in the Anthropic Messages API wire format.
+    #[value(name = "streaming-messages-json")]
+    StreamingMessagesJson,
+}
+
 use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use clap_complete::Shell;
 use std::net::SocketAddr;
@@ -7,20 +19,26 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// Run Grok without the interactive UI
+    #[cfg(feature = "stock-runtime")]
     Agent(Box<AgentArgs>),
     /// Show the configuration Grok discovers for this directory
+    #[cfg(feature = "stock-runtime")]
     Inspect {
         /// Emit machine-readable JSON output.
         #[arg(long)]
         json: bool,
     },
     /// Check terminal, clipboard, color, and input support without starting Grok
+    #[cfg(feature = "stock-runtime")]
     Doctor(crate::doctor_cmd::DoctorArgs),
     /// Manage running leader processes
+    #[cfg(feature = "stock-runtime")]
     Leader(LeaderMgmtArgs),
     /// Sign out and clear cached credentials
+    #[cfg(feature = "stock-runtime")]
     Logout,
     /// Sign in to Grok
+    #[cfg(feature = "stock-runtime")]
     Login {
         /// Ignored (kept for backwards compatibility). OAuth2 is now the only auth method.
         #[arg(long, hide = true)]
@@ -41,18 +59,25 @@ pub enum Command {
         devbox: bool,
     },
     /// Manage MCP server configurations
+    #[cfg(feature = "stock-runtime")]
     Mcp(crate::mcp_cmd::McpArgs),
     /// Manage plugins and marketplace sources
+    #[cfg(feature = "stock-runtime")]
     Plugin(crate::plugin_cmd::PluginArgs),
     /// Manage cross-session memory
+    #[cfg(feature = "stock-runtime")]
     Memory(crate::memory_cmd::MemoryArgs),
     /// List available models and exit
+    #[cfg(feature = "stock-runtime")]
     Models,
     /// List, search, or restore sessions
+    #[cfg(feature = "stock-runtime")]
     Sessions(crate::sessions_cmd::SessionsArgs),
     /// Print persisted token and cost usage for a session
+    #[cfg(feature = "stock-runtime")]
     Usage(crate::usage_cmd::UsageArgs),
     /// Fetch and install managed configuration
+    #[cfg(feature = "stock-runtime")]
     Setup {
         /// Print the fetched configuration as JSON instead of installing it; writes nothing to ~/.grok.
         #[arg(long)]
@@ -60,6 +85,7 @@ pub enum Command {
     },
     /// Share a session and print the share URL
     #[command(hide = true)]
+    #[cfg(feature = "stock-runtime")]
     Share(crate::share_cmd::ShareArgs),
     /// Run any command with local clipboard support (forwards OSC 52 to the system clipboard).
     #[cfg_attr(not(any(unix, windows)), command(hide = true))]
@@ -84,6 +110,7 @@ See ~/.grok/README.md for more information.
     /// Export a session transcript as Markdown
     Export(crate::export_cmd::ExportArgs),
     /// Export or upload session trace data
+    #[cfg(feature = "stock-runtime")]
     Trace(crate::trace_cmd::TraceArgs),
     /// Check for updates or install a specific version
     Update {
@@ -129,6 +156,7 @@ See ~/.grok/README.md for more information.
         shell: Shell,
     },
     /// Manage git worktrees
+    #[cfg(feature = "stock-runtime")]
     Worktree(crate::worktree_cmd::WorktreeArgs),
     /// Show what the grok home (~/.grok) uses on disk
     #[command(name = "du", visible_alias = "disk-usage")]
@@ -137,6 +165,7 @@ See ~/.grok/README.md for more information.
     ///
     /// Disabled by default and enabled server-side per account; set `GROK_WORKSPACE_COMMAND=1` to enable it locally for testing.
     #[command(hide = true)]
+    #[cfg(feature = "stock-runtime")]
     Workspace(WorkspaceMgmtArgs),
     /// Open the Agent Dashboard view at startup.
     /// The dashboard shows every session, top-level and subagents.
@@ -673,7 +702,7 @@ pub struct PagerArgs {
         long = "permission-mode",
         value_name = "MODE",
         value_parser = clap::builder::PossibleValuesParser::new(
-            xai_grok_shell::agent::config::PermissionMode::VALID_VALUES
+            xai_grok_config_types::agent_permission::PermissionMode::VALID_VALUES
         )
     )]
     pub permission_mode_flag: Option<String>,
@@ -888,8 +917,8 @@ impl PagerArgs {
     }
     pub(crate) fn local_resume_selection(
         &self,
-    ) -> xai_grok_shell::session::persistence::RecentSessionSelection {
-        use xai_grok_shell::session::unified_list::HeadlessPolicy;
+    ) -> xai_grok_shared::session::catalog::RecentSessionSelection {
+        use xai_grok_shared::session::catalog::HeadlessPolicy;
         let policy = if self.single.is_some()
             || self.prompt_json.is_some()
             || self.prompt_file.is_some()
@@ -899,7 +928,7 @@ impl PagerArgs {
         } else {
             HeadlessPolicy::Exclude
         };
-        xai_grok_shell::session::persistence::RecentSessionSelection::from_headless_policy(policy)
+        xai_grok_shared::session::catalog::RecentSessionSelection::from_headless_policy(policy)
     }
     /// Classify flags for sandbox profile lookup on an existing session.
     ///
@@ -936,12 +965,14 @@ impl PagerArgs {
     /// `resume_target_pinned` records the pin so materialization never re-runs local title selection.
     /// Re-selecting after the sandbox would race a concurrent rename/create.
     /// Listing failures and ambiguity are hard errors here, reported before the sandbox (fail closed).
+    #[cfg(feature = "stock-runtime")]
     pub fn pin_local_resume_target(&mut self) -> anyhow::Result<()> {
         let cwd_buf = std::env::current_dir().ok();
         let cwd_str = cwd_buf.as_deref().map(|p| p.to_string_lossy());
         self.pin_local_resume_target_for_cwd(cwd_str.as_deref())
     }
     /// Same as [`Self::pin_local_resume_target`] with an explicit cwd, so tests never mutate the process cwd.
+    #[cfg(feature = "stock-runtime")]
     pub fn pin_local_resume_target_for_cwd(&mut self, cwd: Option<&str>) -> anyhow::Result<()> {
         if self.chat() {
             return Ok(());
@@ -977,12 +1008,14 @@ impl PagerArgs {
     /// The sandbox profile persisted with the session being resumed, if any.
     /// Local, best-effort; `None` when not resuming or nothing is found.
     /// Read once for the profile resume resolution.
+    #[cfg(feature = "stock-runtime")]
     pub fn saved_resume_profile(&self) -> Option<String> {
         let cwd_buf = std::env::current_dir().ok();
         let cwd_str = cwd_buf.as_deref().map(|p| p.to_string_lossy());
         self.saved_resume_profile_for_cwd(cwd_str.as_deref())
     }
     /// Same as [`Self::saved_resume_profile`] with an explicit cwd, so tests never mutate the process cwd.
+    #[cfg(feature = "stock-runtime")]
     pub fn saved_resume_profile_for_cwd(&self, cwd: Option<&str>) -> Option<String> {
         if let Some(pinned) = &self.pinned_resume_profile {
             return pinned.clone();

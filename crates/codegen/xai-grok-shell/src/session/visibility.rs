@@ -10,42 +10,8 @@ pub const SESSION_KIND_HEADLESS: &str = "headless";
 /// Listing/search policy for `session_kind=headless` rows.
 /// Applied before truncation; headless remains distinct from `Summary::is_hidden()`.
 /// The Rust default is the first-party picker policy; omitted wire values are handled separately by [`Self::from_wire`].
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum HeadlessPolicy {
-    #[default]
-    Exclude,
-    Only,
-    Include,
-}
+pub use xai_grok_shared::session::catalog::HeadlessPolicy;
 
-impl HeadlessPolicy {
-    /// Missing values keep the wire behavior from before this policy existed: include everything.
-    /// Unknown explicit values fail closed to [`Self::Exclude`].
-    pub fn from_wire(value: Option<&str>) -> Self {
-        match value {
-            None | Some("include") => Self::Include,
-            Some("exclude") => Self::Exclude,
-            Some("only") => Self::Only,
-            Some(_) => Self::Exclude,
-        }
-    }
-
-    pub const fn as_wire_str(self) -> &'static str {
-        match self {
-            Self::Exclude => "exclude",
-            Self::Only => "only",
-            Self::Include => "include",
-        }
-    }
-
-    pub const fn admits(self, is_headless: bool) -> bool {
-        match self {
-            Self::Exclude => !is_headless,
-            Self::Only => is_headless,
-            Self::Include => true,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ClassifiedSessionKind {

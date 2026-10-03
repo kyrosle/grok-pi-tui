@@ -1,7 +1,7 @@
 //! Tests for credit-limit upsells, paywall gating, and auto-topup.
 
 use super::*;
-use xai_grok_shell::sampling::error::is_free_usage_exhausted_error;
+use xai_grok_shared::session::sampling_error::is_free_usage_exhausted_error;
 
 // ── Credit-limit upsell / max-tier tests ───────────────────────────
 
@@ -713,7 +713,7 @@ fn is_nonsilent_billing(effects: &[Effect]) -> bool {
 fn complete_session_usage(
     app: &mut AppView,
     session_id: &str,
-    usage: xai_grok_shell::extensions::notification::PromptUsage,
+    usage: xai_grok_shared::session::notification::PromptUsage,
 ) -> Vec<Effect> {
     dispatch(
         Action::TaskComplete(TaskResult::SessionUsageComplete {
@@ -809,8 +809,8 @@ fn session_usage_complete_pushes_block_and_chains_billing() {
     let mut app = test_app_with_agent();
     app.screen_mode = crate::app::ScreenMode::Minimal;
     let before = agent_scrollback_len(&app);
-    let usage = xai_grok_shell::extensions::notification::PromptUsage {
-        totals: xai_grok_shell::extensions::notification::PromptUsageModel {
+    let usage = xai_grok_shared::session::notification::PromptUsage {
+        totals: xai_grok_shared::session::notification::PromptUsageModel {
             input_tokens: 1_000,
             output_tokens: 100,
             total_tokens: 1_100,
@@ -868,8 +868,8 @@ fn session_usage_complete_drops_stale_session() {
     let effects = complete_session_usage(
         &mut app,
         "old-session",
-        xai_grok_shell::extensions::notification::PromptUsage {
-            totals: xai_grok_shell::extensions::notification::PromptUsageModel {
+        xai_grok_shared::session::notification::PromptUsage {
+            totals: xai_grok_shared::session::notification::PromptUsageModel {
                 model_calls: 99,
                 cost_usd_ticks: Some(1_000_000_000_000),
                 ..Default::default()
@@ -1297,7 +1297,7 @@ fn free_usage_upsell_shows_three_options_with_exact_labels() {
 #[test]
 fn free_usage_failure_opens_paywall_modal() {
     use crate::app::acp_handler::apply_session_event_for_test;
-    use xai_grok_shell::extensions::notification::{RetryState, SessionUpdate};
+    use xai_grok_shared::session::notification::{RetryState, SessionUpdate};
 
     let mut app = test_app_with_agent();
     let id = AgentId(0);

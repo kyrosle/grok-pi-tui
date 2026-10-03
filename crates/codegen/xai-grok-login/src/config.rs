@@ -456,6 +456,28 @@ mod tests {
         let cfg: GrokComConfig = toml::from_str("").expect("parse empty");
         assert_eq!(cfg.preferred_method, None);
     }
+    #[test]
+    fn normalized_auth_keeps_explicit_precedence_and_rejects_invalid_fields() {
+        let raw: toml::Value = toml::from_str(
+            "[auth]\npreferred_method = 'api_key'\nauth_token_ttl = 42\n\
+             [grok_com_config]\npreferred_method = 'oidc'\n\
+             [ui]\ngroup_tool_verbs = false\n",
+        )
+        .unwrap();
+        let parsed = GrokComConfig::from_toml(&raw).unwrap();
+        assert_eq!(parsed.preferred_method, Some(PreferredAuthMethod::Oidc));
+        assert_eq!(parsed.auth_token_ttl, Some(42));
+        assert_eq!(expand_auth_alias(&raw)["ui"], raw["ui"]);
+        assert!(raw.get("auth").is_some(), "parsing must preserve its input");
+        let invalid = toml::from_str("[auth]\nauth_token_ttl = 'invalid'\n").unwrap();
+        assert!(GrokComConfig::from_toml(&invalid).is_err());
+        assert!(
+            GrokComConfig::from_toml(&toml::Value::Table(Default::default()))
+                .unwrap()
+                .preferred_method
+                .is_none()
+        );
+    }
     /// Every `GROK_FORCE_LOGIN_TEAM_ID` shape: bare value, arrays, empty-array, malformed, and empty/whitespace.
     #[test]
     fn parse_force_login_team_handles_all_shapes() {
@@ -523,5 +545,36 @@ mod tests {
         );
         assert_eq!(pin("[grok_com_config]\n"), None);
         assert_eq!(pin(""), None);
+    }
+}
+
+/// Canonical auth alias expansion; explicit `[grok_com_config]` keys win over `[auth]`.
+pub fn expand_auth_alias(raw_config: &toml::Value) -> toml::Value {
+    let mut config = raw_config.clone();
+    if let toml::Value::Table(ref mut table) = config
+        && let Some(auth) = table.remove("auth")
+    {
+        if let Some(gcc) = table.get_mut("grok_com_config") {
+            if let (toml::Value::Table(gcc_table), toml::Value::Table(auth_table)) = (gcc, &auth) {
+                for (k, v) in auth_table {
+                    gcc_table.entry(k.clone()).or_insert(v.clone());
+                }
+            }
+        } else {
+            table.insert("grok_com_config".to_owned(), auth);
+        }
+    }
+    config
+}
+
+impl GrokComConfig {
+    /// Parse the complete auth configuration from the normalized settings root.
+    /// The original struct's serde/default rules retain env and all auth fields.
+    pub fn from_toml(raw_config: &toml::Value) -> Result<Self, toml::de::Error> {
+        let raw = expand_auth_alias(raw_config);
+        match raw.get("grok_com_config") {
+            Some(value) => value.clone().try_into(),
+            None => Ok(Self::default()),
+        }
     }
 }

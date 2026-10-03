@@ -942,7 +942,7 @@ pub(in crate::app::dispatch) fn action_for_reset(
     value: &crate::settings::SettingValue,
 ) -> Option<Action> {
     use crate::settings::SettingValue;
-    if let Some(spec) = xai_grok_shell::host_features::feature_spec_by_setting_key(key) {
+    if let Some(spec) = xai_grok_shared::host_features::feature_spec_by_setting_key(key) {
         return match value {
             SettingValue::Bool(enabled) => Some(Action::SetHostFeatureBool {
                 key: spec.key,
@@ -1228,7 +1228,7 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
 ) -> Vec<Effect> {
     use crate::settings::SettingValue;
     let mut companion_effects: Vec<Effect> = Vec::new();
-    if let Some(spec) = xai_grok_shell::host_features::feature_spec_by_setting_key(key) {
+    if let Some(spec) = xai_grok_shared::host_features::feature_spec_by_setting_key(key) {
         if let SettingValue::Bool(enabled) = rollback_value {
             spec.set_bool(&mut app.current_ui, *enabled);
             refresh_open_settings_modals(app);
@@ -1559,7 +1559,7 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
         // fork_secondary_model: empty rollback restores baseline default.
         ("fork_secondary_model", SettingValue::String(s)) => {
             let restored = if s.is_empty() {
-                xai_grok_shell::models::default_model().to_string()
+                xai_grok_models::default_model().to_string()
             } else {
                 s.clone()
             };

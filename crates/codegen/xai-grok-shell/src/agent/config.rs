@@ -659,127 +659,7 @@ pub(crate) fn resolve_compaction_detail_from(
         .or_else(|| remote.and_then(CompactionDetail::parse))
         .unwrap_or_default()
 }
-/// Resolve a single vendor-compat cell: env > `[compat]` TOML > remote settings remote flag > default ON.
-fn resolve_compat_cell(
-    env: &str,
-    cfg: Option<bool>,
-    remote: Option<bool>,
-    default: bool,
-) -> Resolved<bool> {
-    resolve_compat_cell_with_env(xai_grok_config::env_bool(env), cfg, remote, default)
-}
-pub(crate) fn resolve_compat_cell_with_env(
-    env: Option<bool>,
-    cfg: Option<bool>,
-    remote: Option<bool>,
-    default: bool,
-) -> Resolved<bool> {
-    if let Some(value) = env {
-        Resolved::new(value, ConfigSource::Env)
-    } else if let Some(value) = cfg {
-        Resolved::new(value, ConfigSource::Config)
-    } else if let Some(value) = remote {
-        Resolved::new(value, ConfigSource::Remote)
-    } else {
-        Resolved::new(default, ConfigSource::Default)
-    }
-}
-fn remote_compat_value(
-    remote: Option<&crate::util::config::RemoteSettings>,
-    key: Option<CompatRemoteKey>,
-) -> Option<bool> {
-    let remote = remote?;
-    match key? {
-        CompatRemoteKey::CursorSkills => remote.cursor_skills_enabled,
-        CompatRemoteKey::CursorRules => remote.cursor_rules_enabled,
-        CompatRemoteKey::CursorAgents => remote.cursor_agents_enabled,
-        CompatRemoteKey::CursorMcps => remote.cursor_mcps_enabled,
-        CompatRemoteKey::CursorHooks => remote.cursor_hooks_enabled,
-        CompatRemoteKey::CursorSessions => remote.cursor_sessions_enabled,
-        CompatRemoteKey::ClaudeSkills => remote.claude_skills_enabled,
-        CompatRemoteKey::ClaudeRules => remote.claude_rules_enabled,
-        CompatRemoteKey::ClaudeAgents => remote.claude_agents_enabled,
-        CompatRemoteKey::ClaudeMcps => remote.claude_mcps_enabled,
-        CompatRemoteKey::ClaudeHooks => remote.claude_hooks_enabled,
-        CompatRemoteKey::ClaudeSessions => remote.claude_sessions_enabled,
-        CompatRemoteKey::CodexSessions => remote.codex_sessions_enabled,
-    }
-}
-fn resolve_compat_config(
-    config: &CompatConfigToml,
-    remote: Option<&crate::util::config::RemoteSettings>,
-) -> CompatConfig {
-    let defaults = CompatConfig::default();
-    let mut resolved = defaults;
-    for cell in COMPAT_CELLS {
-        resolved.set(
-            cell,
-            resolve_compat_cell(
-                cell.env_var(),
-                config.value(cell),
-                remote_compat_value(remote, cell.remote_key()),
-                defaults.value(cell),
-            )
-            .value,
-        );
-    }
-    resolved
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CompatConfigCellError {
-    Unavailable,
-    Malformed,
-}
-pub(crate) fn compat_config_cell(
-    raw_config: Result<&toml::Value, ()>,
-    cell: xai_grok_tools::types::compat::CompatCell,
-) -> Result<Option<bool>, CompatConfigCellError> {
-    let raw = raw_config.map_err(|()| CompatConfigCellError::Unavailable)?;
-    let Some(compat) = raw.get("compat") else {
-        return Ok(None);
-    };
-    let compat = compat.as_table().ok_or(CompatConfigCellError::Malformed)?;
-    let Some(vendor) = compat.get(cell.vendor().as_ref()) else {
-        return Ok(None);
-    };
-    let vendor = vendor.as_table().ok_or(CompatConfigCellError::Malformed)?;
-    let Some(value) = vendor.get(cell.surface().as_ref()) else {
-        return Ok(None);
-    };
-    value
-        .as_bool()
-        .map(Some)
-        .ok_or(CompatConfigCellError::Malformed)
-}
-/// Resolve only picker-facing session cells from raw config independently.
-pub fn resolve_compat_sessions_from_raw(
-    raw_config: Result<&toml::Value, ()>,
-    remote: Option<&crate::util::config::RemoteSettings>,
-) -> CompatConfig {
-    let mut config = CompatConfigToml::default();
-    for cell in COMPAT_CELLS
-        .into_iter()
-        .filter(|cell| cell.surface() == CompatSurface::Sessions)
-    {
-        let value = match compat_config_cell(raw_config, cell) {
-            Ok(value) => value,
-            Err(error) => {
-                tracing::warn!(
-                    vendor = cell.vendor().as_ref(),
-                    ?error,
-                    "invalid compat config; disabling foreign sessions"
-                );
-                Some(false)
-            }
-        };
-        match cell.vendor() {
-            CompatVendor::Cursor => config.cursor.sessions = value,
-            CompatVendor::Claude => config.claude.sessions = value,
-            CompatVendor::Codex => config.codex.sessions = value,
-        }
-    }
-    resolve_compat_config(&config, remote)
-}
+pub use xai_grok_config_types::compat::{resolve_compat_cell, resolve_compat_cell_with_env, remote_compat_value, resolve_compat_config, CompatConfigCellError, compat_config_cell, resolve_compat_sessions_from_raw};
 /// Resolve a string setting: cli > env > config > feature flag. `None` if no source provides a value.
 pub(crate) fn resolve_string_flag(
     cli_arg: Option<&str>,
@@ -912,135 +792,6 @@ pub struct FeedbackUserConfig {
 pub struct CompactionConfig {
     pub memory_flush: Option<crate::config::MemoryFlushSettings>,
     pub pruning: Option<crate::config::PruningSettings>,
-}
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct CliConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auto_update: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dismissed_version: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub installer: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub npm_registry: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub channel: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub use_leader: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub show_tips: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub worktree_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_registry: Option<bool>,
-    /// Env `GROK_MINIMUM_VERSION`.
-    /// See [`crate::util::config::VersionPolicy`] for the version-policy knobs.
-    /// (Unrelated to `version_overrides[].maximum_version`, which gates config patches.)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub minimum_version: Option<String>,
-    /// Env `GROK_MAXIMUM_VERSION`. See [`crate::util::config::VersionPolicy`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub maximum_version: Option<String>,
-    /// Env `GROK_REQUIRED_MINIMUM_VERSION`. See [`crate::util::config::VersionPolicy`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required_minimum_version: Option<String>,
-    /// Env `GROK_REQUIRED_MAXIMUM_VERSION`. See [`crate::util::config::VersionPolicy`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required_maximum_version: Option<String>,
-    /// Group sessions by repo in the picker and CLI listings.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_picker_grouped: Option<bool>,
-}
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct DiagnosticsConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub crash_handler: Option<bool>,
-}
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ModelsConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default: Option<String>,
-    /// The pre-campaign `models.default` (merged user/managed/requirements), captured when a campaign is overriding the default.
-    /// Model resolution recovers to it if the campaign points at a model missing from the catalog.
-    /// `None` when there is nothing to recover to. Runtime-only; never serialized.
-    #[serde(skip)]
-    pub pre_campaign_default: Option<String>,
-    /// Whether an active campaign is currently overriding `models.default`.
-    /// The authoritative campaign-driven-default signal (set from the resolved active set), correct even when the user has no base default.
-    /// Runtime-only.
-    #[serde(skip)]
-    pub default_is_campaign_driven: bool,
-    /// Persisted effort for the default model; applied in `resolve_model_catalog`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_reasoning_effort: Option<ReasoningEffort>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub web_search: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_summary: Option<String>,
-    /// Vision model used to transcribe user-supplied images via a separate endpoint.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub image_description: Option<String>,
-    /// Model pin for next-prompt suggestions (tab-autocomplete ghost text).
-    /// When unset: the remote pin, then the client hint / built-in `grok-4.6` default with the catalog guard; see `ModelOverrideConfig::resolve`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt_suggestion: Option<String>,
-    /// Restricts which models are user-selectable for normal chat (picker, `/model`, `-m`).
-    /// Non-matching models stay in the catalog but are never shown, defaulted to, or selectable.
-    /// Special/internal models (web_search, image_description, subagents, fork secondary) are exempt. User-config globs (`*`, `?`, `[...]`) match the catalog key or model id, case-sensitive. Empty = no restriction; an excluded explicit `default`/`-m` is rejected once the model catalog is fetched. Fleet pins live on [`Requirements::allowed_models`] and replace this list.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allowed_models: Option<Vec<String>>,
-    /// Force `hidden = true` on these model IDs (still usable via `-m`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hidden_models: Option<Vec<String>>,
-    /// Remove these model IDs from the catalog entirely. Wins over `hidden_models`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disabled_models: Option<Vec<String>>,
-    /// Fallback `agent_type` for models without a per-model override.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_type: Option<String>,
-    /// Global default request headers applied to every model.
-    /// A per-model `[model.<id>].extra_headers` entry overrides per key (case-insensitive).
-    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
-    pub extra_headers: IndexMap<String, String>,
-    /// Global default values applied to every model that leaves the field unset; a per-model `[model.<id>]` value always wins.
-    /// A deliberately small, allow-listed subset of the per-model fields (only `Option` ones, so "unset" is unambiguous).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_completion_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_retries: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rate_limit_retry_threshold: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub inference_idle_timeout_secs: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subagent_rate_limit_max_attempts: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stream_tool_calls: Option<bool>,
-}
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct HarnessConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub wait_for_uploads: Option<bool>,
-    /// Deprecated; a real field, not a serde alias, because an alias rejects configs setting both keys.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub block_for_upload: Option<bool>,
-    /// Budget (seconds) for the turn-end upload flush when `wait_for_uploads` is active.
-    /// Default 60.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub upload_flush_timeout_secs: Option<u64>,
-}
-impl HarnessConfig {
-    pub(crate) fn merge_deprecated_keys(&mut self) {
-        self.wait_for_uploads = self.wait_for_uploads.or(self.block_for_upload.take());
-    }
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -1549,20 +1300,6 @@ pub struct AgentSelectionConfig {
     /// Global system-prompt identity label. Per-model override wins.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub system_prompt_label: Option<String>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
-pub struct SessionConfig {
-    /// Context window usage percentage (0-100) at which auto-compact is triggered. `None` means the user didn't set it.
-    /// The resolver in `crate::util::config::resolve_auto_compact_threshold_percent` falls through to remote tiers and then the hardcoded default 85.
-    /// Read this field via the resolver, not directly, to honor the full precedence chain (env, per-model, remote, default).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_compact_threshold_percent: Option<u8>,
-    /// When enabled, the session will parse .envrc in the workspace directory and inject the environment variables into bash commands.
-    /// Defaults to `true` when unset.
-    /// `Option<bool>` so `None` round-trips as absent on disk (managed config wins over default).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub load_envrc: Option<bool>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -2288,23 +2025,7 @@ impl Config {
     /// `[grok_com_config]` takes precedence if both are present (explicit wins).
     /// This lets customers write the shorter `[auth.oidc]` instead of `[grok_com_config.oidc]`.
     fn expand_auth_alias(raw_config: &toml::Value) -> toml::Value {
-        let mut config = raw_config.clone();
-        if let toml::Value::Table(ref mut table) = config
-            && let Some(auth) = table.remove("auth")
-        {
-            if let Some(gcc) = table.get_mut("grok_com_config") {
-                if let (toml::Value::Table(gcc_table), toml::Value::Table(auth_table)) =
-                    (gcc, &auth)
-                {
-                    for (k, v) in auth_table {
-                        gcc_table.entry(k.clone()).or_insert(v.clone());
-                    }
-                }
-            } else {
-                table.insert("grok_com_config".to_owned(), auth);
-            }
-        }
-        config
+        xai_grok_login::config::expand_auth_alias(raw_config)
     }
     fn apply_env_overrides(&mut self) {
         self.telemetry.apply_env_overrides();
@@ -2891,100 +2612,7 @@ impl Config {
             .resolve()
     }
 }
-/// Canonical resolver for `mcp.liveness_watchers`. Stacks the full 7-step `BoolFlag` precedence: `requirement > cli > env (GROK_MCP_LIVENESS_WATCHERS) > config > managed > feature_flag > default (true)`.
-/// `util::config::resolve_mcp_liveness_watchers` delegates here so the precedence is single-sourced.
-/// The default is `true`, turning the watcher and dispatcher on by default; the flag exists primarily as a kill switch during the rollout.
-pub(crate) fn resolve_mcp_liveness_watchers(
-    requirement: Option<bool>,
-    cli: Option<bool>,
-    config: Option<bool>,
-    managed: Option<bool>,
-    feature_flag: Option<bool>,
-) -> Resolved<bool> {
-    BoolFlag::env("GROK_MCP_LIVENESS_WATCHERS")
-        .requirement(requirement)
-        .cli(cli)
-        .config(config)
-        .managed(managed)
-        .feature_flag(feature_flag)
-        .default(true)
-        .resolve()
-}
-/// Canonical resolver for `mcp.auto_restart`. Stacks the full 7-step `BoolFlag` precedence: `requirement > cli > env (GROK_MCP_AUTO_RESTART) > config > managed > feature_flag > default (true)`.
-/// Mirrors [`resolve_mcp_liveness_watchers`]. `util::config::resolve_mcp_auto_restart` delegates here so the precedence is single-sourced.
-/// Recovery is on by default; opt out via `GROK_MCP_AUTO_RESTART=false`, `[features] mcp_auto_restart`, or `requirements.toml`.
-pub(crate) fn resolve_mcp_auto_restart(
-    requirement: Option<bool>,
-    cli: Option<bool>,
-    config: Option<bool>,
-    managed: Option<bool>,
-    feature_flag: Option<bool>,
-) -> Resolved<bool> {
-    BoolFlag::env("GROK_MCP_AUTO_RESTART")
-        .requirement(requirement)
-        .cli(cli)
-        .config(config)
-        .managed(managed)
-        .feature_flag(feature_flag)
-        .default(true)
-        .resolve()
-}
-/// Kill switch for the transient turn-resubmit arm.
-/// Standard `BoolFlag` precedence; env `GROK_TURN_TRANSIENT_RETRY`; default on.
-pub(crate) fn resolve_turn_transient_retry(
-    requirement: Option<bool>,
-    cli: Option<bool>,
-    config: Option<bool>,
-    managed: Option<bool>,
-    feature_flag: Option<bool>,
-) -> Resolved<bool> {
-    BoolFlag::env("GROK_TURN_TRANSIENT_RETRY")
-        .requirement(requirement)
-        .cli(cli)
-        .config(config)
-        .managed(managed)
-        .feature_flag(feature_flag)
-        .default(true)
-        .resolve()
-}
-/// Canonical resolver for `mcp.push_server_status`.
-/// Stacks the same 7-step `BoolFlag` precedence as [`resolve_mcp_liveness_watchers`]: `requirement > cli > env (GROK_MCP_PUSH_SERVER_STATUS) > config > managed > feature_flag > default (true)`.
-/// `util::config::resolve_mcp_push_server_status` delegates here so the precedence is single-sourced. The default is `true`: the pager's subscription to `x.ai/mcp/server_status` is wired on by default. The flag exists primarily as a kill switch.
-pub fn resolve_mcp_push_server_status(
-    requirement: Option<bool>,
-    cli: Option<bool>,
-    config: Option<bool>,
-    managed: Option<bool>,
-    feature_flag: Option<bool>,
-) -> Resolved<bool> {
-    BoolFlag::env("GROK_MCP_PUSH_SERVER_STATUS")
-        .requirement(requirement)
-        .cli(cli)
-        .config(config)
-        .managed(managed)
-        .feature_flag(feature_flag)
-        .default(true)
-        .resolve()
-}
-/// Canonical resolver for `mcp.recursive_config_watch`.
-/// Stacks the same 7-step `BoolFlag` precedence as [`resolve_mcp_liveness_watchers`]: `requirement > cli > env (GROK_MCP_RECURSIVE_CONFIG_WATCH) > config > managed > feature_flag > default (true)`.
-/// `util::config::resolve_mcp_recursive_config_watch` delegates here so the precedence is single-sourced. The default is `true`. It turns the two narrow non-recursive cwd watches on by default. The leader then falls back to the prior behavior: no cwd watches, and user-triggered refresh is the only project-config reload path.
-pub(crate) fn resolve_mcp_recursive_config_watch(
-    requirement: Option<bool>,
-    cli: Option<bool>,
-    config: Option<bool>,
-    managed: Option<bool>,
-    feature_flag: Option<bool>,
-) -> Resolved<bool> {
-    BoolFlag::env("GROK_MCP_RECURSIVE_CONFIG_WATCH")
-        .requirement(requirement)
-        .cli(cli)
-        .config(config)
-        .managed(managed)
-        .feature_flag(feature_flag)
-        .default(true)
-        .resolve()
-}
+pub use xai_grok_config_types::{resolve_mcp_liveness_watchers, resolve_mcp_auto_restart, resolve_turn_transient_retry, resolve_mcp_push_server_status, resolve_mcp_recursive_config_watch};
 /// Sync analogue of [`BoolFlag`] for callers that run before the tokio runtime (e.g. `init_sentry`). Loads from disk and env directly rather than from a pre-built `Config`.
 /// Same convention as [`BoolFlag`]: `resolve()` returns the *enabled* value. `disable_env` is sugar for "force-off if this env is truthy" and does not invert the convention.
 /// Layer precedence: `requirements.toml` (admin pin) `managed_settings.json` env (Claude admin pin, force-off) process env via `disable_env` (force-off) process env via `enable_env` (either direction) merged config (user/managed defaults) `inherit`, then `default`
@@ -3142,58 +2770,6 @@ pub(crate) fn external_otel_master_switch_from(
     }
     table_enabled(effective_config).unwrap_or(false)
 }
-fn telemetry_otel_str(t: &toml::Value, key: &str) -> Option<String> {
-    t.get(key).and_then(toml::Value::as_str).map(str::to_owned)
-}
-fn telemetry_otel_ms(t: &toml::Value, key: &str) -> Option<String> {
-    t.get(key).and_then(|v| {
-        v.as_integer()
-            .map(|i| i.to_string())
-            .or_else(|| v.as_str().map(str::to_owned))
-    })
-}
-fn telemetry_otel_file_config(
-    t: &toml::Value,
-) -> xai_grok_telemetry::external::ExternalOtelFileConfig {
-    xai_grok_telemetry::external::ExternalOtelFileConfig {
-        enabled: t.get("otel_enabled").and_then(toml::Value::as_bool),
-        metrics_exporter: telemetry_otel_str(t, "otel_metrics_exporter"),
-        logs_exporter: telemetry_otel_str(t, "otel_logs_exporter"),
-        endpoint: telemetry_otel_str(t, "otel_endpoint"),
-        protocol: telemetry_otel_str(t, "otel_protocol")
-            .or_else(|| telemetry_otel_str(t, "otel_transport")),
-        certificate: telemetry_otel_str(t, "otel_certificate"),
-        client_certificate: telemetry_otel_str(t, "otel_client_certificate"),
-        client_key: telemetry_otel_str(t, "otel_client_key"),
-        log_user_prompts: t
-            .get("otel_log_user_prompts")
-            .and_then(toml::Value::as_bool),
-        log_tool_details: t
-            .get("otel_log_tool_details")
-            .and_then(toml::Value::as_bool),
-        log_assistant_responses: t
-            .get("otel_log_assistant_responses")
-            .and_then(toml::Value::as_bool),
-        log_tool_content: t
-            .get("otel_log_tool_content")
-            .and_then(toml::Value::as_bool),
-        timeout: telemetry_otel_ms(t, "otel_timeout"),
-        metric_export_interval: telemetry_otel_ms(t, "otel_metric_export_interval"),
-        logs_endpoint: telemetry_otel_str(t, "otel_logs_endpoint"),
-        metrics_endpoint: telemetry_otel_str(t, "otel_metrics_endpoint"),
-        logs_protocol: telemetry_otel_str(t, "otel_logs_protocol"),
-        metrics_protocol: telemetry_otel_str(t, "otel_metrics_protocol"),
-        logs_certificate: telemetry_otel_str(t, "otel_logs_certificate"),
-        metrics_certificate: telemetry_otel_str(t, "otel_metrics_certificate"),
-        logs_client_certificate: telemetry_otel_str(t, "otel_logs_client_certificate"),
-        logs_client_key: telemetry_otel_str(t, "otel_logs_client_key"),
-        metrics_client_certificate: telemetry_otel_str(t, "otel_metrics_client_certificate"),
-        metrics_client_key: telemetry_otel_str(t, "otel_metrics_client_key"),
-        include_session_id: t
-            .get("otel_metrics_include_session_id")
-            .and_then(toml::Value::as_bool),
-    }
-}
 /// Resolve the external OTEL stream configuration at process startup. Env and local config only: remote settings are not yet available when tracing init runs.
 /// Layering follows `resolve_telemetry_mode`: **requirement > env > config > remote > default**. The `[telemetry]` `otel_*` keys from the effective config sit under the env vars.
 /// That config already includes managed-config layers distributed by `grok setup`. Requirements pins are applied on top, and the remote layer is restrictive-only and asynchronous ([`apply_external_otel_remote_policy`]).
@@ -3201,7 +2777,7 @@ pub fn resolve_external_otel_config(
     client: xai_grok_telemetry::external::config::ExternalClientInfo,
 ) -> Option<xai_grok_telemetry::external::ExternalOtelConfig> {
     let requirements = xai_grok_config::load_merged_requirements();
-    resolve_external_otel_config_with(
+    xai_grok_telemetry::external::settings::resolve_external_otel_config_with(
         crate::config::load_effective_config().ok().as_ref(),
         requirements.as_ref(),
         |name| std::env::var(name).ok(),
@@ -3209,34 +2785,7 @@ pub fn resolve_external_otel_config(
         EndpointsConfig::default().internal_otlp_consumed_standard_vars(),
     )
 }
-/// Testable core of [`resolve_external_otel_config`]: all inputs injected so tests don't race on process env / disk.
-pub(crate) fn resolve_external_otel_config_with(
-    effective_config: Option<&toml::Value>,
-    requirements: Option<&toml::Value>,
-    getenv: impl Fn(&str) -> Option<String>,
-    client: xai_grok_telemetry::external::config::ExternalClientInfo,
-    internal_pipeline_consumed_otel_vars: bool,
-) -> Option<xai_grok_telemetry::external::ExternalOtelConfig> {
-    let pins =
-        crate::agent::external_otel_pin::RequirementOtelPins::from_requirements(requirements);
-    let file_cfg: Option<xai_grok_telemetry::external::ExternalOtelFileConfig> = effective_config
-        .and_then(|cfg| cfg.get("telemetry"))
-        .cloned()
-        .map(|mut telemetry| {
-            if let Some(table) = telemetry.as_table_mut() {
-                pins.hide_unlisted_file_siblings(table);
-            }
-            telemetry_otel_file_config(&telemetry)
-        });
-    let getenv_pinned = crate::agent::external_otel_pin::getenv_with_pins(&pins, getenv);
-    let mut resolved = xai_grok_telemetry::external::ExternalOtelConfig::resolve_with(
-        getenv_pinned,
-        file_cfg.as_ref(),
-    )?;
-    resolved.client = client;
-    resolved.internal_pipeline_consumed_otel_vars = internal_pipeline_consumed_otel_vars;
-    Some(resolved)
-}
+pub(crate) use xai_grok_telemetry::external::settings::resolve_external_otel_config_with;
 /// Apply the restrictive-only remote-settings policy for the external OTEL stream (fleet kill switch and content-gate lock).
 /// Tighten-only by construction (there is no remote enable direction), so it is safe to call on every settings refresh.
 pub(crate) fn apply_external_otel_remote_policy(
@@ -4376,30 +3925,6 @@ pub struct WorkflowsConfig {
 /// The remote object is coerced via `serde_json::from_value`. All fields are plain scalars/enums, so they deserialize cleanly from both formats (no custom tolerant deser needed). Unset fields stay `None` here.
 /// The wire fn applies the built-in defaults once auto mode is enabled (current model, `low` effort if the model supports it, `just_command` prompt). Precedence: local config > remote > those built-in defaults.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct AutoModeConfig {
-    /// The Auto-mode gate.
-    /// Lowest-precedence layer of the gate chain (env and local `[auto_mode] enabled` config win over this remote value).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<bool>,
-    /// How much context the classifier prompt includes.
-    /// `None` means the wire fn's built-in default (`just_command`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub prompt_type: Option<xai_grok_workspace::permission::ClassifierPromptType>,
-    /// Routing slug for a dedicated classifier model.
-    /// `None` inherits the session model.
-    /// Resolved via `resolve_aux_model_sampling_config`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub classifier_model: Option<String>,
-    /// Classifier side-query duration in milliseconds; resolved with bounded defaults.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub classify_timeout_ms: Option<u64>,
-    /// Classifier reasoning effort. Applies on BOTH the routed-model path and the inherited session-model path.
-    /// `None` means the wire fn's built-in default (`low` if the effective model supports reasoning effort, else unset).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<ReasoningEffort>,
-}
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Features {
     /// when set, the agent may ask permission for tool executions
     #[serde(default)]
@@ -5151,54 +4676,7 @@ pub(crate) fn to_acp_model_info(
         })
         .collect()
 }
-pub const MODEL_SWITCH_INCOMPATIBLE_AGENT: &str = "MODEL_SWITCH_INCOMPATIBLE_AGENT";
-/// Error code for model switch failure during the zero-turn full harness rebuild path.
-/// Emitted when `RebuildAgentForDefinition` fails.
-/// That covers a definition that could not be resolved at handler time, an `AgentBuilder::build()` error, or a turn racing the rebuild.
-pub const MODEL_SWITCH_REBUILD_FAILED: &str = "MODEL_SWITCH_REBUILD_FAILED";
-/// Structured error payload for model switch rejection due to agent type incompatibility.
-/// Serialized into `acp::Error.data` by the shell and deserialized by the TUI for user-friendly error rendering.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelSwitchIncompatibleAgentError {
-    /// Stable machine-readable error code (always `MODEL_SWITCH_INCOMPATIBLE_AGENT`).
-    pub code: String,
-    pub active_agent_type: String,
-    /// The agent type required by the target model.
-    pub required_agent_type: String,
-    pub model_id: String,
-    /// Remediation hint for the client.
-    pub suggestion: String,
-}
-impl ModelSwitchIncompatibleAgentError {
-    /// Build an `acp::Error` with this structured payload.
-    pub(crate) fn into_acp_error(self) -> acp::Error {
-        let message = format!(
-            "Cannot switch to model '{}': it requires agent '{}' but the active agent is '{}'. \
-             Start a new session to use this model.",
-            self.model_id, self.required_agent_type, self.active_agent_type,
-        );
-        acp::Error::new(acp::ErrorCode::InvalidRequest.into(), message)
-            .data(serde_json::to_value(&self).ok())
-    }
-    /// Try to parse from an `acp::Error.data` field.
-    pub fn from_acp_error(err: &acp::Error) -> Option<Self> {
-        let data = err.data.as_ref()?;
-        let code = data.get("code")?.as_str()?;
-        if code != MODEL_SWITCH_INCOMPATIBLE_AGENT {
-            return None;
-        }
-        serde_json::from_value(data.clone()).ok()
-    }
-    /// Render a user-friendly error message for the TUI.
-    pub fn user_message(&self) -> String {
-        format!(
-            "Cannot switch to '{}' — it requires agent '{}' but the active agent is '{}'. \
-             Start /new to use this model.",
-            self.model_id, self.required_agent_type, self.active_agent_type,
-        )
-    }
-}
+pub use xai_grok_config_types::{MODEL_SWITCH_INCOMPATIBLE_AGENT, MODEL_SWITCH_REBUILD_FAILED, ModelSwitchIncompatibleAgentError};
 /// The `force_login_team_uuid` pin from the merged `requirements.toml` / MDM layers; the non-overridable tier in `resolve_force_login_team`.
 /// Read at call time so the clamp holds on config-load paths that build `GrokComConfig` without a separate `apply_requirements` pass.
 /// Shell loads the requirements here and hands auth the parsed value.
@@ -5210,3 +4688,5 @@ fn force_login_team_from_requirements() -> Option<xai_grok_login::ForceLoginTeam
 #[cfg(test)]
 #[path = "config_tests.rs"]
 mod tests;
+
+pub use xai_grok_config_types::{CliConfig, DiagnosticsConfig, ModelsConfig, HarnessConfig, SessionConfig, AutoModeConfig};

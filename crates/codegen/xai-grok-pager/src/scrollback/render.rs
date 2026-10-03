@@ -683,7 +683,10 @@ pub(crate) fn render_scrolled_entries_with_selection_boundaries(
                 if visible_h >= 1 {
                     // Tool media exposes its second output line as the click-to-copy filepath and reserves a button row
                     let filepath_virtual_y = content_y_start + 1;
-                    let filepath_screen_rect = if filepath_virtual_y >= viewport_start
+                    let filepath_screen_rect = if matches!(
+                        &entry.block,
+                        RenderBlock::ToolCall(super::blocks::tool::ToolCallBlock::Other(_))
+                    ) && filepath_virtual_y >= viewport_start
                         && filepath_virtual_y < viewport_bottom
                     {
                         Some(ratatui::layout::Rect {
@@ -751,7 +754,7 @@ pub(crate) fn render_scrolled_entries_with_selection_boundaries(
                 |virtual_y: usize, width: u16| -> Option<ratatui::layout::Rect> {
                     if virtual_y >= viewport_start && virtual_y < viewport_bottom {
                         Some(ratatui::layout::Rect {
-                            x: entry_content_area.x,
+                            x: entry_row_layout.content.x,
                             y: viewport.y + (virtual_y - viewport_start) as u16,
                             width,
                             height: 1,
@@ -762,14 +765,18 @@ pub(crate) fn render_scrolled_entries_with_selection_boundaries(
                 };
 
             // Filepath line (index 1): click-to-copy
-            let filepath_screen_rect =
-                line_screen_rect(content_y_start + 1, entry_content_area.width);
+            let filepath_screen_rect = matches!(
+                &entry.block,
+                RenderBlock::ToolCall(super::blocks::tool::ToolCallBlock::Other(_))
+            )
+            .then(|| line_screen_rect(content_y_start + 1, entry_content_area.width))
+            .flatten();
 
             // Centered `[Open]` button: click-to-open
             // It is the second-to-last content line (the last line is a blank spacer)
             let open_button_screen_rect = if content_lines >= 2 {
                 let label_w = media_open_button_label(is_video).len() as u16;
-                let col = media_open_button_col(content_width, is_video);
+                let col = media_open_button_col(ctx.content_width() as u16, is_video);
                 let button_virtual_y = content_y_start + (content_lines - 2);
                 line_screen_rect(button_virtual_y, label_w).map(|mut rect| {
                     rect.x = rect.x.saturating_add(col);

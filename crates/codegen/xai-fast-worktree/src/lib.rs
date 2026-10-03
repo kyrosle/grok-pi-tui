@@ -115,3 +115,14 @@ pub fn count_tracked_files(repo_path: &std::path::Path) -> anyhow::Result<usize>
         .map_err(|e| anyhow::anyhow!("failed to load git index: {e}"))?;
     Ok(index.entries().len())
 }
+
+// Canonical config strategy conversion; the destination owner keeps the original public From API.
+impl From<xai_grok_config_types::WorktreeType> for CreationMode {
+    fn from(t: xai_grok_config_types::WorktreeType) -> Self {
+        match t {
+            xai_grok_config_types::WorktreeType::Linked => CreationMode::Linked,
+            xai_grok_config_types::WorktreeType::Standalone => CreationMode::Standalone,
+            xai_grok_config_types::WorktreeType::Git => CreationMode::GitCheckout,
+        }
+    }
+}

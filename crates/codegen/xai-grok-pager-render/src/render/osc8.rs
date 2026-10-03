@@ -448,8 +448,14 @@ fn push_link_segments(
         if start >= end {
             continue;
         }
-        let col_start = UnicodeWidthStr::width(&text[row.start..start]);
-        let col_end = col_start + UnicodeWidthStr::width(&text[start..end]);
+        let Some(before) = text.get(row.start..start) else {
+            continue;
+        };
+        let Some(matched) = text.get(start..end) else {
+            continue;
+        };
+        let col_start = UnicodeWidthStr::width(before);
+        let col_end = col_start + UnicodeWidthStr::width(matched);
         let (Some(cs), Some(ce)) = (
             to_overlay_col(content_x, col_start),
             to_overlay_col(content_x, col_end),

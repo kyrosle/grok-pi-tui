@@ -150,7 +150,7 @@ fn pi_grok_subagent_history_request(
 fn cancel_elicitation_request(
     response_tx: tokio::sync::oneshot::Sender<xai_acp_lib::AcpResult<acp::ExtResponse>>,
 ) {
-    let cancelled = xai_grok_tools::mcp_elicitation::McpElicitExtResponse::Cancel;
+    let cancelled = xai_tool_types::mcp_elicitation::McpElicitExtResponse::Cancel;
     if let Ok(raw) = serde_json::value::to_raw_value(&cancelled) {
         response_tx.send(Ok(acp::ExtResponse::new(raw.into()))).ok();
     }
@@ -161,7 +161,7 @@ pub(crate) fn handle_mcp_elicit(
     app: &mut AppView,
 ) -> bool {
     use crate::views::elicitation_view::ElicitationViewState;
-    use xai_grok_tools::mcp_elicitation::McpElicitExtRequest;
+    use xai_tool_types::mcp_elicitation::McpElicitExtRequest;
 
     let ext_req: McpElicitExtRequest = match serde_json::from_str(ext.request.params.get()) {
         Ok(r) => r,
@@ -239,9 +239,7 @@ pub(crate) fn handle_ask_user_question(
     app: &mut AppView,
 ) -> bool {
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        AskUserQuestionExtRequest, AskUserQuestionExtResponse,
-    };
+    use xai_tool_types::questions::{AskUserQuestionExtRequest, AskUserQuestionExtResponse};
 
     // Parse both the typed request and the narrow Pi adapter extensions.
     // `initialText` and `noFreeform` are deliberately client-side hints: the
@@ -532,7 +530,7 @@ pub(super) fn handle_exit_plan_mode(
     // `take()` no-ops once dismiss has consumed the viewer) or later keys
     // carry unexpected release events.
     if agent.block_viewer_image_active {
-        xai_grok_shell::util::with_locked_stderr(|stderr| {
+        xai_grok_shared::stderr::with_locked_stderr(|stderr| {
             let clear =
                 crate::terminal::overlay::PostFlush::from(crate::terminal::overlay::clear_kitty());
             let _ = clear.write_to(stderr);

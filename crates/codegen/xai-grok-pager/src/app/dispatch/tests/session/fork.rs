@@ -160,7 +160,7 @@ fn worktree_forked_with_restore_shows_summary_in_scrollback() {
             restore_summary: Some(
                 "checked out abc12345, staged: true, unstaged: false, untracked: 3".into(),
             ),
-            restore_degree: Some(xai_grok_workspace::session::git::RestoreDegree::Full),
+            restore_degree: Some(xai_grok_workspace_types::rpc::git::RestoreDegree::Full),
             resume_session_id: Some("orig-sess".into()),
             strategy_summary: None,
         }),
@@ -182,7 +182,7 @@ fn worktree_forked_with_restore_shows_summary_in_scrollback() {
     assert!(has_restore_msg, "expected restore summary in scrollback");
     assert_eq!(
         app.agents[&id].session.restore_degree,
-        Some(xai_grok_workspace::session::git::RestoreDegree::Full),
+        Some(xai_grok_workspace_types::rpc::git::RestoreDegree::Full),
         "restore_degree must be stored on the session"
     );
 }
@@ -581,9 +581,7 @@ fn open_fork_question_refuses_when_existing_question_is_open() {
     let mut app = fork_test_app();
     // Plant an existing question (e.g. an ACP-driven one).
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "existing ACP question?".into(),
         options: vec![QuestionOption {
@@ -1323,7 +1321,7 @@ fn fork_session_ready_sticky_chat_sets_rename_kind_chat() {
     );
     assert_eq!(
         agent.rename_kind(),
-        xai_grok_shell::session::unified_list::SessionKind::Chat
+        xai_grok_shared::session::catalog::SessionKind::Chat
     );
 }
 
@@ -1378,9 +1376,7 @@ fn fork_session_failed_pushes_turn_failed_block() {
 #[test]
 fn translate_local_submit_yes_returns_worktree_true_action() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..2)
@@ -1423,9 +1419,7 @@ fn translate_local_submit_yes_returns_worktree_true_action() {
 #[test]
 fn translate_local_submit_no_returns_worktree_false_action() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..2)
@@ -1466,9 +1460,7 @@ fn translate_local_submit_no_returns_worktree_false_action() {
 #[test]
 fn translate_local_submit_always_returns_persist_always_for_fork() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..4)
@@ -1510,9 +1502,7 @@ fn translate_local_submit_always_returns_persist_always_for_fork() {
 #[test]
 fn translate_local_submit_never_returns_persist_never_for_fork() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..4)
@@ -1555,9 +1545,7 @@ fn translate_local_submit_never_returns_persist_never_for_fork() {
 fn handle_ask_user_question_pushes_system_block_when_displaced_local_fork_modal() {
     use crate::scrollback::block::RenderBlock;
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
 
     let mut app = fork_test_app();
     let id = AgentId(0);

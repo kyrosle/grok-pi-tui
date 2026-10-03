@@ -355,7 +355,7 @@ pub(crate) fn feedback_send_effect(
     agent_id: AgentId,
     session_id: agent_client_protocol::SessionId,
     text: String,
-    images: Vec<xai_grok_shell::session::FeedbackImage>,
+    images: Vec<xai_grok_shared::session::feedback::FeedbackImage>,
     trace: Option<FeedbackTraceChoice>,
     trace_log: Option<String>,
     metadata: Option<serde_json::Value>,
@@ -531,7 +531,7 @@ pub(super) fn dispatch_send_remember_note_from_command(
 /// Encode a borrowed image snapshot for the POST.
 fn encode_feedback_image_slice(
     images: &[crate::prompt_images::PastedImage],
-) -> (Vec<xai_grok_shell::session::FeedbackImage>, Option<String>) {
+) -> (Vec<xai_grok_shared::session::feedback::FeedbackImage>, Option<String>) {
     use base64::Engine as _;
 
     let loaded: Vec<Option<(Vec<u8>, String)>> = images
@@ -543,7 +543,7 @@ fn encode_feedback_image_slice(
         .into_iter()
         .filter_map(|index| {
             let (bytes, mime_type) = loaded[index].as_ref()?;
-            Some(xai_grok_shell::session::FeedbackImage {
+            Some(xai_grok_shared::session::feedback::FeedbackImage {
                 data: base64::engine::general_purpose::STANDARD.encode(bytes),
                 mime_type: mime_type.clone(),
                 file_name: images[index]
@@ -991,7 +991,7 @@ pub(super) fn dispatch_send_recap(
         .session
         .models
         .reasoning_effort
-        .filter(|effort| *effort != xai_grok_shell::sampling::types::ReasoningEffort::None)
+        .filter(|effort| *effort != xai_grok_sampling_types::types::ReasoningEffort::None)
         .map(|effort| effort.to_string());
 
     let terminal_width = agent.last_terminal_size.0;

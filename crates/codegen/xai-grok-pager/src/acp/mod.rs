@@ -1,9 +1,11 @@
 //! ACP (Agent Communication Protocol) connection management.
 //!
 //! This module spawns the agent process, initializes the protocol, authenticates, and provides the channel for communication.
+#[cfg(feature = "stock-runtime")]
 pub mod leader_bridge;
 pub mod meta;
 pub mod model_state;
+#[cfg(feature = "stock-runtime")]
 pub mod spawn;
 mod subagent_message;
 pub mod tracker;
@@ -22,9 +24,10 @@ pub use model_state::ModelState;
 use std::io::Write;
 use tokio_util::sync::CancellationToken;
 use xai_acp_lib::{AcpAgentTx, AcpClientRx, acp_send};
-use xai_grok_shell::agent::auth_method::AuthMethodKind;
+use xai_grok_login::auth_method::AuthMethodKind;
+use xai_grok_sampling_types::types::ReasoningEffort;
+#[cfg(feature = "stock-runtime")]
 use xai_grok_shell::agent::config::Config as AgentConfig;
-use xai_grok_shell::sampling::types::ReasoningEffort;
 use xai_grok_telemetry::process_info::{
     Entrypoint, Interactivity, LeaderMode, ProcessIdentity, set_identity,
 };
@@ -119,7 +122,7 @@ pub struct ExternalUiProfile {
     /// ownership of prompts, sessions, and model selection.
     pub enable_voice_dictation: bool,
     /// Declarative settings/startup features supported by this host.
-    pub host_features: xai_grok_shell::host_features::HostFeatureManifest,
+    pub host_features: xai_grok_shared::host_features::HostFeatureManifest,
 }
 
 impl Default for ExternalUiProfile {
@@ -132,7 +135,7 @@ impl Default for ExternalUiProfile {
             hide_new_worktree: false,
             changelog_url: None,
             enable_voice_dictation: false,
-            host_features: xai_grok_shell::host_features::HostFeatureManifest::default(),
+            host_features: xai_grok_shared::host_features::HostFeatureManifest::default(),
         }
     }
 }
@@ -140,6 +143,7 @@ impl Default for ExternalUiProfile {
 /// The pager's connection to an agent that is running but has not been set up yet.
 /// It holds the channel for sending requests to the agent, the channel for receiving its replies, the token that stops the agent, and the place the agent runs.
 /// `initialize_connection` sends `initialize` over these channels and returns the finished `AcpConnection`.
+#[cfg(feature = "stock-runtime")]
 pub(in crate::acp) struct AgentEndpoint {
     pub(in crate::acp) tx: AcpAgentTx,
     pub(in crate::acp) rx: AcpClientRx,
@@ -147,12 +151,14 @@ pub(in crate::acp) struct AgentEndpoint {
     pub(in crate::acp) location: AgentLocation,
 }
 /// Where an agent runs, and the one handle the pager keeps for it.
+#[cfg(feature = "stock-runtime")]
 pub(in crate::acp) enum AgentLocation {
     /// On a thread in this process. Exit joins the thread so the agent can finish flushing.
     Thread(std::thread::JoinHandle<Result<()>>),
     /// In the leader process. The receiver reports socket reconnects to the event loop.
     Leader(tokio::sync::watch::Receiver<leader_bridge::ConnectionStatus>),
 }
+#[cfg(feature = "stock-runtime")]
 impl From<spawn::SpawnedAgent> for AgentEndpoint {
     fn from(spawned: spawn::SpawnedAgent) -> Self {
         AgentEndpoint {
@@ -196,7 +202,7 @@ pub struct AcpConnection {
     /// Contains `team_name`, etc. `None` when interactive login is required.
     pub auth_meta: Option<serde_json::Value>,
     /// Leader connection status. `Some` only when connected via leader.
-    pub leader_status_rx: Option<tokio::sync::watch::Receiver<leader_bridge::ConnectionStatus>>,
+    pub leader_status_rx: Option<tokio::sync::watch::Receiver<xai_acp_lib::ConnectionStatus>>,
     /// Whether cancel-rewind is enabled (resolved by shell from config layers).
     pub cancel_rewind_enabled: bool,
     /// Whether the session-recap feature is rolled out for this connection. The client gates its automatic away-recap
@@ -225,7 +231,7 @@ impl AcpConnection {
     ) -> Self {
         let auth_manager = std::sync::Arc::new(
             xai_grok_login::AuthManager::new_without_startup_diagnostics(
-                &xai_grok_shell::util::grok_home::grok_home(),
+                &xai_grok_config::grok_home(),
                 xai_grok_login::GrokComConfig::default(),
             ),
         );
@@ -257,6 +263,7 @@ impl AcpConnection {
 
 /// CLI flags that affect agent configuration, threaded from PagerArgs.
 #[derive(Debug, Clone, Default)]
+#[cfg(feature = "stock-runtime")]
 pub struct ConnectFlags {
     pub subagents: bool,
     /// CLI memory override set by a legacy compatibility flag.
@@ -286,7 +293,7 @@ pub struct ConnectFlags {
     /// Installer field for config.toml.
     pub installer: Option<String>,
     /// Remote settings from early prefetch (used for memory config resolution).
-    pub remote_settings: Option<xai_grok_shell::util::config::RemoteSettings>,
+    pub remote_settings: Option<xai_grok_config_types::RemoteSettings>,
     /// Override the entire system prompt.
     pub system_prompt_override: Option<String>,
     /// Extra rules appended to the system prompt (from `--rules`).
@@ -295,6 +302,7 @@ pub struct ConnectFlags {
     pub reasoning_effort_override: Option<ReasoningEffort>,
     /// CLI permission rules from the --allow and --deny flags.
     /// Not supported in leader mode (agent config is set at leader startup).
+    #[cfg(feature = "stock-runtime")]
     pub permission_rules: Vec<xai_grok_workspace::permission::types::PermissionRule>,
     /// Seed agent sessions with always-approve (YOLO) permission mode.
     pub default_yolo_mode: bool,
@@ -303,11 +311,12 @@ pub struct ConnectFlags {
     pub default_auto_mode: bool,
 }
 /// Connect to an agent: spawn, initialize, authenticate.
+#[cfg(feature = "stock-runtime")]
 pub async fn connect(cancel: &CancellationToken, flags: ConnectFlags) -> Result<AcpConnection> {
     startup::enter(StartupPhase::ConfigLoad);
     let raw_config = {
         let _t = xai_grok_telemetry::instrumentation::timer("startup.config_load.merge_layers");
-        xai_grok_shell::config::load_effective_config()
+        crate::load_effective_config()
             .map_err(|e| anyhow::anyhow!("Failed to load config: {}", e))?
     };
     let mut agent_config = {
@@ -354,6 +363,7 @@ pub async fn connect(cancel: &CancellationToken, flags: ConnectFlags) -> Result<
 }
 /// Finishes connecting to an agent. Sends it `initialize`, works out whether the user must log in first, and returns the `AcpConnection`.
 /// The embedded agent, the leader agent, and the agent-host worker are all connected through this function, so these steps are written once.
+#[cfg(feature = "stock-runtime")]
 pub(in crate::acp) async fn initialize_connection(
     endpoint: AgentEndpoint,
     flags: &ConnectFlags,
@@ -410,6 +420,7 @@ pub(in crate::acp) async fn initialize_connection(
 /// Connect to a leader process and return an `AcpConnection`. The leader provides the ACP transport via IPC (raw
 /// JSON strings over a Unix socket). This function bridges that transport into the same typed `(AcpAgentTx,
 /// AcpClientRx)` pair that `connect()` produces. It then runs the standard initialize and authenticate sequence.
+#[cfg(feature = "stock-runtime")]
 pub async fn connect_via_leader(
     cancel: &CancellationToken,
     flags: ConnectFlags,
@@ -471,7 +482,7 @@ pub async fn connect_via_leader(
         ReconnectPolicy::unbounded(),
     )?;
     let auth_manager = std::sync::Arc::new(xai_grok_login::AuthManager::new_with_proxy_base_url(
-        &xai_grok_shell::util::grok_home::grok_home(),
+        &xai_grok_config::grok_home(),
         agent_config.grok_com_config.clone(),
         agent_config.endpoints.proxy_url(),
     ));
@@ -496,12 +507,13 @@ pub(in crate::acp) fn warn_ignored_flags(flags: &[&'static str], reason: &str) {
     if flags.is_empty() {
         return;
     }
-    xai_grok_shell::util::with_locked_stderr(|stderr| {
+    xai_grok_shared::stderr::with_locked_stderr(|stderr| {
         for flag in flags {
             let _ = writeln!(stderr, "warning: {flag} has no effect {reason}");
         }
     });
 }
+#[cfg(feature = "stock-runtime")]
 fn unsupported_leader_flags(flags: &ConnectFlags) -> Vec<&'static str> {
     let mut out = Vec::new();
     if let Some(flag) = flags.memory_override_flag {
@@ -522,9 +534,9 @@ fn unsupported_leader_flags(flags: &ConnectFlags) -> Vec<&'static str> {
     out
 }
 /// Write config.toml fields based on CLI flags.
+#[cfg(feature = "stock-runtime")]
 pub(super) fn apply_config_writes(flags: &ConnectFlags) {
-    let config_path =
-        xai_grok_shell::util::grok_home::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
+    let config_path = xai_grok_config::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
     let content = std::fs::read_to_string(&config_path).unwrap_or_default();
     let mut doc = content
         .parse::<toml_edit::DocumentMut>()
@@ -549,6 +561,7 @@ pub(super) fn apply_config_writes(flags: &ConnectFlags) {
     }
 }
 /// Build the per-session `_meta` for `InitializeRequest` (TUI and leader).
+#[cfg(feature = "stock-runtime")]
 fn build_initialize_meta(flags: &ConnectFlags) -> serde_json::Value {
     let client_type = flags
         .client_identifier
@@ -568,6 +581,7 @@ fn build_initialize_meta(flags: &ConnectFlags) -> serde_json::Value {
 }
 /// Build `client_capabilities.meta`.
 /// The hunk-tracker mode is canonicalized at this connect read so the agent runs exactly what the settings modal displays.
+#[cfg(feature = "stock-runtime")]
 fn client_capabilities_meta(flags: &ConnectFlags) -> serde_json::Value {
     let hunk_mode =
         crate::settings::canonical_hunk_tracker_mode(flags.hunk_tracker_mode.as_deref());
@@ -577,7 +591,7 @@ fn client_capabilities_meta(flags: &ConnectFlags) -> serde_json::Value {
         "x.ai/bashOutputNoColor": true,
         "x.ai/gitHeadChanged": true,
     });
-    meta[xai_grok_shell::session::USER_MESSAGE_ECHO_CAPABILITY] = true.into();
+    meta[xai_grok_shared::session::user_echo::USER_MESSAGE_ECHO_CAPABILITY] = true.into();
     meta[xai_grok_status_line::STATUS_LINE_CAPABILITY] = flags.status_line.into();
     meta
 }
@@ -601,6 +615,7 @@ pub(crate) struct InitializedAgent {
     pub(crate) feedback_trace_offer: bool,
 }
 /// Send InitializeRequest and parse the response.
+#[cfg(feature = "stock-runtime")]
 async fn initialize(tx: &AcpAgentTx, flags: &ConnectFlags) -> Result<InitializedAgent> {
     let req = acp::InitializeRequest::new(acp::ProtocolVersion::V1)
         .client_capabilities(
@@ -786,6 +801,7 @@ async fn eager_auth_or_login_fallback(
 }
 /// [`eager_auth_or_login_fallback`] bounded by `STARTUP_AUTH_REFRESH_TIMEOUT`, so a hung agent cannot gate the first draw.
 /// On timeout the inputs pass through unchanged and the agent finishes authentication in the background.
+#[cfg(feature = "stock-runtime")]
 async fn bounded_eager_auth(
     tx: &AcpAgentTx,
     auth_methods: &[acp::AuthMethod],
@@ -1132,7 +1148,7 @@ mod tests {
     fn client_capabilities_meta_always_requests_user_message_echo() {
         let meta = client_capabilities_meta(&ConnectFlags::default());
         assert_eq!(
-            meta[xai_grok_shell::session::USER_MESSAGE_ECHO_CAPABILITY],
+            meta[xai_grok_shared::session::user_echo::USER_MESSAGE_ECHO_CAPABILITY],
             true
         );
     }

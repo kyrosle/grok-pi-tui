@@ -6,6 +6,7 @@ mod formatting;
 pub mod host_features;
 pub use formatting::format_bytes;
 pub mod permissions;
+pub mod envrc_budget;
 pub mod placeholder_images;
 pub mod session;
 pub mod stderr;
@@ -13,3 +14,5 @@ pub mod ui_config;
 
 #[cfg(test)]
 mod placeholder_image_format_tests;
+
+pub mod config;

@@ -4,7 +4,7 @@ use crate::app::actions::Action;
 use crate::slash::command::{
     AppCtx, ArgItem, CommandExecCtx, CommandResult, SlashCommand, slash_meta,
 };
-use xai_grok_shell::session::persistence::{MAX_TITLE_SCALARS, sanitize_rename_title};
+use xai_grok_shared::session::title::{MAX_TITLE_SCALARS, sanitize_rename_title};
 
 pub struct RenameCommand;
 

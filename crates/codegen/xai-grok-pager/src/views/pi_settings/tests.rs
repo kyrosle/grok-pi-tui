@@ -11,7 +11,7 @@ use super::{handle_key, render_pi_settings};
 use crate::app::actions::Action;
 use crate::settings::{PagerLocalSnapshot, SettingCategory, SettingKind, SettingsRegistry};
 
-use xai_grok_shell::agent::config::UiConfig;
+use xai_grok_shared::ui_config::UiConfig;
 
 fn state() -> PiSettingsState {
     PiSettingsState::new(

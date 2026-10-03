@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde::Deserialize;
+#[cfg(feature = "stock-runtime")]
 use xai_grok_shell::session::storage::{
     ReplayEmission, ReplayLookupFallback, ReplayPathHint, ReplayedUpdate, replay_would_emit,
     stream_replay_updates_at_hinted,
@@ -110,8 +111,8 @@ impl SubagentAttemptInfo {
         subagent_id: &str,
         child_session_id: &str,
         fallback_status: &str,
-    ) -> xai_grok_shell::extensions::notification::SessionUpdate {
-        xai_grok_shell::extensions::notification::SessionUpdate::SubagentFinished {
+    ) -> xai_grok_shared::session::notification::SessionUpdate {
+        xai_grok_shared::session::notification::SessionUpdate::SubagentFinished {
             subagent_id: subagent_id.to_owned(),
             attempt_id: self.lifecycle.current_attempt_id().map(str::to_owned),
             child_session_id: child_session_id.to_owned(),
@@ -162,6 +163,9 @@ pub(crate) enum ChildTranscript {
     DiskEmptyWhileRunning,
     /// The in-memory view is the only copy (disk resolved to nothing while the view held content), so evicting it would lose the transcript.
     MemoryOnly,
+    /// Pi owns durable child sessions; load/recovery replay arrives over ACP.
+    /// Opening/closing a child keeps that view and never reads Grok updates.jsonl.
+    AdapterManaged,
 }
 
 /// Disk is only final once the child is terminal.
@@ -193,6 +197,7 @@ impl ChildTranscript {
     /// Only an emitting replay proves the disk copy.
     /// An empty read caches the negative result only for a still-running child that inherits nothing.
     /// A resumed child's inherited history is expected on disk, so its empty-while-running read is transient and must stay `NeedsReplay`.
+    #[cfg(feature = "stock-runtime")]
     fn record_replay(
         &mut self,
         outcome: &std::io::Result<ReplayEmission>,
@@ -228,7 +233,9 @@ impl ChildTranscript {
 
     /// A full parent replay means disk may now contain a tail that arrived while disconnected.
     pub(crate) fn begin_parent_replay(&mut self) {
-        *self = Self::NeedsReplay;
+        if !matches!(self, Self::AdapterManaged) {
+            *self = Self::NeedsReplay;
+        }
     }
 
     /// The view was reset to the empty baseline: rebuild on next open.
@@ -356,7 +363,7 @@ struct SubagentMetaSlice {
 /// Grok home for the replay path (overridable in tests).
 #[cfg(not(test))]
 fn effective_grok_home() -> std::path::PathBuf {
-    xai_grok_shell::util::grok_home::grok_home()
+    xai_grok_config::grok_home()
 }
 
 #[cfg(test)]
@@ -376,7 +383,7 @@ fn effective_grok_home() -> std::path::PathBuf {
     if let Some(home) = REPLAY_GROK_HOME.with(|h| h.borrow().clone()) {
         return home;
     }
-    xai_grok_shell::util::grok_home::grok_home()
+    xai_grok_config::grok_home()
 }
 
 /// Best-effort enrichment from the shell's on-disk `meta.json`.
@@ -426,6 +433,7 @@ fn enrich_from_meta_with_home(
 /// Best-effort streamed replay of a child's inherited conversation.
 /// `Err`: the read failed, so callers must not mark the child replayed.
 /// The `child_cwd` hint skips the full relocation scan when it matches.
+#[cfg(feature = "stock-runtime")]
 fn replay_inherited_updates(
     child_view: &mut crate::app::agent_view::AgentView,
     child_session_id: &str,
@@ -583,6 +591,7 @@ pub(crate) enum ChildReplayOutcome {
 /// Replay child `updates.jsonl` on fullscreen open (and dashboard attach) when not yet read.
 /// A finished child always rebuilds from disk.
 /// A running view is filled only while it still shows nothing.
+#[cfg(feature = "stock-runtime")]
 pub(crate) fn ensure_subagent_child_replayed(
     parent: &mut crate::app::agent_view::AgentView,
     child_sid: &str,
@@ -655,6 +664,7 @@ pub(crate) fn ensure_subagent_child_replayed(
 /// The tail of [`ensure_subagent_child_replayed`].
 /// Given the replay outcome and the pre-reset detached content, it either restores that content or stamps the finished footer.
 /// A read error, or a detached view that was only a footer, is left dropped and `NeedsReplay` so the next open retries.
+#[cfg(feature = "stock-runtime")]
 fn restore_or_finalize_after_replay(
     parent: &mut crate::app::agent_view::AgentView,
     child_sid: &str,
@@ -709,6 +719,7 @@ fn is_resumed_child(info: &SubagentInfo) -> bool {
 /// A resumed child's source transcript is copied into its session dir, and the live stream never repeats it.
 /// A non-resumed child needs nothing: its `updates.jsonl` only ever holds blocks the live stream already delivered.
 /// Idempotent and self-gating: only a resumed child still in `NeedsReplay` with an empty view is filled.
+#[cfg(feature = "stock-runtime")]
 pub(crate) fn replay_resumed_child_before_live_block(
     parent: &mut crate::app::agent_view::AgentView,
     child_sid: &str,
@@ -730,6 +741,7 @@ pub(crate) fn replay_resumed_child_before_live_block(
 }
 
 /// Replay the child's on-disk transcript and record what the read proved on [`SubagentInfo::transcript`] (see [`ChildTranscript::record_replay`]).
+#[cfg(feature = "stock-runtime")]
 fn replay_child_and_record_outcome(
     parent: &mut crate::app::agent_view::AgentView,
     child_sid: &str,
@@ -795,6 +807,7 @@ pub(crate) enum EvictOutcome {
 /// Returns [`EvictOutcome::Retained`] when a guard applies and the caller must finalize in place.
 /// The guards: the child open fullscreen, unfinished or background children, and memory-only transcripts.
 /// A view holding content is dropped only once a disk probe proves the persisted transcript would emit.
+#[cfg(feature = "stock-runtime")]
 pub(crate) fn evict_finished_child_view(
     parent: &mut crate::app::agent_view::AgentView,
     child_sid: &str,
@@ -807,7 +820,7 @@ pub(crate) fn evict_finished_child_view(
     };
     if info.is_running()
         || info.attempt.is_background
-        || matches!(info.transcript, ChildTranscript::MemoryOnly)
+        || matches!(info.transcript, ChildTranscript::MemoryOnly | ChildTranscript::AdapterManaged)
     {
         return EvictOutcome::Retained;
     }
@@ -1031,7 +1044,7 @@ pub(crate) fn format_activity_label(activity: &crate::acp::tracker::TurnActivity
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "stock-runtime"))]
 #[path = "subagent_tests.rs"]
 mod tests;
 

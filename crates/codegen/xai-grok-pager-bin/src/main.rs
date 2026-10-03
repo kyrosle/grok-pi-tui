@@ -646,7 +646,7 @@ async fn workspace_start(
 ) -> Result<()> {
     use xai_grok_login::ensure_authenticated;
     xai_grok_shell::util::config::set_remote_campaigns_from_settings(remote_settings.as_ref());
-    let raw_config = xai_grok_shell::config::load_effective_config()
+    let raw_config = xai_grok_config::load_effective_config_disk_only()
         .map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
     let agent_config = AgentConfig::new_from_toml_cfg(&raw_config)
         .map_err(|e| anyhow::anyhow!("Failed to create agent config: {e}"))?;
@@ -1247,7 +1247,7 @@ async fn run_agent_command(
         None
     };
     xai_grok_shell::util::config::set_remote_campaigns_from_settings(remote_settings.as_ref());
-    let raw_config = xai_grok_shell::config::load_effective_config()
+    let raw_config = xai_grok_config::load_effective_config_disk_only()
         .map_err(|e| anyhow::anyhow!("Failed to load config: {}", e))?;
     let mut agent_config = AgentConfig::new_from_toml_cfg(&raw_config)
         .map_err(|e| anyhow::anyhow!("Failed to create agent config: {}", e))?;
@@ -1339,10 +1339,8 @@ async fn run_agent_command(
         },
         interactivity: Interactivity::Unattended,
     });
-    let managed_install = is_managed_install(
-        std::env::current_exe().ok(),
-        &xai_grok_shell::util::grok_home::grok_home(),
-    );
+    let managed_install =
+        is_managed_install(std::env::current_exe().ok(), &xai_grok_config::grok_home());
     if stdio_auto_update_enabled(
         is_stdio,
         use_leader,
@@ -2019,10 +2017,10 @@ fn main() {
         release: env!("VERSION_WITH_COMMIT"),
         disabled: xai_grok_shell::agent::config::is_error_reporting_disabled_sync(),
     });
-    xai_grok_pager::docs::extract_user_guide_docs(&xai_grok_shell::util::grok_home::grok_home());
+    xai_grok_pager::docs::extract_user_guide_docs(&xai_grok_config::grok_home());
     xai_crash_handler::install_terminal_restore_only();
     if xai_grok_shell::util::config::load_crash_handler_enabled_sync() {
-        let crash_dir = xai_grok_shell::util::grok_home::grok_home().join("crash");
+        let crash_dir = xai_grok_config::grok_home().join("crash");
         if let Some(report) = xai_crash_handler::check_previous_crash(&crash_dir) {
             eprintln!("Grok crashed during your last session.");
             eprintln!("  Signal:  {}", report.signal_name);
@@ -2121,7 +2119,7 @@ async fn async_main(mut args: PagerArgs) -> Result<()> {
             Ok(agent_cfg) => {
                 let auth_manager =
                     std::sync::Arc::new(xai_grok_login::AuthManager::new_with_proxy_base_url(
-                        &xai_grok_shell::util::grok_home::grok_home(),
+                        &xai_grok_config::grok_home(),
                         agent_cfg.grok_com_config.clone(),
                         agent_cfg.endpoints.proxy_url(),
                     ));
@@ -2522,7 +2520,7 @@ fn build_update_config() -> UpdateConfig {
     config.npm_registry = std::env::var(obfstr::obfstr!("GROK_NPM_REGISTRY"))
         .ok()
         .or_else(xai_grok_shell::util::config::load_npm_registry_sync);
-    if let Ok(root) = xai_grok_shell::config::load_effective_config_disk_only()
+    if let Ok(root) = xai_grok_config::load_effective_config_disk_only()
         && let Some(ch) = xai_grok_shell::util::config::channel_from_toml_opt(&root)
     {
         config.channel = ch;
@@ -2632,7 +2630,7 @@ async fn run_update_command(
     if let Some(agent_cfg) = telemetry_cfg {
         let auth_manager =
             std::sync::Arc::new(xai_grok_login::AuthManager::new_with_proxy_base_url(
-                &xai_grok_shell::util::grok_home::grok_home(),
+                &xai_grok_config::grok_home(),
                 agent_cfg.grok_com_config.clone(),
                 agent_cfg.endpoints.proxy_url(),
             ));

@@ -140,11 +140,11 @@
         let user_config = xai_grok_shell::config::load_from_disk().ok();
         let managed_config = xai_grok_shell::config::load_managed_config().ok();
         let resolve = |remote_val: Option<bool>| {
-            let remote = xai_grok_shell::util::config::RemoteSettings {
+            let remote = crate::settings_config::RemoteSettings {
                 group_tool_verbs: remote_val,
                 ..Default::default()
             };
-            xai_grok_shell::util::config::resolve_group_tool_verbs(
+            crate::settings_config::resolve_group_tool_verbs(
                 requirements.as_ref(),
                 user_config.as_ref(),
                 managed_config.as_ref(),
@@ -192,11 +192,11 @@
         let user_config = xai_grok_shell::config::load_from_disk().ok();
         let managed_config = xai_grok_shell::config::load_managed_config().ok();
         let resolve = |remote_val: Option<bool>| {
-            let remote = xai_grok_shell::util::config::RemoteSettings {
+            let remote = crate::settings_config::RemoteSettings {
                 collapsed_edit_blocks: remote_val,
                 ..Default::default()
             };
-            xai_grok_shell::util::config::resolve_collapsed_edit_blocks(
+            crate::settings_config::resolve_collapsed_edit_blocks(
                 requirements.as_ref(),
                 user_config.as_ref(),
                 managed_config.as_ref(),

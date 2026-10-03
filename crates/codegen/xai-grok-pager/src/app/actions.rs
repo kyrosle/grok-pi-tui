@@ -9,8 +9,8 @@ use super::agent::AgentId;
 use crate::app::status_line::StatusLineRun;
 use crate::scrollback::entry::EntryId;
 use agent_client_protocol as acp;
-use xai_grok_shell::sampling::types::ReasoningEffort;
-use xai_grok_shell::session::unified_list::SessionKind;
+use xai_grok_sampling_types::types::ReasoningEffort;
+use xai_grok_shared::session::catalog::SessionKind;
 
 /// Flattened Pi session-tree node for the `/tree` surface.
 #[derive(Debug, Clone)]
@@ -94,7 +94,7 @@ pub enum SwitchModelError {
     /// The pager should offer to start a new session.
     /// Deserialized from `ModelSwitchIncompatibleAgentError` in `acp::Error.data`.
     IncompatibleAgent {
-        error: xai_grok_shell::agent::config::ModelSwitchIncompatibleAgentError,
+        error: xai_grok_config_types::ModelSwitchIncompatibleAgentError,
         /// The model that was active before the optimistic UI update (if any).
         /// Used to roll back `models.current` when the user declines to start a new session.
         prev_model_id: Option<acp::ModelId>,
@@ -230,14 +230,18 @@ pub enum Action {
     /// Open the "New Worktree" popup dialog on the welcome screen.
     OpenNewWorktreeDialog,
     /// Open the interactive import-claude modal on the welcome screen.
+    #[cfg(feature = "stock-runtime")]
     ImportClaudeSettings,
     /// User confirmed the import modal: apply selected items.
+    #[cfg(feature = "stock-runtime")]
     ImportClaudeConfirm,
     /// User cancelled the import modal: close without applying.
+    #[cfg(feature = "stock-runtime")]
     ImportClaudeCancel,
     /// Hide the import-claude menu row by recording the current `.claude/` content hash as "seen".
     /// Doesn't import anything, doesn't change runtime fallback behavior.
     /// The menu reappears only if `.claude/` content changes.
+    #[cfg(feature = "stock-runtime")]
     DismissClaudeImport,
     /// Load (resume) an existing session by ID (strict: never create).
     /// `chat_kind` is the **conversation-entry** bit only (`source == "conversation"` / restore preserve), **not** sticky `--chat`.
@@ -459,6 +463,7 @@ pub enum Action {
     },
     /// Open the agents modal (listing all agent definitions).
     /// Optionally opens directly on a specific tab.
+    #[cfg(feature = "stock-runtime")]
     OpenConfigAgentsModal(Option<crate::views::agents_modal::AgentsTab>),
     /// Trigger OAuth for an MCP server from the modal.
     McpAuthTrigger {
@@ -481,7 +486,7 @@ pub enum Action {
     /// Add or update an MCP server via x.ai/mcp/upsert.
     UpsertMcpServer {
         name: String,
-        config: Box<xai_grok_shell::util::config::McpServerConfig>,
+        config: Box<crate::settings_config::McpServerConfig>,
     },
     /// Delete an MCP server via x.ai/mcp/delete.
     DeleteMcpServer {
@@ -751,7 +756,7 @@ pub enum Action {
     SetPiTreeSkipSummaryPrompt(bool),
     /// Set a declaratively registered external-host bool feature.
     SetHostFeatureBool {
-        key: xai_grok_shell::host_features::HostFeatureKey,
+        key: xai_grok_shared::host_features::HostFeatureKey,
         enabled: bool,
     },
     /// Notify when a native Q&A question arrives while grok-pi is unfocused.
@@ -1359,7 +1364,7 @@ pub struct DraftFeedbackBody {
     pub r#type: xai_grok_feedback::FeedbackType,
     pub task_category: Option<xai_grok_feedback::FeedbackTaskCategory>,
     pub failure_mode: Option<xai_grok_feedback::FeedbackFailureMode>,
-    pub images: Vec<xai_grok_shell::session::FeedbackImage>,
+    pub images: Vec<xai_grok_shared::session::feedback::FeedbackImage>,
 }
 /// What the user chose on the legacy `/feedback` trace-consent card.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1541,12 +1546,22 @@ impl ClipboardPasteSource {
             }
         )
     }
-    pub fn text_to_insert_on_miss(&self) -> Option<&str> {
-        match self {
-            Self::ClipboardKey { text, .. } => text.as_deref(),
-            Self::BracketedDeferred { text } => Some(text),
-            Self::BracketedInserted { .. } => None,
+    /// Non-blank captured text when no attachment landed; bracketed text already inserted is never repeated.
+    pub fn text_to_insert_on_miss(&self, image: &ProbedAttachment) -> Option<&str> {
+        if !matches!(
+            image,
+            ProbedAttachment::NoRaster
+                | ProbedAttachment::ProbeDropped
+                | ProbedAttachment::ProbeFailed
+        ) {
+            return None;
         }
+        let text = match self {
+            Self::ClipboardKey { text, .. } => text.as_deref(),
+            Self::BracketedDeferred { text } => Some(text.as_str()),
+            Self::BracketedInserted { .. } => None,
+        };
+        text.filter(|text| !text.trim().is_empty())
     }
     pub fn synchronous_insertion(&self) -> Option<ClipboardTextInsertion> {
         match self {
@@ -1797,7 +1812,7 @@ pub enum Effect {
         kind_filter: Option<Vec<String>>,
         /// Server-side `session_kind=headless` policy: `Only` while the picker is on the Headless page, `Exclude` everywhere else.
         /// Applied by the shell before its page truncation, so it cannot be a client refilter.
-        headless_policy: xai_grok_shell::session::unified_list::HeadlessPolicy,
+        headless_policy: xai_grok_shared::session::catalog::HeadlessPolicy,
     },
     /// Coalesce picker search keystrokes: fires [`TaskResult::SessionSearchDebounceExpired`] after a short sleep.
     /// The expiry acts only if `host`, `generation`, and `seq` still name the live picker.
@@ -1907,7 +1922,7 @@ pub enum Effect {
     KillBgTask {
         session_id: acp::SessionId,
         task_id: String,
-        source: xai_grok_shell::extensions::task::TaskKillSource,
+        source: xai_tool_types::task_wire::TaskKillSource,
     },
     /// Cancel a subagent via `x.ai/subagent/cancel`.
     KillSubagent {
@@ -2224,7 +2239,7 @@ pub enum Effect {
         agent_id: AgentId,
         session_id: acp::SessionId,
         name: String,
-        config: Box<xai_grok_shell::util::config::McpServerConfig>,
+        config: Box<crate::settings_config::McpServerConfig>,
     },
     /// Delete an MCP server via x.ai/mcp/delete.
     DeleteMcpServer {
@@ -2278,7 +2293,7 @@ pub enum Effect {
         agent_id: AgentId,
         session_id: acp::SessionId,
         feedback_text: String,
-        images: Vec<xai_grok_shell::session::FeedbackImage>,
+        images: Vec<xai_grok_shared::session::feedback::FeedbackImage>,
         metadata: Option<serde_json::Value>,
         /// Ask the shell to mint a one-shot upload capability after this report succeeds.
         request_trace_upload_token: bool,
@@ -2309,7 +2324,7 @@ pub enum Effect {
         text: String,
         cwd: std::path::PathBuf,
         /// `Some` for an active session; `None` only for the pre-session fallback.
-        pinned_mode: Option<xai_grok_shell::config::MemoryMode>,
+        pinned_mode: Option<xai_grok_config_types::MemoryMode>,
     },
     /// Send raw note to x.ai/memory/rewrite for LLM-powered reformatting.
     /// On success, the rewritten text populates the prompt for inline review.
@@ -2454,7 +2469,7 @@ pub enum Effect {
         seq: u64,
         /// Server-side headless policy of the page that consumes the hits: `Only` on the Headless page, `Exclude` everywhere else.
         /// Unresolved index rows are omitted from both classified views.
-        headless_policy: xai_grok_shell::session::unified_list::HeadlessPolicy,
+        headless_policy: xai_grok_shared::session::catalog::HeadlessPolicy,
     },
     /// Full-text search for external (Pi) sessions via PSM SQLite FTS5.
     PiSessionSearch {
@@ -2491,6 +2506,7 @@ pub enum Effect {
     },
     /// Read session display fields from local `summary.json` after load/resume.
     /// Those are the title (and `/rename` manual-ness) plus the last-turn summary for the dashboard secondary line.
+    #[cfg(feature = "stock-runtime")]
     HydrateSessionMetaFromDisk {
         agent_id: AgentId,
         session_id: acp::SessionId,
@@ -2531,6 +2547,7 @@ pub enum Effect {
         nonce: u64,
     },
     /// Re-fetch remote settings to check subscription gate.
+    #[cfg(feature = "stock-runtime")]
     RefreshGate,
     /// Spawn a debounce sleep task for shell suggestions.
     /// `agent_id` rides to the expiry so the fetch is built from the arming agent, not whatever view is active when the timer fires.
@@ -2708,7 +2725,7 @@ pub enum TaskResult {
     /// one typed metadata path.
     WithPinnedMemoryMode {
         agent_id: AgentId,
-        memory_mode: Option<xai_grok_shell::config::MemoryMode>,
+        memory_mode: Option<xai_grok_config_types::MemoryMode>,
         result: Box<TaskResult>,
     },
     /// A `command` status line finished.
@@ -2747,7 +2764,7 @@ pub enum TaskResult {
         session_cwd: std::path::PathBuf,
         code_restored: bool,
         restore_summary: Option<String>,
-        restore_degree: Option<xai_grok_workspace::session::git::RestoreDegree>,
+        restore_degree: Option<xai_grok_workspace_types::rpc::git::RestoreDegree>,
         /// Resume/parent id this worktree was created from (`load_session_id`).
         /// Used to retarget the one-shot restore-code suppression onto the child.
         resume_session_id: Option<String>,
@@ -2765,7 +2782,7 @@ pub enum TaskResult {
         models: Option<acp::SessionModelState>,
         code_restored: bool,
         restore_summary: Option<String>,
-        restore_degree: Option<xai_grok_workspace::session::git::RestoreDegree>,
+        restore_degree: Option<xai_grok_workspace_types::rpc::git::RestoreDegree>,
         /// The session's in-flight running prompt id (from the load response `_meta["x.ai/runningPromptId"]`).
         /// Present only when the session was loaded MID-turn (another client is driving).
         /// The loader adopts it to pass the live `session/update` gate without re-rendering the user block (replay already rendered it).
@@ -2892,7 +2909,7 @@ pub enum TaskResult {
         /// A degraded conversations lane (`_meta["x.ai/partial"]`), shown as an actionable picker notice instead of a silent empty list.
         partial: Option<crate::app::effects::ConversationsPartial>,
         /// Directory scope `sessions` were drawn from (`x.ai/listScope`).
-        scope: xai_grok_shell::session::unified_list::ListScope,
+        scope: xai_grok_shared::session::catalog::ListScope,
         /// Echo of [`Effect::FetchSessionList::seq`]; stale results are dropped.
         seq: u64,
         /// Echo of [`Effect::FetchSessionList::query`].
@@ -2951,6 +2968,7 @@ pub enum TaskResult {
     /// Local on-disk session list loaded for the dashboard (non-leader fallback).
     /// Entries are pre-converted to `RosterEntry` (activity `Dormant`) so they reuse the roster-row rendering path.
     /// A fetch failure yields an empty list (silent; the next poll retries).
+    DashboardSessionsFailed { error: String },
     DashboardSessionsLoaded {
         sessions: Vec<crate::app::roster::RosterEntry>,
     },
@@ -3074,7 +3092,7 @@ pub enum TaskResult {
     BgTaskKilled {
         session_id: String,
         task_id: String,
-        outcome: Option<xai_grok_tools::types::KillOutcome>,
+        outcome: Option<xai_tool_types::task_snapshot::KillOutcome>,
     },
     /// Background task kill failed.
     BgTaskKillFailed {
@@ -3094,7 +3112,7 @@ pub enum TaskResult {
     /// Changelog fetched from CDN (both formats).
     ChangelogFetched {
         markdown: Option<String>,
-        entries: Vec<xai_grok_shell::util::changelog::ChangelogEntry>,
+        entries: Vec<xai_grok_shell_base::util::changelog::ChangelogEntry>,
     },
     /// Announcements hidden state persisted.
     AnnouncementsHiddenPersisted {
@@ -3183,7 +3201,7 @@ pub enum TaskResult {
     /// Skills list loaded.
     SkillsListLoaded {
         agent_id: AgentId,
-        result: Result<Vec<xai_grok_tools::implementations::skills::types::SkillInfo>, String>,
+        result: Result<Vec<xai_tool_types::skills::SkillInfo>, String>,
     },
     WorkflowsListLoaded {
         agent_id: AgentId,
@@ -3200,7 +3218,7 @@ pub enum TaskResult {
     /// Skill toggle completed (enable/disable).
     SkillsToggleDone {
         agent_id: AgentId,
-        result: Result<Vec<xai_grok_tools::implementations::skills::types::SkillInfo>, String>,
+        result: Result<Vec<xai_tool_types::skills::SkillInfo>, String>,
     },
     /// Background marketplace auto-update completed.
     MarketplaceUpdatesAvailable {
@@ -3254,7 +3272,7 @@ pub enum TaskResult {
     SessionInfoComplete {
         agent_id: AgentId,
         session_id: acp::SessionId,
-        info: Box<xai_grok_shell::session::SessionInfoResponse>,
+        info: Box<xai_grok_shared::session::SessionInfoResponse>,
         /// Plain-text block for minimal-mode scrollback.
         text: String,
         /// Structured rows for the modal (built upstream from typed data).
@@ -3318,7 +3336,7 @@ pub enum TaskResult {
     ContextInfoComplete {
         agent_id: AgentId,
         session_id: acp::SessionId,
-        info: Box<xai_grok_shell::session::SessionInfoResponse>,
+        info: Box<xai_grok_shared::session::SessionInfoResponse>,
         nonce: u64,
     },
     /// Context info fetch failed. Drop if `session_id` no longer matches.
@@ -3332,7 +3350,7 @@ pub enum TaskResult {
     SessionUsageComplete {
         agent_id: AgentId,
         session_id: acp::SessionId,
-        usage: Box<xai_grok_shell::extensions::notification::PromptUsage>,
+        usage: Box<xai_grok_shared::session::notification::PromptUsage>,
         nonce: u64,
     },
     /// `/usage` session ledger fetch failed. Drop if `session_id` no longer matches.
@@ -3347,7 +3365,7 @@ pub enum TaskResult {
     FeedbackComplete {
         agent_id: AgentId,
         origin: FeedbackSendOrigin,
-        outcome: xai_grok_shell::session::FeedbackOutcome,
+        outcome: xai_grok_shared::session::FeedbackOutcome,
         /// Present only when the shell consumed explicit modal consent and minted a one-shot capability.
         trace_upload_token: Option<String>,
     },
@@ -3491,7 +3509,7 @@ pub enum TaskResult {
         host: crate::views::session_picker_surface::SessionPickerHost,
         /// Echo of [`Effect::DeepSearchSessions::generation`].
         generation: u64,
-        results: Vec<xai_grok_shell::extensions::session_search::SearchSessionHit>,
+        results: Vec<xai_grok_shared::session::catalog::SearchSessionHit>,
         seq: u64,
     },
     /// PSM session message preview loaded for resume picker.
@@ -3559,7 +3577,7 @@ pub enum TaskResult {
         nonce: u64,
     },
     GateRefreshed {
-        settings: Option<xai_grok_shell::util::config::RemoteSettings>,
+        settings: Option<xai_grok_config_types::RemoteSettings>,
     },
     /// Billing fetch failed with an error message.
     BillingError {

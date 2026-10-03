@@ -3,9 +3,9 @@
 //! See the module-level docs in `mod.rs` for the architectural rationale.
 
 use agent_client_protocol as acp;
-use xai_grok_shell::agent::config::UiConfig;
-use xai_grok_shell::util::config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
-use xai_grok_tools::implementations::grok_build::ask_user_question;
+use xai_grok_shared::ui_config::UiConfig;
+use crate::settings_config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
+use xai_tool_types::questions as ask_user_question;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -226,7 +226,7 @@ pub enum SettingValue {
     String(String),
     Enum(&'static str),
     Int(i64),
-    PiBuiltinTools(xai_grok_shell::agent::config::PiBuiltinTools),
+    PiBuiltinTools(xai_grok_shared::ui_config::PiBuiltinTools),
 }
 
 /// Why `coding_data_sharing` cannot be changed in the settings modal.
@@ -408,7 +408,7 @@ impl SettingsRegistry {
     /// Stock Grok calls [`Self::defaults`] and therefore never sees host-only
     /// feature rows.
     pub fn defaults_with_host_features(
-        manifest: &xai_grok_shell::host_features::HostFeatureManifest,
+        manifest: &xai_grok_shared::host_features::HostFeatureManifest,
     ) -> Self {
         let mut entries = crate::settings::defs::default_settings();
         entries.extend(manifest.iter().map(host_feature_setting_meta));
@@ -477,20 +477,20 @@ fn assert_unique_keys(entries: &[SettingMeta]) {
 }
 
 fn host_feature_setting_meta(
-    spec: &'static xai_grok_shell::host_features::HostFeatureSpec,
+    spec: &'static xai_grok_shared::host_features::HostFeatureSpec,
 ) -> SettingMeta {
     let category = match spec.category {
-        xai_grok_shell::host_features::HostFeatureCategory::Appearance => {
+        xai_grok_shared::host_features::HostFeatureCategory::Appearance => {
             SettingCategory::Appearance
         }
-        xai_grok_shell::host_features::HostFeatureCategory::Popups => SettingCategory::Popups,
-        xai_grok_shell::host_features::HostFeatureCategory::Mouse => SettingCategory::Mouse,
-        xai_grok_shell::host_features::HostFeatureCategory::Editor => SettingCategory::Editor,
-        xai_grok_shell::host_features::HostFeatureCategory::Agent => SettingCategory::Agent,
-        xai_grok_shell::host_features::HostFeatureCategory::Privacy => SettingCategory::Privacy,
-        xai_grok_shell::host_features::HostFeatureCategory::Models => SettingCategory::Models,
-        xai_grok_shell::host_features::HostFeatureCategory::Session => SettingCategory::Session,
-        xai_grok_shell::host_features::HostFeatureCategory::Advanced => SettingCategory::Advanced,
+        xai_grok_shared::host_features::HostFeatureCategory::Popups => SettingCategory::Popups,
+        xai_grok_shared::host_features::HostFeatureCategory::Mouse => SettingCategory::Mouse,
+        xai_grok_shared::host_features::HostFeatureCategory::Editor => SettingCategory::Editor,
+        xai_grok_shared::host_features::HostFeatureCategory::Agent => SettingCategory::Agent,
+        xai_grok_shared::host_features::HostFeatureCategory::Privacy => SettingCategory::Privacy,
+        xai_grok_shared::host_features::HostFeatureCategory::Models => SettingCategory::Models,
+        xai_grok_shared::host_features::HostFeatureCategory::Session => SettingCategory::Session,
+        xai_grok_shared::host_features::HostFeatureCategory::Advanced => SettingCategory::Advanced,
     };
     assert!(
         crate::settings::layout::sections_for(category).contains(&spec.section),
@@ -548,7 +548,7 @@ pub fn current_value_for(
     ui: &UiConfig,
     pager: &PagerLocalSnapshot,
 ) -> Option<SettingValue> {
-    if let Some(spec) = xai_grok_shell::host_features::feature_spec_by_setting_key(key) {
+    if let Some(spec) = xai_grok_shared::host_features::feature_spec_by_setting_key(key) {
         return Some(SettingValue::Bool(spec.current_bool(ui)));
     }
     match key {
@@ -771,7 +771,7 @@ pub fn current_value_for(
         // None falls back to the resolver-shared default
         "remember_tool_approvals" => Some(SettingValue::Bool(
             ui.remember_tool_approvals
-                .unwrap_or(xai_grok_shell::util::config::DEFAULT_REMEMBER_TOOL_APPROVALS),
+                .unwrap_or(crate::settings_config::DEFAULT_REMEMBER_TOOL_APPROVALS),
         )),
         // ask_user_question timeout: reflects the effective TOML merge
         // The toggle writes the user layer, and the env and remote settings tiers feed the final gate at agent build
@@ -816,7 +816,7 @@ pub fn current_value_for(
         // The mirror persists the ModelId slug but the DynamicEnum canonicals are catalog display names, so resolve via the snapshot
         // A stale id passes through raw
         "fork_secondary_model" => Some(SettingValue::String({
-            let baseline = xai_grok_shell::models::default_model();
+            let baseline = xai_grok_models::default_model();
             if ui.fork_secondary_model == baseline {
                 String::new()
             } else {
@@ -1188,7 +1188,7 @@ mod tests {
                 ("remember_tool_approvals", SettingKind::Bool { default }) => {
                     assert_eq!(
                         *default,
-                        xai_grok_shell::util::config::DEFAULT_REMEMBER_TOOL_APPROVALS,
+                        crate::settings_config::DEFAULT_REMEMBER_TOOL_APPROVALS,
                         "remember_tool_approvals default drifts from the shared \
                          resolver const in xai-grok-shell"
                     );
@@ -1401,7 +1401,7 @@ mod tests {
                     // Cross-check: the UiConfig field IS the built-in default.
                     assert_eq!(
                         ui.fork_secondary_model,
-                        xai_grok_shell::models::default_model(),
+                        xai_grok_models::default_model(),
                         "UiConfig::default().fork_secondary_model must equal \
                          models::default_model() — drift here breaks the empty-fold contract",
                     );
@@ -1649,7 +1649,7 @@ mod tests {
             }
           ]
         }"#;
-        let manifest = xai_grok_shell::host_features::HostFeatureManifest::from_json_sources(&[(
+        let manifest = xai_grok_shared::host_features::HostFeatureManifest::from_json_sources(&[(
             "test/grok-pi.json",
             HOST_UI,
         )])
@@ -1996,7 +1996,7 @@ mod tests {
         let slug = "grok-4.5-fast";
         assert_ne!(
             slug,
-            xai_grok_shell::models::default_model(),
+            xai_grok_models::default_model(),
             "test slug must differ from the baseline or the empty-fold arm masks the lookup",
         );
         let pager = PagerLocalSnapshot {
@@ -2192,7 +2192,7 @@ mod tests {
         );
         // A user opt-out flips the read for that tip only.
         let ui = UiConfig {
-            contextual_hints: xai_grok_shell::agent::config::ContextualHints {
+            contextual_hints: xai_grok_shared::ui_config::ContextualHints {
                 undo: Some(false),
                 ..Default::default()
             },

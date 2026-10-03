@@ -1817,8 +1817,9 @@ impl PromptWidget {
 
         // ── Normal key handling ─────────────────────────────────────────
 
-        // Newline: Shift/Alt+Enter, or Apple Terminal bare Enter with a newline modifier held (CoreGraphics rescue inside is_mod_enter)
-        if crate::input::is_mod_enter(key) {
+        // Shift/Alt+Enter, Apple Terminal modifier rescue, or delivered SUPER+Enter.
+        // Handle SUPER here so it also replaces the native text selection.
+        if crate::input::is_mod_enter(key) || crate::input::is_delivered_super_enter(key) {
             self.insert_replacing_selection("\n");
             return PromptEvent::Edited;
         }

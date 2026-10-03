@@ -4,7 +4,6 @@ use crate::extensions::notification::{
     SessionNotification as XaiSessionNotification, SessionUpdate as XaiSessionUpdate,
 };
 use crate::session::persistence::PersistenceMsg;
-use xai_tool_types::workflow::WorkflowUpdate;
 
 /// Compatibility constructor for the stock ACP session actor.
 #[derive(Clone)]
@@ -56,58 +55,6 @@ impl WorkflowNotifySender {
     }
 }
 
-impl From<WorkflowUpdate> for XaiSessionUpdate {
-    fn from(update: WorkflowUpdate) -> Self {
-        let WorkflowUpdate {
-            run_id,
-            revision,
-            name,
-            objective,
-            status,
-            foreground,
-            phases,
-            current_phase,
-            agent_budget,
-            agents_used,
-            agents_reserved,
-            agents_remaining,
-            agent_usage_incomplete,
-            elapsed_ms,
-            active_agents,
-            current_agent_label,
-            agents,
-            last_event,
-            last_event_detail,
-            last_event_timestamp,
-            pause_message,
-            result_summary,
-        } = update;
-        Self::WorkflowUpdated {
-            run_id,
-            revision,
-            name,
-            objective,
-            status,
-            foreground,
-            phases,
-            current_phase,
-            agent_budget,
-            agents_used,
-            agents_reserved,
-            agents_remaining,
-            agent_usage_incomplete,
-            elapsed_ms,
-            active_agents,
-            current_agent_label,
-            agents,
-            last_event,
-            last_event_detail,
-            last_event_timestamp,
-            pause_message,
-            result_summary,
-        }
-    }
-}
 pub fn build_workflow_updated(
     state: &WorkflowRunState,
     elapsed_ms: u64,

@@ -4,7 +4,7 @@
 
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use xai_grok_shell::tools::{TodoItem, TodoStatus};
+use xai_tool_types::todo::{TodoItem, TodoStatus};
 
 use super::list_pane::ListItem;
 

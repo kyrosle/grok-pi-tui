@@ -13,7 +13,7 @@ use crate::render::wrapping::word_wrap_lines;
 use crate::scrollback::block::BlockContent;
 use crate::scrollback::types::{AccentStyle, BlockContext, BlockLine, BlockOutput};
 use crate::theme::{Theme, quantize};
-use xai_grok_shell::session::{ContextInfo, count_detail};
+use xai_grok_shared::session::{ContextInfo, count_detail};
 
 /// Categorical bar: each cell uses its category's glyph and color, filled left-to-right in legend order; free capacity is muted outlines.
 /// The informational rows never enter the bar.
@@ -579,7 +579,7 @@ impl BlockContent for ContextInfoBlock {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xai_grok_shell::session::TokenUsageCategory;
+    use xai_grok_shared::session::TokenUsageCategory;
 
     fn snapshot() -> ContextInfo {
         ContextInfo {

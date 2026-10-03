@@ -7,7 +7,7 @@ use crate::views::modal::ActiveModal;
 use crate::views::session_picker::repo_name_from_cwd;
 use crate::views::session_picker_surface::SessionPickerHost;
 
-use xai_grok_shell::session::unified_list::ListScope;
+use xai_grok_shared::session::catalog::ListScope;
 
 /// The history `kind` filter for the welcome screen's multi-source history under `--chat`.
 /// Sandbox maps to `chat` (gateway); Local maps to `build` (local-disk).
@@ -29,7 +29,7 @@ pub(in crate::app::dispatch) fn welcome_history_kind_filter(app: &AppView) -> Op
 /// `Only` on the Headless page, `Exclude` everywhere else.
 pub(in crate::app::dispatch) fn active_picker_headless_policy(
     app: &AppView,
-) -> xai_grok_shell::session::unified_list::HeadlessPolicy {
+) -> xai_grok_shared::session::catalog::HeadlessPolicy {
     let filter = if let Some(agent) = get_active_agent(app)
         && let Some(ActiveModal::SessionPicker { source_filter, .. }) = agent.active_modal.as_ref()
     {
@@ -92,7 +92,7 @@ pub(in crate::app::dispatch) fn dispatch_fetch_session_list(app: &mut AppView) -
         app.foreign_scan_coordinator.begin_request(foreign_seq);
         None
     } else {
-        let grok_home = xai_grok_tools::util::grok_home::grok_home();
+        let grok_home = xai_grok_config::grok_home();
         crate::app::foreign_sessions::scan_effect(
             &app.cwd,
             app.foreign_session_compat,

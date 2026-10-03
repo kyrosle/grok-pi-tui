@@ -25,7 +25,8 @@ if [[ -f "$PI_MAIN_ROOT/packages/coding-agent/package.json" ]]; then
   fi
 fi
 
-(cd "$GROK_ROOT" && "$ROOT/scripts/cargo-shared.sh" build -p xai-grok-pager-bin --bin grok-pi)
+(cd "$GROK_ROOT" && "$ROOT/scripts/cargo-shared.sh" build -p xai-grok-pager-bin --bin grok-pi \
+  --no-default-features --features jemalloc,sandbox-enforce)
 
 echo "Built: $GROK_ROOT/target/debug/grok-pi"
 echo "Pi:    $PI_BIN (min compatible 1.0.0)"

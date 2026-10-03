@@ -355,7 +355,7 @@ pub(in crate::app::dispatch) fn set_ask_user_question_timeout_enabled(
     app: &mut AppView,
     new: bool,
 ) -> Vec<Effect> {
-    use xai_grok_tools::implementations::grok_build::ask_user_question;
+    use xai_tool_types::questions as ask_user_question;
     let prev_state = app.ask_user_question_timeout_enabled;
     let prev_effective =
         prev_state.unwrap_or(ask_user_question::DEFAULT_ASK_USER_QUESTION_TIMEOUT_ENABLED);
@@ -1187,7 +1187,7 @@ pub(super) fn set_follow_up_behavior_inner(
     crate::appearance::cache::set_follow_up_behavior(new);
     // Same-process atomic only (tests / in-proc shell)
     // The real agent is a separate process; it re-resolves Steer from config.toml mtime after the PersistSetting disk write lands
-    xai_grok_shell::util::config::set_follow_up_steer_cache(new.is_steer());
+    crate::settings_config::set_follow_up_steer_cache(new.is_steer());
 }
 
 pub(in crate::app::dispatch) fn set_follow_up_behavior(
@@ -1290,11 +1290,11 @@ pub(in crate::app::dispatch) fn set_simple_mode(app: &mut AppView, new: bool) ->
 /// State-only mutation: write one tip's user-config Option, then re-resolve and fan the resolved gates out to `app` and every agent prompt.
 pub(super) fn set_contextual_hint_inner(
     app: &mut AppView,
-    write: fn(&mut xai_grok_shell::agent::config::ContextualHints, Option<bool>),
+    write: fn(&mut xai_grok_shared::ui_config::ContextualHints, Option<bool>),
     new: bool,
 ) {
     write(&mut app.current_ui.contextual_hints, Some(new));
-    let resolved = xai_grok_shell::util::config::resolve_contextual_hints(
+    let resolved = crate::settings_config::resolve_contextual_hints(
         &app.current_ui.contextual_hints,
         app.remote_contextual_hints.as_ref(),
     );
@@ -1307,7 +1307,7 @@ fn set_contextual_hint(
     key: crate::settings::SettingKey,
     label: &str,
     prev: Option<bool>,
-    write: fn(&mut xai_grok_shell::agent::config::ContextualHints, Option<bool>),
+    write: fn(&mut xai_grok_shared::ui_config::ContextualHints, Option<bool>),
     new: bool,
 ) -> Vec<Effect> {
     // Skip when the stored user-explicit value already matches (no-op toggle).
@@ -1974,6 +1974,7 @@ pub(in crate::app::dispatch) fn set_default_model(
     // would silently fail to resolve on the next startup.
     // slugs that must not become the global Build `default_model`.
     let mut effects: Vec<Effect> = Vec::new();
+    #[cfg(feature = "stock-runtime")]
     if !app.external_agent && !xai_grok_shell::agent::chat_modes::process_chat_mode_enabled() {
         let new_id_str = new_id.0.to_string();
         let prev_id_str = prev_id
@@ -2149,9 +2150,9 @@ pub(in crate::app::dispatch) fn set_fork_secondary_model(
 }
 
 /// Outer dispatcher for `Action::ClearForkSecondaryModel`.
-/// Resets the persisted override to the built-in baseline (`xai_grok_shell::models::default_model()`).
+/// Resets the persisted override to the built-in baseline (`xai_grok_models::default_model()`).
 pub(in crate::app::dispatch) fn clear_fork_secondary_model(app: &mut AppView) -> Vec<Effect> {
-    let baseline = xai_grok_shell::models::default_model().to_string();
+    let baseline = xai_grok_models::default_model().to_string();
     let prev_id_str = app.current_ui.fork_secondary_model.clone();
     if prev_id_str == baseline {
         // Idempotent: already at baseline.
@@ -2498,10 +2499,10 @@ pub(in crate::app::dispatch) fn set_pi_tree_skip_summary_prompt(
 
 pub(in crate::app::dispatch) fn set_host_feature_bool(
     app: &mut AppView,
-    key: xai_grok_shell::host_features::HostFeatureKey,
+    key: xai_grok_shared::host_features::HostFeatureKey,
     enabled: bool,
 ) -> Vec<Effect> {
-    let Some(spec) = xai_grok_shell::host_features::feature_spec(key) else {
+    let Some(spec) = xai_grok_shared::host_features::feature_spec(key) else {
         tracing::error!(target: "settings", key = key.as_str(), "unknown host feature");
         return vec![];
     };
@@ -2955,7 +2956,7 @@ pub(in crate::app::dispatch) fn set_max_thoughts_width(app: &mut AppView, new: i
 /// Effective-default lookup for the `Option<bool>` AppView mirrors (`show_tips`, `auto_update`, ask_user_question timeout).
 /// Matches the consumer's `.unwrap_or(...)` fallback.
 pub(super) fn pr13_effective_default(key: &str) -> Option<bool> {
-    use xai_grok_tools::implementations::grok_build::ask_user_question;
+    use xai_tool_types::questions as ask_user_question;
     match key {
         "show_tips" => Some(true),
         "auto_update" => Some(true),

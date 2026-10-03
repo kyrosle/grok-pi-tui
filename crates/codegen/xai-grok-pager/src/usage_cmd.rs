@@ -3,6 +3,7 @@
 use std::io::Write;
 
 use anyhow::{Context, Result};
+#[cfg(feature = "stock-runtime")]
 use xai_grok_shell::session::usage_file::{SessionUsageFile, UsageLoad};
 
 #[derive(Debug, clap::Args, Clone)]
@@ -13,6 +14,7 @@ pub struct UsageArgs {
     pub turn: Option<u32>,
 }
 
+#[cfg(feature = "stock-runtime")]
 pub fn run(args: UsageArgs) -> Result<()> {
     let payload = load_payload(&args.session_id, args.turn)?;
     let mut out = std::io::stdout().lock();
@@ -20,6 +22,7 @@ pub fn run(args: UsageArgs) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "stock-runtime")]
 fn load_payload(session_id: &str, turn: Option<u32>) -> Result<serde_json::Value> {
     match SessionUsageFile::load_for_session(session_id)
         .with_context(|| format!("Failed to read usage for session '{session_id}'"))?
@@ -34,6 +37,7 @@ fn load_payload(session_id: &str, turn: Option<u32>) -> Result<serde_json::Value
     }
 }
 
+#[cfg(feature = "stock-runtime")]
 fn select_payload(
     file: &SessionUsageFile,
     turn: Option<u32>,
@@ -55,7 +59,7 @@ fn select_payload(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "stock-runtime"))]
 mod tests {
     use super::*;
     use xai_grok_shell::session::usage_file::UsageSummary;

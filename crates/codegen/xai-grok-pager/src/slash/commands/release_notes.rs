@@ -12,7 +12,7 @@ impl SlashCommand for ReleaseNotesCommand {
     }
 
     fn run(&self, _ctx: &mut CommandExecCtx, _args: &str) -> CommandResult {
-        let changelog = xai_grok_shell::util::changelog::ChangelogManager::new().fetch();
+        let changelog = xai_grok_shell_base::util::changelog::ChangelogManager::new().fetch();
         match changelog.markdown {
             Some(content) => CommandResult::Action(Action::ShowReleaseNotes {
                 title: "Release Notes".to_string(),

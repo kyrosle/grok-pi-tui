@@ -33,3 +33,6 @@ harness = false
 scrolling-regions = [
     "ratatui/scrolling-regions",
 ] # required for terminal fork only
+
+# Read-only completed-frame inspection for native consumer tests.
+test-support = []

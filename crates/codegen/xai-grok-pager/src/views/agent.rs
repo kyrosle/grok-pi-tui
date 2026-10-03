@@ -1528,6 +1528,7 @@ mod tests {
             false,
             false,
             false,
+            false,
             selected_is_user_prompt,
             selected_is_agent_message,
             false,
@@ -1539,7 +1540,7 @@ mod tests {
     }
     fn hooked_read_state(member_count: usize, viewport: Rect) -> ScrollbackState {
         use crate::scrollback::RenderBlock;
-        use crate::scrollback::blocks::tool::{HookPhase, HookRunEntry, HookRunStatus};
+        use crate::scrollback::blocks::tool::{HookRunEntry, HookRunStatus};
         crate::appearance::cache::set_group_tool_verbs(true);
         crate::appearance::cache::set_show_thinking_blocks(false);
         let mut state = ScrollbackState::new();
@@ -1547,16 +1548,17 @@ mod tests {
         for i in 1..member_count {
             state.push_block(RenderBlock::read(format!("member-{i}.rs"), None));
         }
-        state.attach_hooks(
-            first,
-            HookPhase::Post,
-            vec![HookRunEntry {
-                name: "hover-hook".to_owned(),
-                status: HookRunStatus::Success {
-                    elapsed: std::time::Duration::from_millis(1),
-                },
-                output: None,
-            }],
+        state.get_by_id_mut(first).unwrap().hook_data = Some(
+            crate::scrollback::blocks::tool::ToolCallHookData {
+                post_hooks: vec![HookRunEntry {
+                    name: "hover-hook".to_owned(),
+                    status: HookRunStatus::Success {
+                        elapsed: std::time::Duration::from_millis(1),
+                    },
+                    output: None,
+                }],
+                ..Default::default()
+            },
         );
         state.prepare_layout(viewport.width, viewport.height);
         state
@@ -1713,6 +1715,7 @@ mod tests {
             false,
             false,
             false,
+            false,
             None,
         );
         let hint = hints
@@ -1742,6 +1745,7 @@ mod tests {
             false,
             false,
             true,
+            false,
             false,
             false,
             false,
@@ -1913,6 +1917,7 @@ mod tests {
             false,
             false,
             false,
+            false,
             Some(&search),
         )
     }
@@ -2017,6 +2022,7 @@ mod tests {
             false,
             false,
             false,
+            false,
             None,
         );
         assert!(
@@ -2058,6 +2064,7 @@ mod tests {
             true,
             false,
             is_turn_running,
+            false,
             false,
             false,
             false,
@@ -2118,6 +2125,7 @@ mod tests {
                 true,
                 false,
                 true,
+                false,
                 true,
                 false,
                 false,
@@ -2162,6 +2170,7 @@ mod tests {
                 vim_mode,
                 false,
                 true,
+                false,
                 false,
                 false,
                 false,
@@ -2216,6 +2225,7 @@ mod tests {
             false,
             false,
             false,
+            false,
             Some(&search),
         );
         let esc_cancels: Vec<&HintItem> = hints
@@ -2262,6 +2272,7 @@ mod tests {
             false,
             false,
             true,
+            false,
             false,
             false,
             false,

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Result, bail};
 use clap::{Subcommand, ValueEnum};
-use xai_grok_shell::util::config::{McpServerConfig, McpServerTransportConfig};
+use crate::settings_config::{McpServerConfig, McpServerTransportConfig};
 
 use crate::util::display_user_grok_path;
 
@@ -160,8 +160,8 @@ pub async fn run(mcp_args: McpArgs) -> Result<()> {
 fn run_list(json: bool) -> Result<()> {
     // Include project-scoped servers (nearest definition wins), matching what a session started in this directory would load from config.toml files
     let cwd = current_dir_or_exit();
-    let servers = xai_grok_shell::util::config::load_mcp_server_configs_with_project(&cwd);
-    let disabled = xai_grok_shell::util::config::disabled_mcp_server_names(&cwd);
+    let servers = crate::settings_config::load_mcp_server_configs_with_project(&cwd);
+    let disabled = crate::settings_config::disabled_mcp_server_names(&cwd);
     // `mcp_doctor::policy_subjects` judges this same TOML walk (plus the doctor-only `.mcp.json`
     // and plugin legs), so every server listed here has a verdict; the rule itself is the merge's.
     let blocked = xai_grok_shell::mcp_doctor::policy_blocked_servers(&cwd);
@@ -288,7 +288,7 @@ async fn run_add(args: AddArgs) -> Result<()> {
     }
 
     let path = scope_target(args.scope);
-    xai_grok_shell::util::config::save_mcp_server_config_at(&path, name, &config).await?;
+    crate::settings_config::save_mcp_server_config_at(&path, name, &config).await?;
     println!("Added {summary} to {} config", args.scope.label());
     println!("File modified: {}", scope_display(args.scope, &path));
     Ok(())
@@ -518,9 +518,9 @@ fn current_dir_or_exit() -> PathBuf {
 /// Resolve the config file path for a scope.
 fn scope_target(scope: McpScope) -> PathBuf {
     match scope {
-        McpScope::User => xai_grok_shell::util::config::user_config_path(),
+        McpScope::User => crate::settings_config::user_config_path(),
         McpScope::Project => {
-            xai_grok_shell::util::config::project_config_path(&current_dir_or_exit())
+            crate::settings_config::project_config_path(&current_dir_or_exit())
         }
     }
 }
@@ -549,7 +549,7 @@ fn select_remove_site(
     project_site: Option<PathBuf>,
     scope: Option<McpScope>,
 ) -> Result<(McpScope, PathBuf), RemoveError> {
-    use xai_grok_shell::util::config::user_config_path;
+    use crate::settings_config::user_config_path;
 
     match scope {
         Some(McpScope::User) => user_defined
@@ -578,7 +578,7 @@ fn surviving_definition(
             user_defined.then(|| {
                 (
                     McpScope::User,
-                    xai_grok_shell::util::config::user_config_path(),
+                    crate::settings_config::user_config_path(),
                 )
             })
         })
@@ -587,7 +587,7 @@ fn surviving_definition(
 /// Known names come from TOML, the disabled list, compat JSON, and plugins.
 /// Gateway connectors are rejected earlier (colon names).
 fn mcp_server_is_known(name: &str, cwd: &Path) -> bool {
-    xai_grok_shell::util::config::cli_known_mcp_server_names(cwd).contains(name)
+    crate::settings_config::cli_known_mcp_server_names(cwd).contains(name)
 }
 
 fn is_gateway_cli_toggle_name(name: &str) -> bool {
@@ -604,7 +604,7 @@ fn user_disabled_list_has(user_config: &toml::Value, name: &str) -> bool {
 }
 
 fn available_mcp_server_names(cwd: &Path) -> Vec<String> {
-    let mut names: Vec<String> = xai_grok_shell::util::config::cli_known_mcp_server_names(cwd)
+    let mut names: Vec<String> = crate::settings_config::cli_known_mcp_server_names(cwd)
         .into_iter()
         .collect();
     names.sort();
@@ -647,9 +647,9 @@ async fn run_set_enabled(name: &str, enabled: bool) -> Result<()> {
     // No-op check after the policy gate (blocked refuses, not "already enabled") and before the
     // save, which rewrites `enabled` keys; disable writes only the user list, so judge that list.
     let already = if enabled {
-        !xai_grok_shell::util::config::disabled_mcp_server_names(&cwd).contains(name)
+        !crate::settings_config::disabled_mcp_server_names(&cwd).contains(name)
     } else {
-        xai_grok_shell::config::load_from_disk()
+        xai_grok_config::load_from_disk()
             .is_ok_and(|user_config| user_disabled_list_has(&user_config, name))
     };
     if already {
@@ -659,9 +659,9 @@ async fn run_set_enabled(name: &str, enabled: bool) -> Result<()> {
     }
 
     let modified =
-        xai_grok_shell::util::config::save_mcp_server_enabled_in(name, enabled, &cwd).await?;
+        crate::settings_config::save_mcp_server_enabled_in(name, enabled, &cwd).await?;
 
-    let now_disabled = xai_grok_shell::util::config::disabled_mcp_server_names(&cwd).contains(name);
+    let now_disabled = crate::settings_config::disabled_mcp_server_names(&cwd).contains(name);
 
     if enabled && now_disabled {
         eprintln!(
@@ -680,7 +680,7 @@ async fn run_set_enabled(name: &str, enabled: bool) -> Result<()> {
         println!("Disabled MCP server '{name}'.");
     }
 
-    let user_config = xai_grok_shell::util::config::user_config_path();
+    let user_config = crate::settings_config::user_config_path();
     for path in &modified {
         if path == &user_config {
             println!(
@@ -695,7 +695,7 @@ async fn run_set_enabled(name: &str, enabled: bool) -> Result<()> {
 }
 
 async fn run_remove(name: &str, requested_scope: Option<McpScope>) -> Result<()> {
-    use xai_grok_shell::util::config::{
+    use crate::settings_config::{
         delete_mcp_server_config_at, mcp_server_defined_at, user_config_path,
     };
 
@@ -1395,7 +1395,7 @@ url = "https://mcp.example.test/sse"
 
     #[test]
     fn select_remove_site_covers_scope_presence_matrix() {
-        let user = xai_grok_shell::util::config::user_config_path();
+        let user = crate::settings_config::user_config_path();
         let project = PathBuf::from("/repo/.grok/config.toml");
 
         // No scope: a single hit resolves, both scopes is ambiguous, neither is NotFound
@@ -1439,7 +1439,7 @@ url = "https://mcp.example.test/sse"
 
     #[test]
     fn surviving_definition_prefers_project_then_user() {
-        let user = xai_grok_shell::util::config::user_config_path();
+        let user = crate::settings_config::user_config_path();
         let project = PathBuf::from("/repo/.grok/config.toml");
 
         // The mirror of the remove note: a user-scope delete with a project survivor (and vice versa) must still report the remaining site

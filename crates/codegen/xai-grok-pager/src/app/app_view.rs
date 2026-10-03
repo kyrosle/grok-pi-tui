@@ -141,7 +141,7 @@ pub struct ExternalUiState {
     /// Extension shortcut registry (populated from pi/ui/shortcuts RPC).
     pub extension_shortcuts: crate::app::extension_shortcuts::ExtensionShortcutRegistry,
     /// Extension-owned Cmd+P placement metadata imported by grok-pi.
-    pub host_palette: Vec<xai_grok_shell::host_features::HostPaletteSpec>,
+    pub host_palette: Vec<xai_grok_shared::host_features::HostPaletteSpec>,
 }
 
 /// A single overlay entry in the Remote TUI overlay stack.
@@ -325,9 +325,9 @@ pub enum WorktreeMode {
     /// Never create a worktree, skip the popup.
     Never,
 }
-impl From<xai_grok_shell::util::config::WorktreeHintMode> for WorktreeMode {
-    fn from(mode: xai_grok_shell::util::config::WorktreeHintMode) -> Self {
-        use xai_grok_shell::util::config::WorktreeHintMode;
+impl From<crate::settings_config::WorktreeHintMode> for WorktreeMode {
+    fn from(mode: crate::settings_config::WorktreeHintMode) -> Self {
+        use crate::settings_config::WorktreeHintMode;
         match mode {
             WorktreeHintMode::Ask => Self::Ask,
             WorktreeHintMode::Always => Self::Always,
@@ -339,7 +339,7 @@ impl WorktreeMode {
     /// Parse from a TOML string value.
     /// Unrecognised values fall back to [`WorktreeMode::Never`] with a debug-level log.
     pub fn from_config_str(s: &str) -> Self {
-        xai_grok_shell::util::config::WorktreeHintMode::from_config_str(s).into()
+        crate::settings_config::WorktreeHintMode::from_config_str(s).into()
     }
     /// Serialise to the TOML string representation.
     pub fn as_config_str(self) -> &'static str {
@@ -363,8 +363,7 @@ impl WorktreeMode {
     }
     /// Same as [`Self::resolve_from_hints`], for merged effective config (`toml::Value`).
     pub fn resolve_from_hints_value(hints: Option<&toml::Value>) -> (Self, Self) {
-        let (new_session, fork) =
-            xai_grok_shell::util::config::WorktreeHintMode::resolve_pair(hints);
+        let (new_session, fork) = crate::settings_config::WorktreeHintMode::resolve_pair(hints);
         (new_session.into(), fork.into())
     }
     fn resolve_from_hint_strings(get_str: impl Fn(&str) -> Option<Self>) -> (Self, Self) {
@@ -755,7 +754,7 @@ pub(crate) const TIER_RESTRICTED_COMMANDS: &[&str] =
 fn is_restricted_tier(tier: Option<&str>) -> bool {
     match tier {
         None => true,
-        Some(t) => xai_grok_shell::tier::is_restricted_tier_name(t),
+        Some(t) => xai_grok_login::tier::is_restricted_tier_name(t),
     }
 }
 /// True for API-key labels from shell/CCP: `"ApiKey"`, `"API Key"`, `"api_key"`.
@@ -791,7 +790,7 @@ pub struct AppView {
     pub settings_registry: Arc<crate::settings::SettingsRegistry>,
     /// In-memory snapshot of the effective `UiConfig`.
     /// Seeded once at startup; updated synchronously by `set_X_inner` so dispatch stays sans-IO.
-    pub current_ui: xai_grok_shell::agent::config::UiConfig,
+    pub current_ui: xai_grok_shared::ui_config::UiConfig,
     pub cwd: PathBuf,
     /// Whether the cwd is inside a git repository (any ancestor has `.git`).
     /// Pre-computed at startup so dispatch stays free of filesystem I/O.
@@ -1046,7 +1045,7 @@ pub struct AppView {
     pub session_picker_relaxed_notified_for: Option<std::path::PathBuf>,
     /// Content-based (deep search) results from ACP session search.
     pub session_picker_content_results:
-        Option<Vec<xai_grok_shell::extensions::session_search::SearchSessionHit>>,
+        Option<Vec<xai_grok_shared::session::catalog::SearchSessionHit>>,
     /// Whether a deep search is currently in flight.
     pub session_picker_content_loading: bool,
     /// Monotonically increasing sequence number for deep search requests.
@@ -1149,9 +1148,9 @@ pub struct AppView {
     /// Default all ON.
     /// Resolved at startup and on settings toggles.
     /// Precedence: `GROK_CONTEXTUAL_HINTS` (master) > `[ui.contextual_hints]` user config > remote tier > default.
-    pub contextual_hints: xai_grok_shell::util::config::ResolvedContextualHints,
+    pub contextual_hints: crate::settings_config::ResolvedContextualHints,
     /// Remote tier for the contextual hints, kept so a settings toggle can re-resolve the untouched tips against the same remote defaults.
-    pub remote_contextual_hints: Option<xai_grok_shell::util::config::ContextualHintsRemote>,
+    pub remote_contextual_hints: Option<xai_grok_config_types::ContextualHintsRemote>,
     /// Per-key seen counts for the ephemeral tips that stop showing after a cap; the single copy of this state.
     /// Passed to `show_ephemeral_tip`, which increments the matching key in place.
     /// In-memory only and per-session: never persisted to disk, so each pager run starts fresh (count 0).
@@ -1302,6 +1301,7 @@ pub struct AppView {
     /// Whether importable `.claude/` settings were detected at startup.
     pub has_claude_import: bool,
     /// When set, the welcome screen renders an interactive import modal instead of normal content.
+    #[cfg(feature = "stock-runtime")]
     pub import_claude_modal: Option<crate::views::import_claude_modal::ImportClaudeModalState>,
     /// Doc viewer overlay for the welcome screen (release notes via Ctrl+L).
     pub welcome_doc_viewer: Option<crate::views::modal::ActiveModal>,
@@ -1573,7 +1573,7 @@ impl AppView {
     }
     /// Extract `GateInfo` from `RemoteSettings`.
     pub fn gate_from_settings(
-        rs: &xai_grok_shell::util::config::RemoteSettings,
+        rs: &xai_grok_config_types::RemoteSettings,
     ) -> Option<xai_grok_login::GateInfo> {
         let msg = rs.gate_message.as_ref()?;
         if msg.is_empty() {
@@ -1687,7 +1687,7 @@ impl AppView {
             models,
             registry: ActionRegistry::defaults(),
             settings_registry: Arc::new(crate::settings::SettingsRegistry::defaults()),
-            current_ui: xai_grok_shell::agent::config::UiConfig::default(),
+            current_ui: xai_grok_shared::ui_config::UiConfig::default(),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             cwd_has_git_ancestor: std::env::current_dir()
                 .ok()
@@ -1793,7 +1793,7 @@ impl AppView {
             cli_effort_token: None,
             default_yolo: false,
             permission_mode_from_soft_default: true,
-            auto_mode_gate: xai_grok_shell::util::config::auto_permission_mode_enabled_from_disk(),
+            auto_mode_gate: crate::settings_config::auto_permission_mode_enabled_from_disk(),
             yolo_policy_block: None,
             yolo_launch_block_notice: None,
             screen_mode_switch_hint: None,
@@ -1878,6 +1878,7 @@ impl AppView {
             trust_quit_error: None,
             relaunch: None,
             has_claude_import: false,
+            #[cfg(feature = "stock-runtime")]
             import_claude_modal: None,
             welcome_doc_viewer: None,
             screen_mode: ScreenMode::Inline,
@@ -2221,7 +2222,7 @@ impl AppView {
         {
             return true;
         }
-        self.import_claude_modal.is_some()
+        self.stock_import_claude_modal_open()
             || self.voice_listening()
             || self.voice_state.pending_cold_start()
     }
@@ -3646,6 +3647,7 @@ impl AppView {
                     sp_content_loading: self.session_picker_content_loading,
                     sp_entries_query: &self.session_picker_entries_query,
                     has_claude_import: self.has_claude_import,
+                    #[cfg(feature = "stock-runtime")]
                     import_claude_modal: &mut self.import_claude_modal,
                     welcome_doc_viewer: &mut self.welcome_doc_viewer,
                     changelog_markdown: &self.changelog_markdown,
@@ -3843,6 +3845,7 @@ impl AppView {
                         }
                     }
                 }
+                #[cfg(feature = "stock-runtime")]
                 if let Some(modal) = self.import_claude_modal.as_mut() {
                     use crate::views::import_claude_modal::ImportClaudeModalOutcome;
                     let outcome_to_input = |o: ImportClaudeModalOutcome| match o {
@@ -4367,12 +4370,12 @@ struct WelcomeInputCtx<'a> {
     /// Mirrors the render's `session_picker_loading` param: the spinner-only picker still owns input (Esc must dismiss it, not hit the hidden menu).
     sp_loading: bool,
     sp_state: &'a mut crate::views::picker::PickerState,
-    sp_content_results:
-        &'a Option<Vec<xai_grok_shell::extensions::session_search::SearchSessionHit>>,
+    sp_content_results: &'a Option<Vec<xai_grok_shared::session::catalog::SearchSessionHit>>,
     sp_content_loading: bool,
     /// The query `sp_entries` were server-fetched with (see [`crate::views::session_picker::effective_filter_query`]).
     sp_entries_query: &'a Option<String>,
     has_claude_import: bool,
+    #[cfg(feature = "stock-runtime")]
     import_claude_modal: &'a mut Option<crate::views::import_claude_modal::ImportClaudeModalState>,
     welcome_doc_viewer: &'a mut Option<crate::views::modal::ActiveModal>,
     changelog_markdown: &'a Option<String>,
@@ -4409,6 +4412,7 @@ struct WelcomeInputCtx<'a> {
 }
 /// Welcome view input: overlays first, then composer, then the menu.
 fn handle_welcome_input(ev: &Event, ctx: &mut WelcomeInputCtx<'_>) -> InputOutcome {
+    #[cfg(feature = "stock-runtime")]
     if let Some(modal) = ctx.import_claude_modal.as_mut() {
         use crate::views::import_claude_modal::ImportClaudeModalOutcome;
         let outcome_to_input = |o: ImportClaudeModalOutcome| match o {
@@ -4965,9 +4969,11 @@ fn handle_welcome_input(ev: &Event, ctx: &mut WelcomeInputCtx<'_>) -> InputOutco
             if ctx.has_foreign_resume && key!('u', CONTROL).matches(key) {
                 return InputOutcome::Action(Action::ResumeForeignSession);
             }
+            #[cfg(feature = "stock-runtime")]
             if ctx.has_claude_import && key!('i', CONTROL).matches(key) {
                 return InputOutcome::Action(Action::ImportClaudeSettings);
             }
+            #[cfg(feature = "stock-runtime")]
             if ctx.has_claude_import && key!('I', CONTROL | SHIFT).matches(key) {
                 return InputOutcome::Action(Action::DismissClaudeImport);
             }
@@ -5139,6 +5145,7 @@ fn handle_welcome_input(ev: &Event, ctx: &mut WelcomeInputCtx<'_>) -> InputOutco
                         if !ctx.has_access {
                             return dispatch_access_gate_menu_action(i);
                         }
+                        #[cfg(feature = "stock-runtime")]
                         if ctx.has_claude_import
                             && i == 0
                             && mouse.column >= rect.x + rect.width.saturating_sub(4)
@@ -5230,6 +5237,7 @@ fn handle_welcome_input(ev: &Event, ctx: &mut WelcomeInputCtx<'_>) -> InputOutco
                 {
                     return InputOutcome::Action(Action::ShowRawAuthUrl);
                 }
+                #[cfg(feature = "stock-runtime")]
                 if let Some(rect) = ctx.import_banner_rect
                     && matches!(ctx.auth_state, AuthState::Done)
                     && mouse.column >= rect.x
@@ -5424,6 +5432,7 @@ fn dispatch_menu_action(
     let changelog_url = menu_policy.and_then(|m| m.changelog_url);
 
     let mut next = if has_claude_import { 1 } else { 0 };
+    #[cfg(feature = "stock-runtime")]
     if has_claude_import && index == 0 {
         return InputOutcome::Action(Action::ImportClaudeSettings);
     }
@@ -5581,7 +5590,7 @@ impl AppView {
         let capture_on = super::MOUSE_CAPTURE_ENABLED.load(std::sync::atomic::Ordering::Acquire);
         if want_off && capture_on {
             self.native_select_hold = true;
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 let _ = crossterm::execute!(stderr, crossterm::event::DisableMouseCapture);
             });
             #[cfg(windows)]
@@ -5589,7 +5598,7 @@ impl AppView {
             super::MOUSE_CAPTURE_ENABLED.store(false, std::sync::atomic::Ordering::Release);
         } else if !want_off && self.native_select_hold {
             self.native_select_hold = false;
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 let _ = crossterm::execute!(stderr, crossterm::event::EnableMouseCapture);
             });
             super::MOUSE_CAPTURE_ENABLED.store(true, std::sync::atomic::Ordering::Release);
@@ -5623,7 +5632,7 @@ impl AppView {
                 .hyperlink_capabilities()
                 .osc22_cursor
             {
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let _ = crossterm::execute!(stderr, crate::terminal::SetDefaultCursor);
                 });
             }
@@ -5675,6 +5684,7 @@ impl AppView {
         });
         let welcome_default_yolo = self.default_yolo;
         let welcome_auto_gate = self.auto_mode_gate;
+        let import_claude_modal_open = self.stock_import_claude_modal_open();
         let Self {
             active_view,
             agents,
@@ -5898,6 +5908,7 @@ impl AppView {
                         self.welcome_announcement.truncated = result.announcement_truncated;
                         self.welcome_announcement.rect = result.announcement_rect;
                         self.session_picker_state.hit_areas = result.session_picker_hit_areas;
+                        #[cfg(feature = "stock-runtime")]
                         if let Some(modal) = self.import_claude_modal.as_mut() {
                             let theme = crate::theme::Theme::current();
                             crate::views::import_claude_modal::render_import_claude_modal(
@@ -6120,6 +6131,7 @@ impl AppView {
                                     esc_owned_before_agent,
                                 },
                             );
+                            #[cfg(feature = "stock-runtime")]
                             if let Some(modal) = self.import_claude_modal.as_mut() {
                                 let theme = crate::theme::Theme::current();
                                 crate::views::import_claude_modal::render_import_claude_modal(
@@ -6146,10 +6158,7 @@ impl AppView {
                             }
                             let (cursor_pos, post_flush) = result;
                             let has_cloud = false;
-                            if has_cloud
-                                || self.import_claude_modal.is_some()
-                                || self.tutorial.is_some()
-                            {
+                            if has_cloud || import_claude_modal_open || self.tutorial.is_some() {
                                 link_spans.clear();
                             }
                             let cursor = if has_cloud || self.tutorial.is_some() {
@@ -6424,7 +6433,7 @@ impl AppView {
     fn is_scroll_blocking_modal_open(&self) -> bool {
         let cloud_modal_open = false;
         matches!(self.active_view, ActiveView::Agent(id) if self.agents.get(&id).is_some_and(|a| a.extensions_modal.is_some() || a.active_modal.is_some()))
-            || self.import_claude_modal.is_some()
+            || self.stock_import_claude_modal_open()
             || self.new_worktree_dialog.is_some()
             || self.welcome_doc_viewer.is_some()
             || self.tutorial.is_some()
@@ -6438,7 +6447,7 @@ impl AppView {
     /// Reused by startup and the settings live-apply path so a runtime toggle reaches existing agents.
     pub fn apply_contextual_hints(
         &mut self,
-        resolved: xai_grok_shell::util::config::ResolvedContextualHints,
+        resolved: crate::settings_config::ResolvedContextualHints,
     ) {
         self.contextual_hints = resolved;
         for agent in self.agents.values_mut() {
@@ -6607,7 +6616,7 @@ impl AppView {
                 needs_redraw = true;
             }
         }
-        needs_redraw |= self.minimal_state.transcript.is_some();
+        needs_redraw |= self.minimal_state.needs_frames();
         needs_redraw |= self.poll_clipboard_focus_tip();
         if matches!(self.active_view, ActiveView::Welcome) {
             self.welcome_tick = self.welcome_tick.wrapping_add(1);
@@ -6894,7 +6903,7 @@ impl AppView {
         if self.gboom_active() {
             return Some(std::time::Duration::from_millis(33));
         }
-        if self.minimal_state.transcript.is_some() {
+        if self.minimal_state.needs_frames() {
             return Some(std::time::Duration::from_millis(16));
         }
         None
@@ -6968,7 +6977,7 @@ impl AppView {
         if self.pending_action.is_some() {
             return TickDemand::Fast;
         }
-        if self.minimal_state.transcript.is_some() {
+        if self.minimal_state.needs_frames() {
             return TickDemand::Fast;
         }
         if self
@@ -7181,3 +7190,17 @@ impl AppView {
 #[cfg(test)]
 #[path = "app_view_tests.rs"]
 pub(crate) mod tests;
+
+impl AppView {
+    /// Only the compiled stock importer can own native modal input.
+    fn stock_import_claude_modal_open(&self) -> bool {
+        #[cfg(feature = "stock-runtime")]
+        {
+            self.import_claude_modal.is_some()
+        }
+        #[cfg(not(feature = "stock-runtime"))]
+        {
+            false
+        }
+    }
+}

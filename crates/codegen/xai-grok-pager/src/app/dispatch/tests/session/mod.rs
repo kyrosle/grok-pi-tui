@@ -10,8 +10,8 @@ mod modal;
 mod optimistic_home;
 mod take_deferred;
 
-fn content_hit(id: &str) -> xai_grok_shell::extensions::session_search::SearchSessionHit {
-    xai_grok_shell::extensions::session_search::SearchSessionHit {
+fn content_hit(id: &str) -> xai_grok_shared::session::catalog::SearchSessionHit {
+    xai_grok_shared::session::catalog::SearchSessionHit {
         session_id: id.into(),
         summary: id.into(),
         cwd: "/repo".into(),

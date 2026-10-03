@@ -152,9 +152,9 @@ pub(super) fn set_plan_mode(
     // If the user was in `Ask` (shell-injection only), that preference is silently dropped
     // See `PLAN_MODE_CHOICES` in `settings/defs.rs`
     let mode_id = acp::SessionModeId::new(if new {
-        xai_grok_tools::types::SessionMode::Plan.as_id()
+        xai_tool_types::session_mode::SessionMode::Plan.as_id()
     } else {
-        xai_grok_tools::types::SessionMode::Default.as_id()
+        xai_tool_types::session_mode::SessionMode::Default.as_id()
     });
 
     vec![Effect::SetSessionMode {
@@ -601,7 +601,7 @@ fn dispatch_external_plan_cycle(app: &mut AppView, id: crate::app::agent::AgentI
         let session_id = agent.session.session_id.clone();
         agent.plan_mode_pending = Some(enter_plan);
         agent.deferred_session_mode = if session_id.is_none() && enter_plan {
-            Some(xai_grok_tools::types::SessionMode::Plan)
+            Some(xai_tool_types::session_mode::SessionMode::Plan)
         } else {
             None
         };
@@ -620,9 +620,9 @@ fn dispatch_external_plan_cycle(app: &mut AppView, id: crate::app::agent::AgentI
         vec![Effect::SetSessionMode {
             session_id,
             mode_id: acp::SessionModeId::new(if enter_plan {
-                xai_grok_tools::types::SessionMode::Plan.as_id()
+                xai_tool_types::session_mode::SessionMode::Plan.as_id()
             } else {
-                xai_grok_tools::types::SessionMode::Default.as_id()
+                xai_tool_types::session_mode::SessionMode::Default.as_id()
             }),
         }]
     } else {
@@ -666,7 +666,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
             // Normal to Plan
             (false, false, false) => {
                 agent.plan_mode_pending = Some(true);
-                agent.deferred_session_mode = Some(xai_grok_tools::types::SessionMode::Plan);
+                agent.deferred_session_mode = Some(xai_tool_types::session_mode::SessionMode::Plan);
                 agent.show_mode_switch_banner("Plan");
                 tracing::info!("Mode cycle (pre-session): Normal → Plan");
                 None
@@ -798,7 +798,9 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
             tracing::info!("Mode cycle: Normal → Plan");
             vec![Effect::SetSessionMode {
                 session_id,
-                mode_id: acp::SessionModeId::new(xai_grok_tools::types::SessionMode::Plan.as_id()),
+                mode_id: acp::SessionModeId::new(
+                    xai_tool_types::session_mode::SessionMode::Plan.as_id(),
+                ),
             }]
         }
         // Plan to Auto (classifier mode; exit plan, not always-approve)
@@ -822,7 +824,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
                         Effect::SetSessionMode {
                             session_id: session_id.clone(),
                             mode_id: acp::SessionModeId::new(
-                                xai_grok_tools::types::SessionMode::Default.as_id(),
+                                xai_tool_types::session_mode::SessionMode::Default.as_id(),
                             ),
                         },
                         Effect::PersistPermissionMode {
@@ -843,7 +845,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
                     Effect::SetSessionMode {
                         session_id: session_id.clone(),
                         mode_id: acp::SessionModeId::new(
-                            xai_grok_tools::types::SessionMode::Default.as_id(),
+                            xai_tool_types::session_mode::SessionMode::Default.as_id(),
                         ),
                     },
                     Effect::PersistPermissionMode {
@@ -864,7 +866,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
                 Effect::SetSessionMode {
                     session_id: session_id.clone(),
                     mode_id: acp::SessionModeId::new(
-                        xai_grok_tools::types::SessionMode::Default.as_id(),
+                        xai_tool_types::session_mode::SessionMode::Default.as_id(),
                     ),
                 },
                 Effect::PersistPermissionMode {
@@ -932,7 +934,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
             vec![Effect::SetSessionMode {
                 session_id,
                 mode_id: acp::SessionModeId::new(
-                    xai_grok_tools::types::SessionMode::Default.as_id(),
+                    xai_tool_types::session_mode::SessionMode::Default.as_id(),
                 ),
             }]
         }
@@ -951,7 +953,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
                 Effect::SetSessionMode {
                     session_id: session_id.clone(),
                     mode_id: acp::SessionModeId::new(
-                        xai_grok_tools::types::SessionMode::Default.as_id(),
+                        xai_tool_types::session_mode::SessionMode::Default.as_id(),
                     ),
                 },
                 Effect::PersistPermissionMode {
@@ -981,7 +983,7 @@ fn dispatch_cycle_mode_inner(app: &mut AppView) -> Vec<Effect> {
                 effects.push(Effect::SetSessionMode {
                     session_id: session_id.clone(),
                     mode_id: acp::SessionModeId::new(
-                        xai_grok_tools::types::SessionMode::Default.as_id(),
+                        xai_tool_types::session_mode::SessionMode::Default.as_id(),
                     ),
                 });
             }

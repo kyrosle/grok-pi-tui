@@ -6,12 +6,12 @@ use agent_client_protocol as acp;
 use xai_acp_lib::AcpClientMessage;
 
 use super::actions::Effect;
-use xai_grok_shell::extensions::notification::{
+use xai_grok_shared::session::todo::todo_item_from_plan_entry;
+use xai_grok_shared::session::notification::{
     SessionNotification, SessionUpdate as XaiSessionUpdate, is_reauthable_failure,
 };
-use xai_grok_shell::tools::todo::todo_item_from_plan_entry;
-use xai_grok_tools::notification::ScheduledTaskRemovedReason;
-use xai_grok_workspace::permission::bash_command_splitting::BashCommandHighlights;
+use xai_tool_types::scheduled_task::ScheduledTaskRemovedReason;
+use xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights;
 
 use crate::acp::meta::NotificationMeta;
 use crate::acp::tracker::AcpUpdateTracker;

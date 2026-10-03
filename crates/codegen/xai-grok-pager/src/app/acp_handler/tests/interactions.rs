@@ -111,7 +111,7 @@
         // An exec-vehicle bash prompt that offers the scoped "Always allow:" row must open on a default scope that persists a grant
         // That scope is the full command, not a bare `python3` prefix (which the ←/→ arrows could not repair)
         use std::sync::Arc;
-        use xai_grok_workspace::permission::bash_command_splitting::BashCommandHighlights;
+        use xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights;
 
         let mut app = make_app_with_agent("sess-1");
         let highlights = BashCommandHighlights {
@@ -161,7 +161,7 @@
             "exec vehicle must open on the full-command scope"
         );
         assert!(
-            xai_grok_workspace::permission::always_allow_scope_persists(
+            xai_grok_shared::permissions::always_allow_scope_persists(
                 perm.bash_highlights.as_ref().unwrap(),
                 perm.bash_selection_count,
             ),

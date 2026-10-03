@@ -3,11 +3,11 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use xai_grok_workspace::permission::bash_command_splitting::{
+use xai_grok_shared::permissions::bash_command_splitting::{
     BashCommandHighlights, heredoc_payload_byte_ranges, range_fully_inside,
     soft_break_offsets_after_operators,
 };
-use xai_grok_workspace::permission::{
+use xai_grok_shared::permissions::{
     ALLOW_EDITS_SESSION_OPTION_ID, BashCommandPermission, McpToolPermission, mcp_titleize_segment,
     mcp_tool_action, mcp_tool_display_name,
 };
@@ -170,7 +170,7 @@ impl PermissionViewState {
             let len = h.highlighted_words.len();
             let allow_adjustable = has_row(ALLOW_ALWAYS_COMMAND_OPTION_ID)
                 && (1..=len)
-                    .filter(|&n| xai_grok_workspace::permission::always_allow_scope_persists(h, n))
+                    .filter(|&n| xai_grok_shared::permissions::always_allow_scope_persists(h, n))
                     .nth(1)
                     .is_some();
             let deny_adjustable = has_row(REJECT_ALWAYS_COMMAND_OPTION_ID) && len > 1;
@@ -229,7 +229,7 @@ impl PermissionViewState {
     }
 
     pub fn step_persisting_allow_scope(&self, right: bool) -> usize {
-        use xai_grok_workspace::permission::always_allow_scope_persists;
+        use xai_grok_shared::permissions::always_allow_scope_persists;
         let current = self.bash_selection_count;
         let Some(h) = self.bash_highlights.as_ref() else {
             return current;
@@ -698,7 +698,7 @@ pub fn render_permission_view(
 
 pub(crate) fn preview_command_text(state: &PermissionViewState) -> String {
     match state.bash_highlights.as_ref() {
-        Some(h) => xai_grok_workspace::permission::bash_command_splitting::unwrap_command_wrappers(
+        Some(h) => xai_grok_shared::permissions::bash_command_splitting::unwrap_command_wrappers(
             &h.highlighted_words,
         )
         .join(" "),
@@ -775,7 +775,7 @@ fn render_pattern_preview_line(
                 dim,
             ));
         }
-        Some(pattern) if xai_grok_workspace::permission::bash_glob_is_catchall(pattern) => {
+        Some(pattern) if xai_grok_shared::permissions::bash_glob_is_catchall(pattern) => {
             spans.push(Span::styled(
                 "\u{2717} matches everything, won't be saved",
                 Style::default().fg(theme.accent_error),
@@ -785,7 +785,7 @@ fn render_pattern_preview_line(
             spans.push(Span::styled(" cancel", dim));
         }
         Some(pattern) => {
-            if xai_grok_workspace::permission::bash_pattern_matches_command(pattern, command) {
+            if xai_grok_shared::permissions::bash_pattern_matches_command(pattern, command) {
                 spans.push(Span::styled(
                     "\u{2713} matches this command",
                     Style::default().fg(theme.accent_success),
@@ -796,7 +796,7 @@ fn render_pattern_preview_line(
                     Style::default().fg(theme.accent_error),
                 ));
             }
-            if xai_grok_workspace::permission::bash_pattern_is_broad(pattern) {
+            if xai_grok_shared::permissions::bash_pattern_is_broad(pattern) {
                 spans.push(sep.clone());
                 spans.push(Span::styled(
                     "\u{26a0} very broad",

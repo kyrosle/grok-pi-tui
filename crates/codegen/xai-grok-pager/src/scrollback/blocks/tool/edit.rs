@@ -2508,7 +2508,7 @@ mod tests {
     #[test]
     fn snapshot_diff_basic_dual() {
         let theme = Theme::current();
-        let config = dual_config();
+        let config = DiffRenderConfig { dual_line_numbers: true, ..Default::default() };
         let path = Path::new("test.txt");
         let outputs = render_diff_hunk_highlighted(&make_hunk(), path, &theme, 80, &config);
         insta::assert_snapshot!("diff_basic_dual", diff_outputs_to_string(&outputs));
@@ -2544,7 +2544,7 @@ mod tests {
         ];
 
         let theme = Theme::current();
-        let config = dual_config();
+        let config = DiffRenderConfig { dual_line_numbers: true, ..Default::default() };
         let path = Path::new("test.txt");
         let outputs = render_diff_hunk_highlighted(&hunk, path, &theme, 80, &config);
         insta::assert_snapshot!(
@@ -2578,7 +2578,7 @@ mod tests {
         ];
 
         let theme = Theme::current();
-        let config = dual_config();
+        let config = DiffRenderConfig { dual_line_numbers: true, ..Default::default() };
         let path = Path::new("test.txt");
         let outputs = render_diff_hunk_highlighted(&hunk, path, &theme, 40, &config);
         insta::assert_snapshot!("diff_reflow_dual", diff_outputs_to_string(&outputs));
@@ -2616,7 +2616,7 @@ mod tests {
         ];
 
         let theme = Theme::current();
-        let config = dual_config();
+        let config = DiffRenderConfig { dual_line_numbers: true, ..Default::default() };
         let path = Path::new("test.txt");
         let outputs = render_diff_hunks_highlighted(&[hunk1, hunk2], path, &theme, 80, &config);
         insta::assert_snapshot!("diff_multiple_hunks_dual", diff_outputs_to_string(&outputs));

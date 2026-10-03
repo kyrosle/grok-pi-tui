@@ -96,7 +96,7 @@ impl ResourcePolicy {
     /// Returns `Default` when no layers exist.
     pub fn load_from_config() -> Self {
         let mut policy = Self::default();
-        let home = xai_grok_tools::util::grok_home::grok_home().join("config.toml");
+        let home = xai_grok_config::grok_home().join("config.toml");
         policy.merge_partial(&load_partial_from_path(&home));
 
         if let Ok(cwd) = std::env::current_dir() {
@@ -157,7 +157,7 @@ impl ResourcePolicy {
     /// Persist the policy to `$GROK_HOME/config.toml` under `[pi.resources]`,
     /// preserving all other tables and keys. Project sidecar is hand-edited.
     pub fn save_to_config(&self) -> std::io::Result<()> {
-        let path = xai_grok_tools::util::grok_home::grok_home().join("config.toml");
+        let path = xai_grok_config::grok_home().join("config.toml");
         self.save_to_path(&path)
     }
 

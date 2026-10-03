@@ -417,6 +417,16 @@ fn dispatch_dashboard_load_local_build(
 ) -> Vec<Effect> {
     use crate::views::dashboard::DashboardRowId;
 
+    if app.external_agent {
+        return dispatch_load_session(app, session_id, cwd_hint, false);
+    }
+    #[cfg(not(feature = "stock-runtime"))]
+    {
+        app.show_toast("Grok session storage is unavailable in this product");
+        return vec![];
+    }
+    #[cfg(feature = "stock-runtime")]
+    {
     let resolved = cwd_hint
         .and_then(|cwd| {
             xai_grok_shell::session::resolve_local_session(&session_id, &cwd.to_string_lossy())
@@ -458,6 +468,7 @@ fn dispatch_dashboard_load_local_build(
         log_dashboard_attached(&DashboardRowId::TopLevel(new_id));
     }
     effects
+    }
 }
 
 pub(super) fn dispatch_dashboard_pick_session(app: &mut AppView, index: usize) -> Vec<Effect> {
@@ -980,7 +991,18 @@ pub(super) fn dispatch_dashboard_open_location_picker(app: &mut AppView) -> Vec<
     let cwd = app.cwd.clone();
     // LocalSet-safe collect (see `collect_recent_dirs_blocking`); never
     // `block_in_place` here — panics under grok-pi's composition runtime.
-    let recent = super::session::fork::collect_recent_dirs_blocking(10);
+    let recent = if app.external_agent {
+        let roster = app.dashboard_local_sessions.iter().filter_map(|entry| chrono::DateTime::from_timestamp_millis(entry.last_change_unix_ms)
+            .map(|at| (std::path::PathBuf::from(&entry.cwd), at)));
+        let picker = app.session_picker_entries.iter().flatten().map(|entry| (std::path::PathBuf::from(&entry.cwd), entry.updated_at));
+        crate::recent_dirs::collect_catalog_dirs(roster.chain(picker), 10)
+    } else {
+        #[cfg(feature = "stock-runtime")] { super::session::fork::collect_recent_dirs_blocking(10) }
+        #[cfg(not(feature = "stock-runtime"))] {
+            app.show_toast("Grok session storage is unavailable in this product");
+            return vec![];
+        }
+    };
 
     // Worktree label index keyed by root path, built once and reused to tag both recents and live directory suggestions
     let worktrees = crate::git_info::worktree_label_index();
@@ -1657,7 +1679,7 @@ pub(super) fn dispatch_dashboard_dispatch_slash(app: &mut AppView, text: String)
 fn stage_dashboard_model(
     app: &mut AppView,
     model_id: acp::ModelId,
-    effort: Option<xai_grok_shell::sampling::types::ReasoningEffort>,
+    effort: Option<xai_grok_sampling_types::types::ReasoningEffort>,
 ) {
     let display = app
         .models
@@ -1713,7 +1735,7 @@ pub(super) fn apply_pending_dispatch_config(
         | DashboardDispatchMode::Auto
         | DashboardDispatchMode::AlwaysApprove => {}
         DashboardDispatchMode::Plan => {
-            agent.deferred_session_mode = Some(xai_grok_tools::types::SessionMode::Plan);
+            agent.deferred_session_mode = Some(xai_tool_types::session_mode::SessionMode::Plan);
             // Optimistic so the agent view reflects plan mode immediately when opened via Ctrl+S, before the ACP round-trip confirms it.
             // opened via Ctrl+S, before the ACP round-trip confirms it.
             agent.plan_mode_pending = Some(true);
@@ -2350,7 +2372,7 @@ fn stop_top_level_activity(agent: &mut crate::app::agent_view::AgentView) -> Opt
             effects.push(Effect::KillBgTask {
                 session_id: session_id.clone(),
                 task_id,
-                source: xai_grok_shell::extensions::task::TaskKillSource::Teardown,
+                source: xai_tool_types::task_wire::TaskKillSource::Teardown,
             });
         }
         for task_id in plan.scheduled_tasks {

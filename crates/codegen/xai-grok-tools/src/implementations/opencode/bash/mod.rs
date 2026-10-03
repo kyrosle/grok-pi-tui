@@ -263,21 +263,6 @@ impl BashTool {
     }
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Into<ToolOutput> for BashToolOutput
-// ───────────────────────────────────────────────────────────────────────────
-
-impl From<BashToolOutput> for crate::types::output::ToolOutput {
-    fn from(o: BashToolOutput) -> Self {
-        match o {
-            BashToolOutput::Bash(b) => crate::types::output::ToolOutput::Bash(b),
-            BashToolOutput::BackgroundTaskStarted(b) => {
-                crate::types::output::ToolOutput::BackgroundTaskStarted(b)
-            }
-        }
-    }
-}
-
 impl crate::types::tool_metadata::ToolMetadata for BashTool {
     fn kind(&self) -> ToolKind {
         ToolKind::Execute

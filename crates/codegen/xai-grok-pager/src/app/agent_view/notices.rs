@@ -125,7 +125,7 @@ impl AgentView {
             // They are distinct from active_modal, and persona_detail only renders atop the agents modal
             // A tip could at most peek beside the modal, so refuse
             || self.extensions_modal.is_some()
-            || self.agents_modal.is_some()
+            || self.stock_agents_modal_open()
             // Goal-detail is a vertically-centered overlay painted after the tip; its box only reaches the banner row for tall/content-rich goals
             // Kept unconditional as a safe over-refusal (like the modals and line_viewer): a tip during goal reading is unwanted regardless
             || (self.show_goal_detail && self.goal_state.is_some())

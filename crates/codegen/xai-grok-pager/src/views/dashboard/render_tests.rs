@@ -397,6 +397,12 @@ fn dashboard_session_picker_renders_simple_open_surface() {
     surface.entries = Some(vec![crate::app::app_view::SessionPickerEntry {
         id: "local-session".to_owned(),
         summary: "Resume this local session".to_owned(),
+        name: None,
+        first_message: None,
+        session_path: None,
+        total_tokens: None,
+        total_cost: None,
+        parent_session_path: None,
         updated_at: chrono::Utc::now(),
         created_at: chrono::Utc::now(),
         cwd: "/repo".to_owned(),

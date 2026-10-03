@@ -430,7 +430,7 @@ fn expired_task_notice(info: &crate::app::agent::ScheduledTaskInfo) -> String {
     format!(
         "Scheduled task expired: \"{head}\" ({}). Recurring tasks auto-expire after {} days; re-create it if still needed.",
         info.human_schedule,
-        xai_grok_tools::implementations::grok_build::scheduler::types::RECURRING_TASK_TTL_DAYS,
+        xai_tool_types::scheduled_task::RECURRING_TASK_TTL_DAYS,
     )
 }
 /// Derive the effective CWD and worktree flag for a child session.
@@ -450,7 +450,7 @@ pub(super) fn derive_child_cwd(
 
 /// Updates the cached branch/worktree display on the matching agent so the status bar can render without spawning `git` on every frame.
 pub(super) fn handle_git_head_changed(notif: &acp::ExtNotification, app: &mut AppView) -> bool {
-    let Ok(params) = serde_json::from_str::<xai_grok_workspace::session::git::GitHeadChanged>(
+    let Ok(params) = serde_json::from_str::<xai_grok_workspace_types::rpc::git::GitHeadChanged>(
         notif.params.get(),
     ) else {
         return false;

@@ -205,54 +205,8 @@ impl crate::types::resources::ResourceType for BashParams {
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Product default advertised in the model-facing schema (FG). Not applied as a
-/// serde default: omit/`None` must remain "use host/FG policy, BG unbounded".
-fn schema_default_timeout_ms() -> Option<u64> {
-    Some(120_000)
-}
-
 /// Input for the bash/terminal command tool.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct BashToolInput {
-    #[cfg_attr(unix, schemars(description = "The bash command to run."))]
-    #[cfg_attr(not(unix), schemars(description = "The command to run."))]
-    pub command: String,
-
-    /// Optional timeout in milliseconds (max 300000). Default: 120000 (2 minutes), enforced for
-    /// foreground commands only. Background semantics live in the tool-description usage notes.
-    /// keep in sync with the rustdoc above
-    #[schemars(
-        description = "Optional timeout in milliseconds (max 300000). Default: 120000 (2 minutes), enforced for foreground commands only.",
-        default = "schema_default_timeout_ms"
-    )]
-    // Some models serialize numeric tool args as JSON strings (`"120000"`), which a plain `Option<u64>` rejects. Accept
-    // string-or-number here; the schema still advertises an integer. Serde default stays None so omit ≠ Some(120000):
-    // background omit must stay unbounded (see resolve_effective_timeout). Schema still advertises 120000.
-    #[serde(
-        default,
-        deserialize_with = "crate::types::schema::deserialize_lenient_u64",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub timeout: Option<u64>,
-
-    /// One sentence explanation as to why this command needs to be run and how it contributes to the goal.
-    #[schemars(
-        description = "One sentence explanation as to why this command needs to be run and how it contributes to the goal."
-    )]
-    pub description: String,
-
-    /// Set to true for long-running commands that should run in the background (e.g., dev servers, long builds). Returns a task id immediately
-    /// while the command keeps running in the background; you are notified on completion, so do not poll or sleep-wait for it. "task id" stays
-    /// plain English: the kill/get-output input params are renameable, so naming a literal key here goes stale after randomization.
-    #[schemars(
-        description = "Set to true for long-running commands that should run in the background (e.g., dev servers, long builds). Returns a task id immediately while the command keeps running in the background${%- if system_reminders_enabled %}; you are notified on completion, so do not poll or sleep-wait for it${%- elif tools.by_kind.background_task_action %}; check on it later with the ${{ tools.by_kind.background_task_action }} tool${%- endif %}."
-    )]
-    #[serde(
-        default,
-        deserialize_with = "crate::types::schema::deserialize_lenient_bool"
-    )]
-    pub is_background: bool,
-}
+pub use xai_tool_types::output_dependencies::BashToolInput;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Output

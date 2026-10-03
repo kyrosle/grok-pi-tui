@@ -11,7 +11,7 @@ use agent_client_protocol as acp;
 // ---------------------------------------------------------------------------
 
 use crate::views::permission_view::{McpScope, PermissionFocus, PermissionViewState};
-use xai_grok_workspace::permission::{BashCommandSelectedTerms, McpScopeSelection};
+use xai_grok_shared::permissions::{BashCommandSelectedTerms, McpScopeSelection};
 
 /// Free-form pattern taken from the editor on confirm.
 pub(super) struct EditedPattern {
@@ -130,7 +130,7 @@ pub(super) fn dispatch_permission_select(
     // Detect the "enable always-approve mode" id BEFORE moving option_id into the response
     // Cheap str compare on the `Arc<str>` interior
     let enable_always_approve =
-        option_id.0.as_ref() == xai_grok_workspace::permission::ENABLE_ALWAYS_APPROVE_OPTION_ID;
+        option_id.0.as_ref() == xai_grok_shared::permissions::ENABLE_ALWAYS_APPROVE_OPTION_ID;
 
     // Remember the user's choice (by option kind) so the next prompt's cursor
     // sticks to it. Skip the two options that aren't per-prompt choices:
@@ -142,7 +142,7 @@ pub(super) fn dispatch_permission_select(
     // Allow-flavored choices only: a rejection must not steer a later prompt's
     // cursor onto a reject row (enforced by the kind filter below).
     let steers_next_cursor = !enable_always_approve
-        && option_id.0.as_ref() != xai_grok_workspace::permission::ALLOW_EDITS_SESSION_OPTION_ID;
+        && option_id.0.as_ref() != xai_grok_shared::permissions::ALLOW_EDITS_SESSION_OPTION_ID;
     if steers_next_cursor
         && let Some(kind) = perm
             .options

@@ -2543,105 +2543,30 @@ mod tests {
     }
 
     #[test]
-    fn stop_hooks_attach_only_to_turn_terminal_markers() {
+    fn hook_outcomes_stay_separate_from_turn_terminal_markers() {
         use crate::scrollback::blocks::SessionEvent;
-        use crate::scrollback::blocks::tool::{HookRunEntry, HookRunStatus};
-        let entries = || {
-            vec![HookRunEntry {
-                name: "h".into(),
-                status: HookRunStatus::Success {
-                    elapsed: std::time::Duration::from_millis(1),
-                },
-                output: None,
-            }]
-        };
 
         let mut state = ScrollbackState::new();
         let marker = state.push_block(RenderBlock::session_event(SessionEvent::TurnCompleted {
             elapsed: Some(std::time::Duration::from_secs(2)),
         }));
-        // An unstamped marker can't confirm a stamped batch — refused; an
-        // unstamped batch keeps the tail-only heuristic.
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", Some("pid-a")),
-            None
-        );
-        assert!(!state.attach_stop_hooks_to_marker(
-            marker,
-            "stop".into(),
-            entries(),
-            Some("pid-a")
-        ));
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", None),
-            Some(marker)
-        );
-        assert!(state.attach_stop_hooks_to_marker(marker, "stop".into(), entries(), None));
+        let outcome = state.push_block(RenderBlock::session_event(SessionEvent::HookOutcome {
+            message: "stop hook (global/qa) failed, ignored: boom".into(),
+        }));
 
-        // Same-name repeat is refused; a new event name is accepted.
-        assert_eq!(state.latest_turn_marker_accepting("stop", None), None);
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop_failure", None),
-            Some(marker)
-        );
-    }
-
-    #[test]
-    fn stop_hooks_respect_marker_prompt_id() {
-        use crate::scrollback::blocks::tool::{HookRunEntry, HookRunStatus};
-        use crate::scrollback::blocks::{SessionEvent, SessionEventBlock};
-        let entries = || {
-            vec![HookRunEntry {
-                name: "h".into(),
-                status: HookRunStatus::Success {
-                    elapsed: std::time::Duration::from_millis(1),
-                },
-                output: None,
-            }]
+        assert_eq!(state.len(), 2);
+        let RenderBlock::SessionEvent(block) = &state.get_by_id(marker).unwrap().block else {
+            panic!("expected turn marker");
         };
-
-        let mut state = ScrollbackState::new();
-        let marker = state.push_block(RenderBlock::SessionEvent(
-            SessionEventBlock::with_stop_hooks(
-                SessionEvent::TurnCompleted {
-                    elapsed: Some(std::time::Duration::from_secs(2)),
-                },
-                Vec::new(),
-                Some("pid-new".into()),
-            ),
-        ));
-
-        // A batch stamped with another turn's pid is refused even though the
-        // marker has no same-name group; an unstamped (legacy) batch and a
-        // matching pid are accepted.
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", Some("pid-old")),
-            None
-        );
-        assert!(!state.attach_stop_hooks_to_marker(
-            marker,
-            "stop".into(),
-            entries(),
-            Some("pid-old")
-        ));
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", None),
-            Some(marker)
-        );
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", Some("pid-new")),
-            Some(marker)
-        );
-        assert!(state.attach_stop_hooks_to_marker(
-            marker,
-            "stop".into(),
-            entries(),
-            Some("pid-new")
+        assert!(block.stop_hooks.is_empty(), "outcomes do not decorate turn markers");
+        assert!(matches!(
+            &state.get_by_id(outcome).unwrap().block,
+            RenderBlock::SessionEvent(block) if matches!(block.event, SessionEvent::HookOutcome { .. })
         ));
     }
 
     #[test]
-    fn stop_hooks_merge_walks_past_interleaved_tail_blocks() {
+    fn hook_outcomes_preserve_terminal_marker_prompt_id() {
         use crate::scrollback::blocks::{SessionEvent, SessionEventBlock};
 
         let mut state = ScrollbackState::new();
@@ -2654,44 +2579,46 @@ mod tests {
                 Some("pid-new".into()),
             ),
         ));
-        // A block lands between the marker and the batch (compaction, recap,
-        // a previous batch's standalone fallback, …).
-        state.push_block(RenderBlock::session_event(
-            SessionEvent::CompactionCompleted {
-                tokens_before: Some(100),
-                tokens_after: 10,
-                elapsed_ms: Some(5),
-            },
-        ));
+        state.push_block(RenderBlock::session_event(SessionEvent::HookOutcome {
+            message: "stop_cancelled hook (global/qa) failed, ignored: boom".into(),
+        }));
 
-        // An exact pid match merges across the interleaved block; an
-        // unstamped batch can't be attributed off-tail and a foreign pid is
-        // refused outright.
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", Some("pid-new")),
-            Some(marker)
-        );
-        assert_eq!(state.latest_turn_marker_accepting("stop", None), None);
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", Some("pid-old")),
-            None
-        );
+        let RenderBlock::SessionEvent(block) = &state.get_by_id(marker).unwrap().block else {
+            panic!("expected turn marker");
+        };
+        assert_eq!(block.prompt_id.as_deref(), Some("pid-new"));
+        assert!(block.stop_hooks.is_empty());
+    }
 
-        // The walk never skips past a newer turn-terminal marker: the batch
-        // belongs to the latest turn or to nothing.
-        state.push_block(RenderBlock::SessionEvent(
-            SessionEventBlock::with_stop_hooks(
-                SessionEvent::TurnCompleted {
-                    elapsed: Some(std::time::Duration::from_secs(3)),
-                },
-                Vec::new(),
-                Some("pid-newer".into()),
-            ),
-        ));
-        assert_eq!(
-            state.latest_turn_marker_accepting("stop", Some("pid-new")),
-            None
-        );
+    #[test]
+    fn hook_outcomes_keep_arrival_order_across_turn_markers() {
+        use crate::scrollback::blocks::SessionEvent;
+
+        let mut state = ScrollbackState::new();
+        let marker = state.push_block(RenderBlock::session_event(SessionEvent::TurnCompleted {
+            elapsed: Some(std::time::Duration::from_secs(2)),
+        }));
+        state.push_block(RenderBlock::session_event(SessionEvent::CompactionCompleted {
+            tokens_before: Some(100),
+            tokens_after: 10,
+            elapsed_ms: Some(5),
+        }));
+        let outcome = state.push_block(RenderBlock::session_event(SessionEvent::HookOutcome {
+            message: "stop hook (global/qa) failed, ignored: boom".into(),
+        }));
+        let newer = state.push_block(RenderBlock::session_event(SessionEvent::TurnCompleted {
+            elapsed: Some(std::time::Duration::from_secs(3)),
+        }));
+
+        assert_eq!(state.get(0).unwrap().id, marker);
+        assert_eq!(state.get(2).unwrap().id, outcome);
+        assert_eq!(state.get(3).unwrap().id, newer);
+        for id in [marker, newer] {
+            let RenderBlock::SessionEvent(block) = &state.get_by_id(id).unwrap().block else {
+                panic!("expected turn marker");
+            };
+            assert!(block.stop_hooks.is_empty());
+        }
     }
 
     /// A finished user `!` command expands to its full output; a Collapsed

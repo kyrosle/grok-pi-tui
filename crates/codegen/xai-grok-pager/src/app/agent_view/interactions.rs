@@ -187,7 +187,7 @@ impl AgentView {
                 if key.code == KeyCode::Enter {
                     if edit
                         .trimmed()
-                        .is_some_and(|p| !xai_grok_workspace::permission::bash_glob_is_catchall(p))
+                        .is_some_and(|p| !xai_grok_shared::permissions::bash_glob_is_catchall(p))
                         && let Some(opt) = perm
                             .allow_always_command_idx()
                             .and_then(|idx| perm.options.get(idx))
@@ -1157,7 +1157,7 @@ impl AgentView {
         }
     }
     pub(super) fn submit_question_answers(&mut self, skipped: bool) -> InputOutcome {
-        use xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionExtResponse;
+        use xai_tool_types::questions::AskUserQuestionExtResponse;
         self.swap_question_freeform();
         let Some(mut qv) = self.question_view.take() else {
             return InputOutcome::Changed;
@@ -1614,7 +1614,7 @@ mod permission_scope_key_tests {
             ),
         ];
         perm.bash_highlights = Some(
-            xai_grok_workspace::permission::bash_command_splitting::BashCommandHighlights {
+            xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights {
                 prefix: vec![],
                 highlighted_words: vec!["cargo".into(), "test".into(), "--workspace".into()],
                 suffix: vec![],
@@ -1654,7 +1654,7 @@ mod permission_scope_key_tests {
         {
             let perm = agent.permission_queue.front_mut().unwrap();
             perm.bash_highlights = Some(
-                xai_grok_workspace::permission::bash_command_splitting::BashCommandHighlights {
+                xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights {
                     prefix: vec![],
                     highlighted_words: vec!["git".into(), "push".into(), "origin".into()],
                     suffix: vec![],
@@ -1697,7 +1697,7 @@ mod permission_scope_key_tests {
         {
             let perm = agent.permission_queue.front_mut().unwrap();
             perm.bash_highlights = Some(
-                xai_grok_workspace::permission::bash_command_splitting::BashCommandHighlights {
+                xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights {
                     prefix: vec![],
                     highlighted_words: vec![
                         "git".into(),
@@ -1916,7 +1916,7 @@ mod permission_scope_key_tests {
         perm.options = vec![
             option("allow-once", acp::PermissionOptionKind::AllowOnce),
             option(
-                xai_grok_workspace::permission::ALLOW_EDITS_SESSION_OPTION_ID,
+                xai_grok_shared::permissions::ALLOW_EDITS_SESSION_OPTION_ID,
                 acp::PermissionOptionKind::AllowAlways,
             ),
             option("reject-once", acp::PermissionOptionKind::RejectOnce),
@@ -2005,9 +2005,7 @@ mod question_no_freeform_tests {
     };
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     /// Fixed options, single-select; shaped like the free-usage upsell.
     fn upsell_question() -> Question {
         let opt = |label: &str, desc: &str| QuestionOption {
@@ -2317,9 +2315,7 @@ mod question_answer_focus_tests {
     use crate::views::prompt_widget::StashedPrompt;
     use crate::views::question_view::{QuestionFocus, QuestionSelection, QuestionViewState};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     fn question(prompt: &str, labels: &[&str]) -> Question {
         Question {
             question: prompt.into(),

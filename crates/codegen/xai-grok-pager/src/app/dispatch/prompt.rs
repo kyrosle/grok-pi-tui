@@ -127,9 +127,7 @@ pub(super) fn open_doctor_fix_question(
     plan: Box<crate::diagnostics::FixPlan>,
 ) {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
 
     let Some(agent) = app.agents.get_mut(&target.agent_id) else {
         return;
@@ -1440,7 +1438,7 @@ pub(super) fn handle_prompt_response(
             || result
                 .as_ref()
                 .err()
-                .is_some_and(|e| xai_grok_shell::sampling::error::is_free_usage_exhausted_error(e));
+                .is_some_and(|e| xai_grok_shared::session::sampling_error::is_free_usage_exhausted_error(e));
         let model_incompatible = agent.session.model_incompatible;
         // Context overflow: the RetryState handler already pushed the actionable block, so the generic TurnFailed and error toast are redundant
         // Derived from the scrollback (mirrors reauth), not a session flag
@@ -1470,7 +1468,7 @@ pub(super) fn handle_prompt_response(
         let reauth_prompted = scrollback_has_recent_reauth_prompt(&agent.scrollback)
             || (http_status == Some(401)
                 && result.as_ref().err().is_some_and(|e| {
-                    e.contains(xai_grok_shell::extensions::notification::HTTP_401_NEEDLE)
+                    e.contains(xai_grok_shared::session::notification::HTTP_401_NEEDLE)
                 }));
         let request_failed_shown = scrollback_has_recent_request_failed(&agent.scrollback);
         // A dedicated prompt/modal/banner replaces the generic TurnFailed marker and error toast

@@ -29,7 +29,7 @@ use xai_tool_types::KillTaskOutput;
 use xai_tool_types::SubagentCompletedOutput;
 use xai_tool_types::TaskOutputOutput;
 /// Default tool name used in auto-wake completion messages.
-pub const DEFAULT_TASK_OUTPUT_TOOL: &str = "get_task_output";
+pub use xai_tool_types::tool_names::DEFAULT_TASK_OUTPUT_TOOL;
 /// UI/Stop kill with no live waiter: tell the model not to relaunch the task.
 const USER_KILLED_NOTICE: &str = "This task was killed by the user — do not restart it.\n";
 fn user_killed_notice(task: &TaskSnapshot) -> &'static str {
@@ -374,7 +374,7 @@ pub async fn resolve_task_output_tool_name(bridge: &ToolBridge) -> Option<String
 pub async fn resolve_read_tool_name(bridge: &ToolBridge) -> Option<String> {
     bridge.tool_for_kind(ToolKind::Read).await
 }
-pub const SCHEDULER_DELETE_REGISTRY_ID: &str = "scheduler_delete";
+pub use xai_tool_types::tool_names::SCHEDULER_DELETE_REGISTRY_ID;
 /// Resolve the active toolset's scheduled-task deletion tool name.
 pub async fn resolve_scheduler_delete_tool_name(bridge: &ToolBridge) -> Option<String> {
     bridge.tool_for_registry_id(SCHEDULER_DELETE_REGISTRY_ID)
@@ -382,32 +382,7 @@ pub async fn resolve_scheduler_delete_tool_name(bridge: &ToolBridge) -> Option<S
 pub async fn resolve_scheduler_create_tool_name(bridge: &ToolBridge) -> Option<String> {
     bridge.tool_for_registry_id(xai_grok_tools_api::slash_commands::SCHEDULER_CREATE_TOOL_NAME)
 }
-pub(crate) fn scheduled_wakeup_footer(
-    schedule_id: &str,
-    tools: super::ScheduledWakeupTools<'_>,
-) -> String {
-    let mut parts = Vec::new();
-    if let Some(child) = tools.child {
-        parts
-            .push(
-                format!(
-            "Check the subagent output using {}(\"{}\"). If there are issues, proactively debug and fix them, do not just report it to the user.",
-            child.name, child.id,
-        ),
-            );
-    }
-    if let Some(schedule) = tools.schedule {
-        parts
-            .push(
-                format!(
-            "If this schedule is no longer relevant, run {}(\"{schedule_id}\"). If it is outdated, you can update it with {}(new_prompt, interval, \"{schedule_id}\").",
-            schedule.delete,
-            schedule.create,
-        ),
-            );
-    }
-    parts.join("\n")
-}
+pub(crate) use xai_tool_types::schedule_presentation::scheduled_wakeup_footer;
 fn loop_task_id(c: &SubagentCompletionSummary) -> Option<&str> {
     c.loop_task_id
         .as_deref()

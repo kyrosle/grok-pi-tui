@@ -44,7 +44,7 @@ pub(super) fn ensure_login_method(app: &mut AppView) {
 /// When the list is empty, prefer the shell's `PREFERRED_API_KEY_UNAVAILABLE` copy.
 fn no_login_method_error(app: &AppView) -> String {
     if app.auth_methods.is_empty() {
-        xai_grok_shell::agent::auth_method::PREFERRED_API_KEY_UNAVAILABLE.to_string()
+        xai_grok_login::auth_method::PREFERRED_API_KEY_UNAVAILABLE.to_string()
     } else {
         "No login method available".to_string()
     }

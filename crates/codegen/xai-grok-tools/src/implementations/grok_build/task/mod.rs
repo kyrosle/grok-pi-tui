@@ -33,7 +33,7 @@ use crate::types::tool::{ToolKind, ToolNamespace};
 use regex::Regex;
 use xai_tool_types::{SubagentCompletedOutput, SubagentIsolationMode, TaskToolInput};
 
-pub const TASK_TOOL_NAME: &str = "task";
+pub use xai_tool_types::tool_names::TASK_TOOL_NAME;
 
 /// Default max nesting depth when [`MaxSubagentDepth`] is not injected.
 pub const MAX_SUBAGENT_DEPTH: u32 = 1;
@@ -176,9 +176,7 @@ pub struct TaskTool;
 /// True when `name` is a wire name of the subagent-spawn ("task") tool. Accepts every spelling regardless of enabled
 /// features: names arrive over the wire from arbitrary toolsets. Spellings other than [`TASK_TOOL_NAME`] are defined
 /// downstream and pinned to this predicate by tests at their definition sites.
-pub fn is_task_tool_id(name: &str) -> bool {
-    matches!(name, TASK_TOOL_NAME | "Task" | "spawn_subagent")
-}
+pub use xai_tool_types::task_snapshot::is_task_tool_id;
 
 fn flatten_spawn_join(
     joined: Result<Result<SubagentResult, xai_tool_runtime::ToolError>, tokio::task::JoinError>,

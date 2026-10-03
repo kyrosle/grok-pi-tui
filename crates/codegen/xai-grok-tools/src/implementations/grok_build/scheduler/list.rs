@@ -8,23 +8,9 @@ use super::types::{SchedulerCommand, SchedulerHandle};
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct SchedulerListInput {}
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ScheduledTaskSummary {
-    pub id: String,
-    pub prompt: String,
-    pub interval_human: String,
-    pub next_fire_at: String,
-    pub created_at: String,
-    pub recurring: bool,
-}
+pub use xai_tool_types::output_dependencies::ScheduledTaskSummary;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct SchedulerListOutput {
-    pub tasks: Vec<ScheduledTaskSummary>,
-}
-
-impl xai_tool_runtime::ToolOutput for SchedulerListOutput {}
+pub use xai_tool_types::output_dependencies::SchedulerListOutput;
 
 #[derive(Debug, Default)]
 pub struct SchedulerListTool;

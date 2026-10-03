@@ -27,7 +27,7 @@ use crate::scrollback::blocks::SessionEvent;
 use crate::scrollback::state::ScrollbackState;
 use agent_client_protocol as acp;
 use std::time::Instant;
-use xai_grok_shell::sampling::types::ReasoningEffort;
+use xai_grok_sampling_types::types::ReasoningEffort;
 /// A deferred model switch to apply once the session exists, plus any effort error to report.
 /// `switch` is still populated when a `-m` model was stashed even if the effort token failed, so an invalid effort never drops the CLI model override.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -210,9 +210,7 @@ pub(in crate::app::dispatch) fn dispatch_new_session(app: &mut AppView) -> Vec<E
 /// The answer routes to [`dispatch_new_session_inner`] or [`dispatch_new_worktree_session`].
 pub(in crate::app::dispatch) fn open_new_session_question(app: &mut AppView) -> Vec<Effect> {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let ActiveView::Agent(id) = app.active_view else {
         return vec![];
     };
@@ -263,13 +261,11 @@ pub(in crate::app::dispatch) fn open_new_session_question(app: &mut AppView) -> 
 pub(in crate::app::dispatch) fn open_agent_type_mismatch_question(
     app: &mut AppView,
     model_id: acp::ModelId,
-    effort: Option<xai_grok_shell::sampling::types::ReasoningEffort>,
+    effort: Option<xai_grok_sampling_types::types::ReasoningEffort>,
     model_name: &str,
 ) -> Vec<Effect> {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let ActiveView::Agent(id) = app.active_view else {
         return vec![];
     };
@@ -596,9 +592,7 @@ pub(in crate::app::dispatch) fn open_delete_current_session_question(
     app: &mut AppView,
 ) -> Vec<Effect> {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let ActiveView::Agent(id) = app.active_view else {
         return vec![];
     };
@@ -697,7 +691,7 @@ pub(in crate::app::dispatch) fn dispatch_delete_current_session_answered(
             .map(|task_id| Effect::KillBgTask {
                 session_id: session_id.clone(),
                 task_id,
-                source: xai_grok_shell::extensions::task::TaskKillSource::Teardown,
+                source: xai_tool_types::task_wire::TaskKillSource::Teardown,
             }),
     );
     app.show_toast("Deleting session\u{2026}");
@@ -716,12 +710,20 @@ pub(in crate::app::dispatch) fn dispatch_trust_folder(app: &mut AppView) -> Vec<
         return vec![];
     };
     let shown = workspace.clone();
-    let outcome = xai_grok_workspace::folder_trust::grant_folder_trust_key(&shown);
-    if outcome.dismisses_gate() {
-        return finish_trust(app);
+    #[cfg(feature = "stock-runtime")]
+    {
+        let outcome = xai_grok_workspace::folder_trust::grant_folder_trust_key(&shown);
+        if outcome.dismisses_gate() {
+            return finish_trust(app);
+        }
+        app.trust_quit_error = Some(outcome.to_string());
+        confirmed_quit(app)
     }
-    app.trust_quit_error = Some(outcome.to_string());
-    confirmed_quit(app)
+    #[cfg(not(feature = "stock-runtime"))]
+    {
+        app.trust_quit_error = Some("Folder trust is owned by the external agent".into());
+        confirmed_quit(app)
+    }
 }
 /// Tail of accepting the folder-trust question (via [`dispatch_trust_folder`]; declining quits instead).
 /// Resolves `trust_state` to `Done`, focuses the welcome prompt, and replays the deferred session startup once auth is also resolved.
@@ -1573,7 +1575,7 @@ pub(in crate::app::dispatch) fn handle_session_created(
 /// displayed mode when that prompt's tool calls arrive.
 fn deferred_mode_effects(
     session_id: &acp::SessionId,
-    deferred_mode: Option<xai_grok_tools::types::SessionMode>,
+    deferred_mode: Option<xai_tool_types::session_mode::SessionMode>,
     deferred_permission: Option<&'static str>,
 ) -> Vec<Effect> {
     let mut effects = Vec::new();

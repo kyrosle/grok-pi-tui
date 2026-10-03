@@ -1,14 +1,14 @@
 use super::*;
-use xai_grok_shell::extensions::notification::HookAnnotationKind;
-use xai_grok_shell::sampling::error::format_rate_limited_user_message;
+use xai_grok_shared::session::notification::HookAnnotationKind;
+use xai_grok_shared::session::sampling_error::format_rate_limited_user_message;
 /// The one scrollback line a failed run gets; success gets none and a deny is already annotated by the shell.
 /// "ignored" is literal (fail-open); a config-tier source has no name worth showing, so its line names only the event.
 pub(super) fn failed_hook_line(
     event_name: &str,
-    run: &xai_grok_shell::extensions::notification::HookRunEntryDto,
+    run: &xai_grok_shared::session::notification::HookRunEntryDto,
 ) -> Option<String> {
     use xai_grok_hooks::config::HookDisplayName;
-    use xai_grok_shell::extensions::notification::HookRunStatusDto;
+    use xai_grok_shared::session::notification::HookRunStatusDto;
     let HookRunStatusDto::Failed {
         error,
         blocked: false,
@@ -201,6 +201,7 @@ pub(super) fn handle_session_notification_with_origin(
         }
         _ => {}
     }
+    let external_agent = app.external_agent;
     let is_api_key_auth = app.is_api_key_auth;
     let matched = match find_session_match(app, &session_notif.session_id) {
         Some(m) => m,
@@ -226,6 +227,8 @@ pub(super) fn handle_session_notification_with_origin(
             child_sid,
             agent,
             is_api_key_auth,
+            external_agent,
+            session_notif.meta.as_ref(),
         );
         return changed && is_active;
     }
@@ -598,13 +601,15 @@ pub(super) fn handle_session_notification_with_origin(
                 attempt,
                 is_new_attempt,
             );
-            if meta.is_replay && agent.session.loading_replay {
+            if external_agent {
+                info.transcript = crate::app::subagent::ChildTranscript::AdapterManaged;
+            } else if meta.is_replay && agent.session.loading_replay {
                 info.transcript.begin_parent_replay();
             }
             agent
                 .subagent_sessions
                 .insert(child_session_id.clone(), info);
-            if !had_prior_info
+            if !external_agent && !had_prior_info
                 && let Some(ref sid) = agent.session.session_id
                 && let Some(info) = agent.subagent_sessions.get_mut(&child_session_id)
             {
@@ -936,9 +941,13 @@ pub(super) fn handle_session_notification_with_origin(
                 child_view.session.state = AgentState::Idle;
             }
             if !resuming {
-                let outcome =
-                    crate::app::subagent::evict_finished_child_view(agent, &child_session_id);
-                if outcome == crate::app::subagent::EvictOutcome::Retained
+                #[cfg(feature = "stock-runtime")]
+                let retain = crate::app::subagent::evict_finished_child_view(agent, &child_session_id)
+                    == crate::app::subagent::EvictOutcome::Retained;
+                // Native Pi views are filled by ACP and remain available until session teardown.
+                #[cfg(not(feature = "stock-runtime"))]
+                let retain = true;
+                if retain
                     && let Some(child_view) =
                         agent.child_view_for_live_update_mut(&child_session_id)
                 {
@@ -1040,13 +1049,13 @@ pub(super) fn handle_session_notification_with_origin(
         }
         XaiSessionUpdate::SessionSummaryGenerated { session_summary } => {
             let title_is_manual = session_notif.meta.as_ref().and_then(|v| {
-                v.get(xai_grok_shell::extensions::notification::TITLE_IS_MANUAL_META_KEY)
+                v.get(xai_grok_shared::session::notification::TITLE_IS_MANUAL_META_KEY)
                     .and_then(|v| v.as_bool())
             });
             match title_is_manual {
                 Some(true) => {
                     if let Some(clean) =
-                        xai_grok_shell::session::persistence::sanitize_and_cap_title(
+                        xai_grok_shared::session::title::sanitize_and_cap_title(
                             &session_summary,
                         )
                     {
@@ -1064,7 +1073,7 @@ pub(super) fn handle_session_notification_with_origin(
                     };
                     let decoded = decode_html_entities(&session_summary);
                     if let Some(clean) =
-                        xai_grok_shell::session::persistence::sanitize_and_cap_title(&decoded)
+                        xai_grok_shared::session::title::sanitize_and_cap_title(&decoded)
                     {
                         agent.generated_session_title = Some(clean);
                     } else if other == Some(false)
@@ -1170,22 +1179,24 @@ pub(super) fn handle_session_notification_with_origin(
                 );
                 return false;
             }
-            use xai_grok_shell::sampling::types::ReasoningEffort;
+            use xai_grok_sampling_types::types::ReasoningEffort;
             let new_model_id = acp::ModelId::new(model_id.clone());
+            #[cfg(feature = "stock-runtime")]
+            if !agent.session.models.available.contains_key(&new_model_id)
+                && xai_grok_shell::agent::chat_modes::process_chat_mode_enabled()
+            {
+                agent.session.models.available.insert(
+                    new_model_id.clone(),
+                    acp::ModelInfo::new(new_model_id.clone(), model_id.clone()),
+                );
+            }
             if !agent.session.models.available.contains_key(&new_model_id) {
-                if xai_grok_shell::agent::chat_modes::process_chat_mode_enabled() {
-                    agent.session.models.available.insert(
-                        new_model_id.clone(),
-                        acp::ModelInfo::new(new_model_id.clone(), model_id.clone()),
-                    );
-                } else {
                     tracing::warn!(
                         session_id = session_notif.session_id.0.as_ref(),
                         model_id = %model_id,
                         "ignoring ModelChanged broadcast — model not in local catalog"
                     );
                     return false;
-                }
             }
             let effort = reasoning_effort
                 .as_deref()
@@ -1409,8 +1420,16 @@ pub(super) fn handle_child_session_notification(
     child_sid: &str,
     agent: &mut AgentView,
     is_api_key_auth: bool,
+    external_agent: bool,
+    meta: Option<&serde_json::Value>,
 ) -> bool {
     match update {
+        update @ (XaiSessionUpdate::SubagentSpawned { .. }
+        | XaiSessionUpdate::SubagentProgress { .. }
+        | XaiSessionUpdate::SubagentFinished { .. }) => {
+            let Some(parent) = agent.child_view_for_live_update_mut(child_sid) else { return false; };
+            handle_nested_subagent_lifecycle(update, parent, meta, external_agent)
+        }
         XaiSessionUpdate::AutoCompactStarted { .. }
         | XaiSessionUpdate::AutoCompactCompleted { .. }
         | XaiSessionUpdate::AutoCompactFailed { .. }
@@ -1474,6 +1493,7 @@ fn handle_nested_subagent_lifecycle(
     update: XaiSessionUpdate,
     parent: &mut AgentView,
     meta: Option<&serde_json::Value>,
+    external_agent: bool,
 ) -> bool {
     match update {
         XaiSessionUpdate::SubagentSpawned {
@@ -1569,6 +1589,11 @@ fn handle_nested_subagent_lifecycle(
                     true,
                 ),
             );
+            if external_agent
+                && let Some(info) = parent.subagent_sessions.get_mut(&child_session_id)
+            {
+                info.transcript = crate::app::subagent::ChildTranscript::AdapterManaged;
+            }
             let (effective_child_cwd, effective_is_worktree) = derive_child_cwd(
                 &parent.session.cwd,
                 parent.subagent_sessions.get(&child_session_id),
@@ -1935,7 +1960,7 @@ pub(super) fn scrollback_has_recent_compaction_failed(
 /// Only the re-encode *fallback* (the oversized original was kept) shows, as a persistent scrollback warning that is rebuilt on session replay.
 pub(super) fn apply_image_compressed(
     agent: &mut AgentView,
-    images: &[xai_grok_shell::extensions::notification::ImageCompressedEntry],
+    images: &[xai_grok_shared::session::notification::ImageCompressedEntry],
     message: &str,
 ) -> bool {
     if images.is_empty() {
@@ -1949,14 +1974,14 @@ pub(super) fn apply_image_compressed(
     false
 }
 pub(super) fn apply_retry_state(
-    retry: &xai_grok_shell::extensions::notification::RetryState,
+    retry: &xai_grok_shared::session::notification::RetryState,
     session: &mut AgentSession,
     scrollback: &mut crate::scrollback::state::ScrollbackState,
     is_api_key_auth: bool,
 ) {
     let mut is_credit_limit = false;
     let mut is_reauth = false;
-    use xai_grok_shell::extensions::notification::RetryState;
+    use xai_grok_shared::session::notification::RetryState;
     match retry {
         RetryState::Retrying {
             attempt,
@@ -1993,7 +2018,7 @@ pub(super) fn apply_retry_state(
             }
             is_credit_limit = super::super::dispatch::is_credit_limit_error(None, reason);
             let is_free_usage = *rate_limited
-                && xai_grok_shell::sampling::error::is_free_usage_exhausted_error(reason);
+                && xai_grok_shared::session::sampling_error::is_free_usage_exhausted_error(reason);
             if is_credit_limit {
                 session.credit_limit_blocked = true;
             } else if is_free_usage {
@@ -2084,7 +2109,7 @@ pub(super) fn detect_plan_mode_change(
     update: &acp::SessionUpdate,
     agent: &mut AgentView,
 ) -> Option<PlanModeTransition> {
-    use xai_grok_tools::types::SessionMode;
+    use xai_tool_types::session_mode::SessionMode;
     let acp::SessionUpdate::CurrentModeUpdate(cmu) = update else {
         return None;
     };

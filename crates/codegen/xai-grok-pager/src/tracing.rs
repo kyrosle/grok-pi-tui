@@ -332,6 +332,7 @@ pub fn init_tracing() -> TracingHandle {
         .with_target(true)
         .with_ansi(true)
         .with_writer(make_writer);
+    #[cfg(feature = "stock-runtime")]
     let otel_layer = xai_grok_telemetry::otel_layer::build_otel_layer(
         xai_grok_telemetry::otel_layer::OtelClientInfo {
             client_name: "grok-pager",
@@ -349,11 +350,12 @@ pub fn init_tracing() -> TracingHandle {
         .with(instrumentation_layer)
         .with(sampling_log_layer)
         .with(xai_grok_telemetry::span_profile::layer("tui"))
-        .with(hooks_log_layer)
-        .with(otel_layer);
+        .with(hooks_log_layer);
+    #[cfg(feature = "stock-runtime")]
+    let registry = registry.with(otel_layer);
     xai_grok_telemetry::debug_log::install_firehose(registry, "tui");
     xai_grok_telemetry::external::init(
-        xai_grok_shell::agent::config::resolve_external_otel_config(
+        resolve_external_otel_config(
             xai_grok_telemetry::external::config::ExternalClientInfo {
                 service_version: xai_grok_version::full_version().to_owned(),
                 client_version: xai_grok_version::VERSION.to_owned(),
@@ -795,3 +797,8 @@ mod tests {
         assert_eq!(model.as_slice()[2].plain(), "line 5");
     }
 }
+
+#[cfg(feature = "stock-runtime")]
+use xai_grok_shell::agent::config::resolve_external_otel_config;
+#[cfg(not(feature = "stock-runtime"))]
+use xai_grok_telemetry::external::settings::resolve_external_otel_config;

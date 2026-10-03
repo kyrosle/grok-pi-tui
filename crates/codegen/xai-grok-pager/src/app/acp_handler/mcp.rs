@@ -7,7 +7,7 @@ pub(super) fn push_server_status_enabled() -> bool {
     use std::sync::OnceLock;
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
-        xai_grok_shell::util::config::resolve_mcp_push_server_status(
+        crate::settings_config::resolve_mcp_push_server_status(
             /* requirements */ None, /* user */ None, /* managed */ None,
         )
     })
@@ -131,7 +131,7 @@ pub(super) fn agent_has_pending_mcps_fetch(app: &AppView, agent_id: AgentId) -> 
 pub(super) fn handle_mcp_server_status(notif: &acp::ExtNotification, app: &mut AppView) -> bool {
     use crate::views::extensions_modal::TabDataState;
     use crate::views::mcps_modal::{McpServerDisplayStatus, McpToolDetail, patch_server_row};
-    use xai_grok_shell::extensions::mcp::{McpServerStatus, McpServerStatusPayload, McpToolEntry};
+    use xai_tool_types::mcp::{McpServerStatus, McpServerStatusPayload, McpToolEntry};
 
     let Ok(payload) = serde_json::from_str::<McpServerStatusPayload>(notif.params.get()) else {
         tracing::warn!(
@@ -199,7 +199,7 @@ pub(super) fn handle_mcp_server_status(notif: &acp::ExtNotification, app: &mut A
 /// Handle `x.ai/mcp/elicit_complete`: dismiss the matched agent's URL-mode elicitation card that is still waiting on this `elicitation_id`.
 pub(super) fn handle_mcp_elicit_complete(notif: &acp::ExtNotification, app: &mut AppView) -> bool {
     let Ok(payload) = serde_json::from_str::<
-        xai_grok_tools::mcp_elicitation::McpElicitCompletePayload,
+        xai_tool_types::mcp_elicitation::McpElicitCompletePayload,
     >(notif.params.get()) else {
         return false;
     };

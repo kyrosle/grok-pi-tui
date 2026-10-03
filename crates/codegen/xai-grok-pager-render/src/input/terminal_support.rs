@@ -52,6 +52,12 @@ pub fn is_mod_enter(key: &KeyEvent) -> bool {
             || is_apple_terminal_newline_modifier_held())
 }
 
+/// A delivered SUPER+Enter is a newline, but is not an advertised chord:
+/// many terminals reserve Cmd+Enter for fullscreen.
+pub fn is_delivered_super_enter(key: &KeyEvent) -> bool {
+    key.code == KeyCode::Enter && key.modifiers == KeyModifiers::SUPER
+}
+
 #[cfg(target_os = "macos")]
 fn os_any_newline_modifier_held() -> bool {
     let s = super::macos_modifiers::snapshot();
@@ -98,6 +104,18 @@ mod tests {
         assert!(!is_mod_enter(&KeyEvent::new(
             KeyCode::Enter,
             KeyModifiers::SUPER
+        )));
+        assert!(is_delivered_super_enter(&KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::SUPER
+        )));
+        assert!(!is_delivered_super_enter(&KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::NONE
+        )));
+        assert!(!is_delivered_super_enter(&KeyEvent::new(
+            KeyCode::Enter,
+            KeyModifiers::SHIFT
         )));
         assert!(!is_mod_enter(&KeyEvent::new(
             KeyCode::Enter,

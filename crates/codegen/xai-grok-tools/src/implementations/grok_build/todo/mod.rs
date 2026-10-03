@@ -108,58 +108,9 @@ use serde::{Deserialize, Serialize};
 
 pub use xai_tool_types::todo::{TodoId, TodoItem, TodoPriority, TodoStatus};
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TodoState {
-    todos: IndexMap<TodoId, TodoItem>,
-}
+pub use xai_tool_types::todo::TodoState;
 
 crate::register_resource!("grok_build", "Todo", TodoState);
-
-impl TodoState {
-    pub fn push(&mut self, id: TodoId, todo: TodoItem) {
-        self.todos.insert(id, todo);
-    }
-
-    pub fn clear(&mut self) {
-        self.todos.clear();
-    }
-
-    pub fn update(
-        &mut self,
-        id: &TodoId,
-        content: Option<&str>,
-        status: Option<TodoStatus>,
-    ) -> bool {
-        let Some(todo) = self.todos.get_mut(id) else {
-            return false;
-        };
-        if let Some(content) = content
-            && !content.is_empty()
-        {
-            todo.content = content.into();
-        }
-        if let Some(status) = status {
-            todo.status = status;
-        }
-        true
-    }
-
-    pub fn todo_items(&self) -> impl Iterator<Item = &TodoItem> + '_ {
-        self.todos.values()
-    }
-
-    pub fn todo_items_with_ids(&self) -> impl Iterator<Item = (&TodoId, &TodoItem)> + '_ {
-        self.todos.iter()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.todos.is_empty()
-    }
-
-    pub fn has_id(&self, id: &str) -> bool {
-        self.todos.contains_key(id)
-    }
-}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]

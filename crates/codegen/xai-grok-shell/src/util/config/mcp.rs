@@ -23,58 +23,7 @@ pub use xai_grok_config_types::{
 // Relay-sync and MCP-config value types extracted; re-exported to keep paths stable
 pub use xai_grok_config_types::{McpConfig, RelaySyncConfig};
 
-/// TUI/CLI settings. Composed from typed section configs defined in `agent::config`.
-#[derive(Debug, Clone, Default)]
-pub struct Config {
-    pub cli: crate::agent::config::CliConfig,
-    pub models: crate::agent::config::ModelsConfig,
-    pub ui: crate::agent::config::UiConfig,
-    pub harness: crate::agent::config::HarnessConfig,
-    pub skills: SkillsConfig,
-    /// `[compat]` vendor-compatibility config, round-tripped so the pager preserves per-vendor toggles when persisting other settings.
-    pub compat: CompatConfigToml,
-    /// Management API key from `[endpoints]`.
-    pub management_api_key: Option<String>,
-    /// Permission policy rules loaded from `[permission]` section in config.toml.
-    pub permission: Option<PermissionConfig>,
-    pub diagnostics: crate::agent::config::DiagnosticsConfig,
-    /// `[session]` section, round-tripped through `merge_section` so pager setters can persist session fields (e.g. auto-compact threshold).
-    pub session: crate::agent::config::SessionConfig,
-    /// `[toolset.ask_user_question]` sub-table, the only `[toolset]` piece the settings modal writes.
-    /// The rest of `[toolset]` never round-trips (it carries runtime-only structs whose defaults must not hit disk).
-    pub ask_user_question: crate::tools::config::AskUserQuestionToolConfig,
-    /// `[privacy]`: local banner ack (not auth-metadata).
-    pub privacy: PrivacyConfig,
-    pub consent: super::consent::ConsentConfig,
-    /// `[telemetry]`: only the key the pager persists round-trips.
-    pub telemetry: TelemetryPersistConfig,
-    /// `[features]`: only the key the pager persists round-trips.
-    pub features: FeaturesPersistConfig,
-}
-
-/// The `[telemetry]` slice the pager is allowed to write back.
-/// Unmodeled keys under `[telemetry]` are preserved by the deep merge in `save_config_locked`.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub struct TelemetryPersistConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trace_upload: Option<bool>,
-}
-
-/// The `[features]` slice the pager is allowed to write back.
-/// Unmodeled keys under `[features]` are preserved by the deep merge in `save_config_locked`.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub struct FeaturesPersistConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feedback_trace_card: Option<bool>,
-}
-
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub struct PrivacyConfig {
-    /// Last banner dismiss (Accept/Customize), RFC 3339 UTC.
-    /// When the remote `privacy_banner_reshow_days` is unset or 0, the banner never re-shows once this is set.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub privacy_banner_acked: Option<String>,
-}
+pub use xai_grok_shared::config::{Config, TelemetryPersistConfig, FeaturesPersistConfig, PrivacyConfig};
 
 pub(crate) fn get_mcp_server_config(name: &str) -> Option<McpServerConfig> {
     let root: TomlValue = crate::config::load_effective_config().ok()?;
@@ -1736,76 +1685,7 @@ pub(crate) fn load_gcs_service_account_key_sync() -> Option<String> {
         None
     }
 }
-/// Returns `None` when `[cli] use_leader` is not set in the config, or `Some(true/false)` when explicitly configured.
-/// The `None` lets callers fall through to a remote flag when the user hasn't expressed a local preference.
-pub fn use_leader_from_toml_opt(root: &TomlValue) -> Option<bool> {
-    if let TomlValue::Table(table) = root
-        && let Some(TomlValue::Table(cli)) = table.get("cli")
-    {
-        cli.get("use_leader").and_then(|v| v.as_bool())
-    } else {
-        None
-    }
-}
-
-/// When true, the agent will connect to a shared leader process instead of running the agent directly.
-/// This allows multiple agent instances to share one backend.
-pub fn use_leader_from_toml(root: &TomlValue) -> bool {
-    use_leader_from_toml_opt(root).unwrap_or(false)
-}
-
-/// Returns `Some(true/false)` when `[cli] session_registry` is set in config.toml, `None` when absent (allowing remote settings fallback).
-/// Local config takes precedence over remote settings.
-pub(crate) fn session_registry_from_toml_opt(root: &TomlValue) -> Option<bool> {
-    if let TomlValue::Table(table) = root
-        && let Some(TomlValue::Table(cli)) = table.get("cli")
-    {
-        cli.get("session_registry").and_then(|v| v.as_bool())
-    } else {
-        None
-    }
-}
-
-/// Overrides `[cli] session_registry`; usable before `~/.grok/config.toml` exists.
-pub const SESSION_REGISTRY_ENV_VAR: &str = "GROK_SESSION_REGISTRY";
-
-pub(crate) fn session_registry_from_env_opt() -> Option<bool> {
-    xai_grok_config::env_bool(SESSION_REGISTRY_ENV_VAR)
-}
-
-/// Where a local session-registry override came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RegistrySource {
-    /// [`SESSION_REGISTRY_ENV_VAR`].
-    Env,
-    /// `[cli] session_registry` in config.toml.
-    ConfigToml,
-}
-
-impl RegistrySource {
-    /// The user-facing name of this source, for diagnostics.
-    pub const fn label(self) -> &'static str {
-        match self {
-            RegistrySource::Env => SESSION_REGISTRY_ENV_VAR,
-            RegistrySource::ConfigToml => "[cli] session_registry",
-        }
-    }
-}
-
-/// Env var, then `[cli] session_registry`; `None` defers to remote settings.
-pub fn session_registry_local_override_sourced(
-    root: Option<&TomlValue>,
-) -> Option<(bool, RegistrySource)> {
-    if let Some(v) = session_registry_from_env_opt() {
-        return Some((v, RegistrySource::Env));
-    }
-    root.and_then(session_registry_from_toml_opt)
-        .map(|v| (v, RegistrySource::ConfigToml))
-}
-
-pub(crate) fn session_registry_local_override(root: Option<&TomlValue>) -> Option<bool> {
-    session_registry_local_override_sourced(root).map(|(v, _)| v)
-}
+pub use xai_grok_shared::config::local_preferences::*;
 
 #[cfg(test)]
 mod tests {

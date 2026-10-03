@@ -16,6 +16,7 @@ mod ctx;
 mod dashboard;
 mod dashboard_telemetry;
 pub(crate) mod external_editor;
+#[cfg(feature = "stock-runtime")]
 mod import_claude;
 mod inline_feedback;
 mod interject;

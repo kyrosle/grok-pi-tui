@@ -589,7 +589,7 @@ fn mcp_elicit_replies_cancelled() {
 
 #[test]
 fn ask_user_question_replies_cancelled() {
-    use xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionExtResponse;
+    use xai_tool_types::questions::AskUserQuestionExtResponse;
     for params in [
         serde_json::json!({
             "sessionId": "s", "toolCallId": "t", "questions": [], "mode": "default",

@@ -587,6 +587,11 @@ mod tests {
         xai_grok_pager::app::app_view::SessionPickerEntry {
             id: id.into(),
             summary: id.into(),
+            name: None,
+            first_message: None,
+            session_path: None,
+            total_tokens: None,
+            total_cost: None,
             updated_at: chrono::Utc::now(),
             created_at: chrono::Utc::now(),
             cwd: "/tmp/repo".into(),
@@ -598,6 +603,7 @@ mod tests {
             branch: None,
             repo_name: "repo".into(),
             worktree_label: None,
+            parent_session_path: None,
             last_turn_summary: None,
             last_recap: None,
             session_kind: None,
@@ -622,6 +628,10 @@ mod tests {
             source_filter: xai_grok_pager::views::session_picker::SourceFilter::default(),
             pending_delete: None,
             entries_query: None,
+            preview_scroll: 0,
+            search_mode: false,
+            preview_mode: false,
+            preview_messages: None,
         });
         a
     }

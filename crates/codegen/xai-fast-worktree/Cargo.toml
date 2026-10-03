@@ -37,6 +37,7 @@ lifecycle-bench = [
 metadata = ["dep:rusqlite", "dep:xai-sqlite-journal"]
 
 [dependencies]
+xai-grok-config-types = { workspace = true }
 anyhow = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }

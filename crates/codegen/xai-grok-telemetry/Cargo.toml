@@ -12,6 +12,8 @@ default-bazel = []
 memory-log = []
 
 [dependencies]
+toml = { workspace = true }
+xai-grok-config-types = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

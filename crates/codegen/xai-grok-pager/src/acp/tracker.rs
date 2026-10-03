@@ -25,10 +25,10 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tracing::debug;
-use xai_grok_shell::session::storage::chunk_meta_flag;
-use xai_grok_tools::types::output::{BashOutput, ToolOutput};
-use xai_grok_tools::types::output::{ReadFileOutput, SearchToolOutput, WebFetchOutput};
-use xai_grok_tools::util::strip_redundant_session_cd;
+use xai_grok_shared::session::chunk_meta::chunk_meta_flag;
+use xai_tool_types::command_display::strip_redundant_session_cd;
+use xai_tool_types::output::{BashOutput, ToolOutput};
+use xai_tool_types::output::{ReadFileOutput, SearchToolOutput, WebFetchOutput};
 /// Convert a UTC millisecond timestamp to local time.
 fn utc_ms_to_local(ms: i64) -> DateTime<Local> {
     chrono::Utc
@@ -229,39 +229,36 @@ impl WritingToolCall {
             n => format!(" ({n})"),
         };
         match self.tool_name.as_deref() {
-            Some(name) if xai_grok_tools::is_task_tool_id(name) => {
+            Some(name) if xai_tool_types::task_snapshot::is_task_tool_id(name) => {
                 format!("Writing subagent prompt{ordinal}…")
             }
-            Some(xai_grok_tools::USE_TOOL_NAME) => {
+            Some(xai_tool_types::tool_names::USE_TOOL_NAME) => {
                 format!("Preparing MCP tool{ordinal}…")
             }
-            Some(xai_grok_tools::SEARCH_TOOL_NAME) => {
+            Some(xai_tool_types::tool_names::SEARCH_TOOL_NAME) => {
                 format!("Searching MCP tools{ordinal}…")
             }
             Some(name) => {
-                use xai_grok_tools::types::tool::ToolKind;
+                use xai_tool_types::classification::ToolKind;
                 let copy =
-                    xai_grok_tools::tool_taxonomy::writing_tool_kind(name).and_then(|kind| {
-                        match kind {
-                            ToolKind::Write => Some("Writing file"),
-                            ToolKind::Edit => Some("Writing edit"),
-                            ToolKind::Execute => Some("Writing command"),
-                            ToolKind::Plan => Some("Updating todo list"),
-                            ToolKind::Workflow => Some("Writing workflow"),
-                            ToolKind::Feedback => Some("Writing feedback draft"),
-                            ToolKind::ImageGen => Some("Writing image prompt"),
-                            ToolKind::ImageToVideo | ToolKind::ReferenceToVideo => {
-                                Some("Writing video prompt")
-                            }
-                            ToolKind::AskUser => Some("Preparing question"),
-                            _ => None,
+                    xai_tool_types::taxonomy::writing_tool_kind(name).and_then(|kind| match kind {
+                        ToolKind::Write => Some("Writing file"),
+                        ToolKind::Edit => Some("Writing edit"),
+                        ToolKind::Execute => Some("Writing command"),
+                        ToolKind::Plan => Some("Updating todo list"),
+                        ToolKind::Workflow => Some("Writing workflow"),
+                        ToolKind::Feedback => Some("Writing feedback draft"),
+                        ToolKind::ImageGen => Some("Writing image prompt"),
+                        ToolKind::ImageToVideo | ToolKind::ReferenceToVideo => {
+                            Some("Writing video prompt")
                         }
+                        ToolKind::AskUser => Some("Preparing question"),
+                        _ => None,
                     });
                 match copy {
                     Some(copy) => format!("{copy}{ordinal}…"),
                     None => {
-                        let name =
-                            xai_grok_workspace::permission::mcp_pretty_name_if_qualified(name);
+                        let name = xai_grok_shared::permissions::mcp_pretty_name_if_qualified(name);
                         format!("Preparing {}{ordinal}…", clamp_activity_subject(&name))
                     }
                 }
@@ -1683,8 +1680,7 @@ impl AcpUpdateTracker {
         } else if !skill_token_ranges.is_empty() {
             crate::scrollback::blocks::UserPromptBlock::with_skill_tokens(text, skill_token_ranges)
         } else {
-            let skill_display =
-                xai_grok_tools::implementations::skills::skill::extract_skill_display_text(&text);
+            let skill_display = xai_tool_types::skills::extract_skill_display_text(&text);
             if let Some(display_text) = skill_display {
                 self.skip_next_skill_body = true;
                 crate::scrollback::blocks::UserPromptBlock::skill(display_text)
@@ -1772,7 +1768,7 @@ fn user_message_hidden_from_scrollback(
         return true;
     }
     if let Some(pid) = meta.prompt_id.as_deref()
-        && xai_grok_shell::session::PromptOrigin::from_prompt_id(pid)
+        && xai_grok_shared::session::prompt_origin::PromptOrigin::from_prompt_id(pid)
             .hide_user_echo_from_scrollback()
     {
         return true;
@@ -2251,6 +2247,23 @@ fn tool_call_to_block(tc: &acp::ToolCall, session_cwd: Option<&Path>) -> RenderB
             let code = extract_raw_field(tc, "code").unwrap_or_default();
             let mut block =
                 CodemodeToolCallBlock::new(code).with_raw_output(tc.raw_output.as_ref());
+            block.images = tc
+                .content
+                .iter()
+                .filter_map(|item| {
+                    let acp::ToolCallContent::Content(content) = item else {
+                        return None;
+                    };
+                    let acp::ContentBlock::Image(image) = &content.content else {
+                        return None;
+                    };
+                    crate::prompt_images::ScrollbackImageRef::from_base64(
+                        &image.data,
+                        &image.mime_type,
+                    )
+                })
+                .take(16)
+                .collect();
             if block.output.is_none() {
                 // Older payload shapes carry the script body only as ACP text content.
                 let text = content_text(tc);
@@ -2319,7 +2332,7 @@ fn tool_call_to_block(tc: &acp::ToolCall, session_cwd: Option<&Path>) -> RenderB
             crate::acp::subagent_message::to_block(tc)
         }
         _ if canonical_tool_name(tc)
-            == Some(xai_grok_tools::implementations::grok_build::SEND_FEEDBACK_TOOL_NAME) =>
+            == Some(xai_tool_types::tool_names::SEND_FEEDBACK_TOOL_NAME) =>
         {
             let mut block = OtherToolCallBlock::new("Feedback drafted", String::new());
             if !success {
@@ -2440,7 +2453,7 @@ fn tool_call_to_block(tc: &acp::ToolCall, session_cwd: Option<&Path>) -> RenderB
 fn canonical_tool_name(tc: &acp::ToolCall) -> Option<&str> {
     tc.meta
         .as_ref()?
-        .get(xai_grok_tools::tool_taxonomy::TOOL_META_KEY)?
+        .get(xai_tool_types::taxonomy::TOOL_META_KEY)?
         .get("name")?
         .as_str()
 }
@@ -2696,7 +2709,8 @@ fn is_todo_tool(tc: &acp::ToolCall) -> bool {
 /// Suppressed from scrollback because the SubagentBlock (created from the SubagentSpawned notification) provides better visibility.
 /// Covers the `task` / `Task` / `spawn_subagent` ids and Task-family variant tags.
 fn is_task_tool(tc: &acp::ToolCall) -> bool {
-    xai_grok_tools::is_task_tool_id(&tc.title) || is_task_variant(extract_variant(tc))
+    xai_tool_types::task_snapshot::is_task_tool_id(&tc.title)
+        || is_task_variant(extract_variant(tc))
 }
 fn is_goal_tool(tc: &acp::ToolCall) -> bool {
     tc.title == "update_goal"
@@ -2759,7 +2773,7 @@ fn extract_raw_field(tc: &acp::ToolCall, field: &str) -> Option<String> {
 }
 /// Extract a short, user-friendly error label from a failed Edit tool call.
 fn extract_edit_error(tc: &acp::ToolCall) -> String {
-    use xai_grok_tools::types::output::SearchReplaceOutput;
+    use xai_tool_types::output::SearchReplaceOutput;
     if let Some(ref raw) = tc.raw_output
         && let Ok(ToolOutput::SearchReplace(sr)) = serde_json::from_value::<ToolOutput>(raw.clone())
     {
@@ -2868,7 +2882,7 @@ fn parse_file_paths_from_stdout(stdout: &str) -> Vec<String> {
 fn extract_listdir_content(raw: &Option<serde_json::Value>) -> Option<String> {
     let val = raw.as_ref()?;
     match serde_json::from_value::<ToolOutput>(val.clone()) {
-        Ok(ToolOutput::ListDir(xai_grok_tools::types::output::ListDirOutput::Content(c))) => {
+        Ok(ToolOutput::ListDir(xai_tool_types::output::ListDirOutput::Content(c))) => {
             Some(c.content)
         }
         _ => None,
@@ -3046,7 +3060,7 @@ fn extract_use_tool_output(raw: &Option<serde_json::Value>) -> Option<String> {
     if let Ok(output) = serde_json::from_value::<ToolOutput>(val.clone()) {
         let text = match output {
             ToolOutput::MCP(mcp) => {
-                use xai_grok_tools::types::output::MCPOutputDetails;
+                use xai_tool_types::output::MCPOutputDetails;
                 match mcp.output() {
                     MCPOutputDetails::OkayOutput(s) | MCPOutputDetails::Error(s) => s.clone(),
                 }

@@ -43,3 +43,5 @@ pub use tool::{
 };
 
 pub use xai_tool_protocol::{StreamingSpec, ToolCallId, ToolCapabilities, ToolId, ToolScope};
+
+mod output_contracts;

@@ -296,26 +296,7 @@ pub struct ScheduledTaskFired {
 
 /// Why a scheduled task was removed. Drives client UX: only `Expired` needs a visible notice
 /// (the task died without any user or model action).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, schemars::JsonSchema)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-#[non_exhaustive]
-pub enum ScheduledTaskRemovedReason {
-    /// A one-shot task fired and completed.
-    Completed,
-    /// A recurring task reached `expires_at` (7 days after creation).
-    Expired,
-    /// Explicit `scheduler_delete` by the user or model.
-    Deleted,
-    /// Actor shutdown chip-cleanup. The task itself persists on disk and re-arms on session
-    /// resume, so this must not read as a real removal.
-    Shutdown,
-    /// Absent on legacy payloads, or a variant this build doesn't know. Consumers must treat
-    /// it as "no special handling".
-    #[default]
-    #[cfg_attr(feature = "serde", serde(other))]
-    Unknown,
-}
+pub use xai_tool_types::scheduled_task::ScheduledTaskRemovedReason;
 
 /// Notification that a scheduled task was removed (deleted, expired, or one-shot completed).
 /// `#[non_exhaustive]`: downstream crates construct via [`Self::new`], so the next wire field

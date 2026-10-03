@@ -492,7 +492,10 @@ pub(super) fn dispatch_open_extensions_modal(
     };
 
     // Mutual exclusivity: close agents modal when opening extensions.
-    agent.agents_modal = None;
+    #[cfg(feature = "stock-runtime")]
+    {
+        agent.agents_modal = None;
+    }
     let mut modal = ExtensionsModalState::new(tab);
     modal.session_team_id = app.team_id.clone();
     agent.extensions_modal = Some(modal);
@@ -514,6 +517,7 @@ pub(super) fn dispatch_open_extensions_modal(
 }
 
 /// Open the agents modal, showing all agent definitions.
+#[cfg(feature = "stock-runtime")]
 pub(super) fn dispatch_open_config_agents_modal(
     app: &mut AppView,
     initial_tab: Option<crate::views::agents_modal::AgentsTab>,
@@ -544,7 +548,7 @@ pub(super) fn dispatch_open_config_agents_modal(
     let session_id = agent.session.session_id.clone();
     let active_agent = agent.session_agent_name.clone();
     // One-shot plugin discovery (same gating as `/mcp doctor` and `inspect`) so plugin-provided agents are listed alongside native ones
-    let plugin_registry = xai_grok_shell::util::config::load_cli_plugin_registry(&cwd);
+    let plugin_registry = crate::settings_config::load_cli_plugin_registry(&cwd);
     let plugin_registry = (!plugin_registry.is_empty()).then_some(plugin_registry);
     let mut modal = AgentsModalState::new(
         &cwd,
@@ -643,7 +647,7 @@ pub(super) fn dispatch_dump_input_log(app: &mut AppView) -> Vec<Effect> {
         }
     };
 
-    let grok_home = xai_grok_tools::util::grok_home::grok_home();
+    let grok_home = xai_grok_config::grok_home();
     let logs_dir = grok_home.join("logs");
     let _ = std::fs::create_dir_all(&logs_dir);
     let ts = now.format("%Y%m%d-%H%M%S");
@@ -809,7 +813,7 @@ pub(super) fn handle_marketplace_list_loaded(
 pub(super) fn handle_skills_toggle_done(
     app: &mut AppView,
     agent_id: AgentId,
-    result: Result<Vec<xai_grok_tools::implementations::skills::types::SkillInfo>, String>,
+    result: Result<Vec<xai_tool_types::skills::SkillInfo>, String>,
 ) -> Vec<Effect> {
     use crate::views::extensions_modal::TabDataState;
     if let Some(agent) = app.agents.get_mut(&agent_id)

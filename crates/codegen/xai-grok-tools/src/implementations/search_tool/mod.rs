@@ -11,7 +11,7 @@ use crate::types::tool_index::ToolIndex;
 /// Wire name of the MCP discovery tool (see [`USE_TOOL_NAME`]).
 ///
 /// [`USE_TOOL_NAME`]: crate::implementations::use_tool::USE_TOOL_NAME
-pub const SEARCH_TOOL_NAME: &str = "search_tool";
+pub use xai_tool_types::tool_names::SEARCH_TOOL_NAME;
 
 /// Maximum length for MCP tool/server descriptions. Matches the common
 /// `MAX_MCP_DESCRIPTION_LENGTH` constant. Descriptions exceeding this are truncated.

@@ -19,17 +19,7 @@ use crate::extensions::notification::{SessionNotification, SessionUpdate as XaiS
 /// The same `Arc` is shared between the session actor (which mutates it) and the handle (which the roster reads synchronously).
 pub(crate) type PendingInteractions = Arc<Mutex<HashMap<String, PendingKind>>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PendingKind {
-    /// `request_permission` for a tool action.
-    Permission,
-    /// `x.ai/ask_user_question`.
-    Question,
-    /// `x.ai/exit_plan_mode` plan approval.
-    PlanApproval,
-    McpElicitation,
-}
+pub use xai_grok_shared::session::notification::PendingKind;
 
 pub(crate) fn has_parked_plan_approval(pending: &PendingInteractions) -> bool {
     pending

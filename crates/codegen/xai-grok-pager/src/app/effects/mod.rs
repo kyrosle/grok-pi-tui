@@ -22,9 +22,11 @@ pub(crate) use helpers::reject_non_fs_only_advertised_tools;
 use helpers::*;
 use session_list::{
     LocalPresence, parse_session_list_partial, parse_session_list_scope,
-    parse_session_picker_entries_blocking, read_session_list_response,
+    read_session_list_response,
     session_picker_entry_to_roster,
 };
+#[cfg(feature = "stock-runtime")]
+use session_list::parse_session_picker_entries_blocking;
 use std::path::Path;
 use agent_client_protocol as acp;
 use tokio::task::JoinSet;
@@ -43,8 +45,9 @@ use actions::PermissionModePersist;
 #[cfg(test)]
 use agent::AgentId;
 use crate::unified_log as ulog;
-use xai_grok_shell::sampling::error::http_status_from_error;
-use xai_grok_shell::session::{ExtMethodResult, SessionInfoResponse};
+use xai_grok_shared::session::sampling_error::http_status_from_error;
+use xai_grok_shared::session::result::ExtMethodResult;
+use xai_grok_shared::session::SessionInfoResponse;
 /// The shell's `x.ai/feedback/upload-trace` params. `intent` is omitted (not null) when absent, so a legacy upload's request stays byte-identical to the pre-intent shape.
 /// absent, so a legacy upload's request stays byte-identical to the pre-intent shape.
 #[derive(serde::Serialize)]
@@ -63,24 +66,35 @@ const DASHBOARD_SESSION_LIST_LIMIT: u64 = 100;
 /// Session-open paths have no resolved per-vendor compat in scope; the default (all-on) preserves existing behavior.
 pub(crate) async fn discover_mcp_servers(
     cwd: std::path::PathBuf,
+    external_agent: bool,
 ) -> Vec<acp::McpServer> {
-    let started = std::time::Instant::now();
-    let servers = tokio::task::spawn_blocking(move || xai_grok_shell::util::config::load_mcp_servers(
-            &cwd,
-            &xai_grok_tools::types::compat::CompatConfig::default(),
-        ))
-        .await
-        .unwrap_or_else(|error| {
-            tracing::warn!(%error, "mcp server discovery task failed");
-            Vec::new()
-        });
-    tracing::info!(
-        elapsed_ms = started.elapsed().as_millis() as u64,
-        server_count = servers.len(),
-        "mcp server discovery"
-    );
-    servers
+    if external_agent {
+        // Pi builtin MCP owns its registry and connections, independently of ACP server injection.
+        return Vec::new();
+    }
+    #[cfg(not(feature = "stock-runtime"))]
+    unreachable!("stock MCP discovery requires stock-runtime");
+    #[cfg(feature = "stock-runtime")]
+    {
+        let started = std::time::Instant::now();
+        let servers = tokio::task::spawn_blocking(move || crate::settings_config::load_mcp_servers(
+                &cwd,
+                &xai_grok_tools::types::compat::CompatConfig::default(),
+            ))
+            .await
+            .unwrap_or_else(|error| {
+                tracing::warn!(%error, "mcp server discovery task failed");
+                Vec::new()
+            });
+        tracing::info!(
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            server_count = servers.len(),
+            "mcp server discovery"
+        );
+        servers
+    }
 }
+
 fn apply_permission_mode_override(
     meta: &mut Option<acp::Meta>,
     permission_mode_override: Option<PermissionModeKind>,
@@ -111,6 +125,7 @@ pub(crate) fn execute(
     progress_tx: &tokio::sync::mpsc::UnboundedSender<RestoreProgressMsg>,
 ) -> (bool, EffectMeta) {
     let mut meta = EffectMeta::default();
+    let external_agent = session_flags.external_agent;
     let effect_is_send_now = matches!(effect, Effect::SendPromptNow { .. });
     match effect {
         Effect::RemoteTuiInput { id, data } => {
@@ -244,7 +259,7 @@ pub(crate) fn execute(
                 meta.get_or_insert_with(acp::Meta::new)
                     .insert("modelId".into(), serde_json::json!(mid.0));
             }
-            if let Some(ref sid) = preferred_session_id {
+            if !external_agent && let Some(ref sid) = preferred_session_id {
                 meta.get_or_insert_with(acp::Meta::new)
                     .insert("sessionId".into(), serde_json::json!(sid));
             }
@@ -254,7 +269,8 @@ pub(crate) fn execute(
             let preferred_for_preflight = preferred_session_id.clone();
             tasks
                 .spawn(async move {
-                    if let Some(ref sid) = preferred_for_preflight {
+                    #[cfg(feature = "stock-runtime")]
+                    if !external_agent && let Some(ref sid) = preferred_for_preflight {
                         let session_cwd_str = session_cwd.to_string_lossy();
                         if let Err(e) = crate::app::session_startup::ensure_session_id_available(
                             sid,
@@ -266,7 +282,7 @@ pub(crate) fn execute(
                             };
                         }
                     }
-                    let mcp_servers = discover_mcp_servers(session_cwd.clone()).await;
+                    let mcp_servers = discover_mcp_servers(session_cwd.clone(), external_agent).await;
                     let mcp_count = mcp_servers.len();
                     let _phase = startup::phase_scope(StartupPhase::SessionCreate);
                     let mut meta = meta;
@@ -444,7 +460,8 @@ pub(crate) fn execute(
                     let worktree_root = created.worktree_root;
                     let session_cwd = created.session_cwd;
                     let strategy_summary = created.strategy_summary;
-                    if let Some(ref sid) = preferred_session_id {
+                    #[cfg(feature = "stock-runtime")]
+                    if !external_agent && let Some(ref sid) = preferred_session_id {
                         let session_cwd_str = session_cwd.to_string_lossy();
                         if let Err(e) = crate::app::session_startup::ensure_session_id_available(
                             sid,
@@ -459,7 +476,7 @@ pub(crate) fn execute(
                             };
                         }
                     }
-                    let mcp_servers = discover_mcp_servers(session_cwd.clone()).await;
+                    let mcp_servers = discover_mcp_servers(session_cwd.clone(), external_agent).await;
                     let _phase = startup::phase_scope(StartupPhase::SessionCreate);
                     let mut meta = meta;
                     stamp_phase_traceparent(&mut meta);
@@ -515,7 +532,7 @@ pub(crate) fn execute(
             let acp_session_id = acp::SessionId::new(session_id);
             tasks
                 .spawn(async move {
-                    let mcp_servers = discover_mcp_servers(cwd.clone()).await;
+                    let mcp_servers = discover_mcp_servers(cwd.clone(), external_agent).await;
                     let _phase = startup::phase_scope(StartupPhase::SessionCreate);
                     ulog::info("session.load.start", Some(&acp_session_id.0), None);
                     let load_started = std::time::Instant::now();
@@ -714,6 +731,30 @@ pub(crate) fn execute(
                     }
                 }
             });
+        }
+        #[cfg(not(feature = "stock-runtime"))]
+        Effect::FetchSessionList { host, generation, seq, query, .. } => {
+            tasks.spawn(async move { TaskResult::SessionListFailed {
+                host, generation, seq, query, error: "Grok session storage is unavailable in this product".into(),
+            }});
+        }
+        #[cfg(not(feature = "stock-runtime"))]
+        Effect::FetchDashboardSessions => {
+            tasks.spawn(async { TaskResult::DashboardSessionsFailed {
+                error: "Grok session storage is unavailable in this product".into(),
+            }});
+        }
+        #[cfg(not(feature = "stock-runtime"))]
+        Effect::RestoreAndLoadSession { agent_id, .. } => {
+            tasks.spawn(async move { TaskResult::SessionRestoreFailed {
+                agent_id, error: "Grok remote restore is unavailable in this product".into(),
+            }});
+        }
+        #[cfg(not(feature = "stock-runtime"))]
+        Effect::SaveMemoryNote { agent_id, .. } => {
+            tasks.spawn(async move { TaskResult::MemoryNoteSaved {
+                agent_id, result: Err("Grok memory storage is unavailable in this product".into()),
+            }});
         }
         Effect::FetchSessionTree {
             agent_id,
@@ -1167,6 +1208,7 @@ pub(crate) fn execute(
                 }
             });
         }
+        #[cfg(feature = "stock-runtime")]
         Effect::FetchSessionList {
             host,
             cwd_override,
@@ -1328,6 +1370,7 @@ pub(crate) fn execute(
                     }
                 });
         }
+        #[cfg(feature = "stock-runtime")]
         Effect::FetchDashboardSessions => {
             let tx = acp_tx.clone();
             let cwd = cwd.to_path_buf();
@@ -1336,7 +1379,7 @@ pub(crate) fn execute(
                     let params = serde_json::json!({
                     "cwd": cwd.to_string_lossy(),
                     "limit": 30,
-                    "headless": xai_grok_shell::session::unified_list::HeadlessPolicy::Exclude
+                    "headless": xai_grok_shared::session::catalog::HeadlessPolicy::Exclude
                         .as_wire_str(),
                 });
                     let request = acp::ExtRequest::new(
@@ -1535,11 +1578,12 @@ pub(crate) fn execute(
                     }
                 });
         }
+        #[cfg(feature = "stock-runtime")]
         Effect::RestoreAndLoadSession { agent_id, session_id, session_cwd: _ } => {
             use xai_grok_shell::agent::session_registry_client::SessionRegistryClient;
             use xai_grok_shell::session::restore::restore_session_with_storage;
             let setup_started = std::time::Instant::now();
-            let raw_config = xai_grok_shell::config::load_effective_config();
+            let raw_config = crate::load_effective_config();
             let setup = raw_config
                 .ok()
                 .and_then(|raw| {
@@ -1696,11 +1740,11 @@ pub(crate) fn execute(
                     use crate::app::app_view::CardDetail;
                     let result_session_id = session_id.clone();
                     let detail = tokio::task::spawn_blocking(move || {
-                            let info = xai_grok_shell::session::info::Info {
+                            let info = xai_grok_shared::session::Info {
                                 id: acp::SessionId::new(session_id),
                                 cwd,
                             };
-                            let history_path = xai_grok_shell::session::persistence::session_dir(
+                            let history_path = xai_grok_shared::session::session_dir(
                                     &info,
                                 )
                                 .join("chat_history.jsonl");
@@ -1910,7 +1954,7 @@ pub(crate) fn execute(
             let is_api_key_auth = session_flags.is_api_key_auth;
             tasks
                 .spawn(async move {
-                    use xai_grok_shell::extensions::prompt_meta::PromptBlockMeta;
+                    use xai_grok_shared::session::prompt_meta::PromptBlockMeta;
                     ulog::info(
                         "prompt.acp_send.start",
                         Some(&session_id.0),
@@ -2333,7 +2377,7 @@ pub(crate) fn execute(
             let sid = session_id.0.to_string();
             tasks
                 .spawn(async move {
-                    let params = xai_grok_shell::extensions::task::KillTaskRequest {
+                    let params = xai_tool_types::task_wire::KillTaskRequest {
                         session_id: sid.clone(),
                         task_id: task_id.clone(),
                         source,
@@ -2444,7 +2488,7 @@ pub(crate) fn execute(
                 .spawn(async move {
                     let meta = effort
                         .map(|eff| {
-                            use xai_grok_shell::sampling::types::{
+                            use xai_grok_sampling_types::types::{
                                 REASONING_EFFORT_META_KEY, reasoning_effort_meta_value,
                             };
                             let mut m = acp::Meta::new();
@@ -2463,7 +2507,7 @@ pub(crate) fn execute(
                         .await
                         .map(|_| ())
                         .map_err(|e| {
-                            use xai_grok_shell::agent::config::ModelSwitchIncompatibleAgentError;
+                            use xai_grok_config_types::ModelSwitchIncompatibleAgentError;
                             if let Some(typed) = ModelSwitchIncompatibleAgentError::from_acp_error(
                                 &e,
                             ) {
@@ -2487,83 +2531,26 @@ pub(crate) fn execute(
         Effect::ProbeClipboardAttachment { ctx, change_count } => {
             tasks
                 .spawn(async move {
-                    let probe_target = ctx.target.clone();
                     let probe_text = ctx.source.text().map(str::to_owned);
                     let probe_bracketed = ctx.source.is_bracketed();
-                    let probe = tokio::task::spawn_blocking(move || {
-                        if change_count.is_some()
-                            && crate::clipboard::clipboard_change_count() != change_count
-                        {
-                            return (ProbedAttachment::ProbeDropped, None);
+                    let images_dir = match &ctx.target {
+                        ClipboardPasteTarget::AgentPrompt { images_dir, .. } => {
+                            images_dir.clone()
                         }
-                        if probe_bracketed
-                            && crate::terminal::terminal_context()
-                                .brand
-                                .delivers_ime_as_bracketed_paste()
-                        {
-                            match crate::clipboard::bracketed_payload_came_from_clipboard_result(
-                                probe_text.as_deref().unwrap_or(""),
-                            ) {
-                                Ok(true) => {}
-                                Ok(false) => return (ProbedAttachment::ProbeDropped, None),
-                                Err(_) => return (ProbedAttachment::ProbeFailed, None),
-                            }
-                        }
-                        let (image_data, file_urls) = match crate::clipboard::system_clipboard_probe_attachments(
-                            probe_text.as_deref(),
-                        ) {
-                            Ok(probe) => probe,
-                            Err(_) => return (ProbedAttachment::ProbeFailed, None),
-                        };
-                        let image = match image_data {
-                            Some(data) => {
-                                let mut pasted = crate::prompt_images::from_clipboard_data(
-                                    &data,
-                                );
-                                pasted.prepare_preview_blocking();
-                                match &probe_target {
-                                    ClipboardPasteTarget::AgentPrompt {
-                                        images_dir: Some(dir),
-                                        ..
-                                    } => {
-                                        match crate::prompt_images::persist_to_session(
-                                            &mut pasted,
-                                            dir,
-                                        ) {
-                                            Ok(()) => ProbedAttachment::Image(pasted),
-                                            Err(e) => ProbedAttachment::PersistFailed(e.to_string()),
-                                        }
-                                    }
-                                    ClipboardPasteTarget::AgentPrompt { images_dir: None, .. }
-                                    | ClipboardPasteTarget::FeedbackModal { .. } => {
-                                        ProbedAttachment::Image(pasted)
-                                    }
-                                    ClipboardPasteTarget::DashboardDispatch
-                                    | ClipboardPasteTarget::DashboardPeek { .. } => {
-                                        ProbedAttachment::Image(pasted)
-                                    }
-                                }
-                            }
-                            None => ProbedAttachment::NoRaster,
-                        };
-                        (image, file_urls)
-                    });
-                    let (image, file_urls) = match tokio::time::timeout(
-                            std::time::Duration::from_secs(CLIPBOARD_PROBE_TIMEOUT_SECS),
-                            probe,
-                        )
-                        .await
-                    {
-                        Ok(Ok(pair)) => pair,
-                        Ok(Err(e)) => {
-                            tracing::warn!(error = %e, "clipboard attachment probe task failed");
-                            (ProbedAttachment::ProbeFailed, None)
-                        }
-                        Err(_elapsed) => {
-                            tracing::warn!("clipboard attachment probe timed out");
-                            (ProbedAttachment::ProbeFailed, None)
-                        }
+                        ClipboardPasteTarget::FeedbackModal { .. }
+                        | ClipboardPasteTarget::DashboardDispatch
+                        | ClipboardPasteTarget::DashboardPeek { .. } => None,
                     };
+                    let (image, file_urls) = bounded_clipboard_probe(
+                            std::time::Duration::from_secs(CLIPBOARD_PROBE_TIMEOUT_SECS),
+                            move || probe_clipboard_attachment_blocking(
+                                change_count,
+                                probe_text,
+                                probe_bracketed,
+                                images_dir,
+                            ),
+                        )
+                        .await;
                     TaskResult::ClipboardAttachmentProbed {
                         ctx,
                         image,
@@ -2577,7 +2564,7 @@ pub(crate) fn execute(
                     let result = tokio::task::spawn_blocking(move || {
                             xai_grok_feedback::read_regular_capped(
                                     &path,
-                                    xai_grok_shell::session::MAX_FEEDBACK_IMAGE_BYTES,
+                                    xai_grok_shared::session::feedback::MAX_FEEDBACK_IMAGE_BYTES,
                                 )
                                 .map_err(|error| error.to_string())
                         })
@@ -2671,13 +2658,13 @@ pub(crate) fn execute(
             tasks
                 .spawn(async move {
                     let changelog = tokio::task::spawn_blocking(|| {
-                            xai_grok_shell::util::changelog::ChangelogManager::new()
+                            xai_grok_shell_base::util::changelog::ChangelogManager::new()
                                 .fetch()
                         })
                         .await
                         .unwrap_or_else(|e| {
                             tracing::warn!(error = %e, "changelog fetch task failed");
-                            xai_grok_shell::util::changelog::Changelog {
+                            xai_grok_shell_base::util::changelog::Changelog {
                                 markdown: None,
                                 entries: None,
                             }
@@ -2701,7 +2688,7 @@ pub(crate) fn execute(
         Effect::PersistPrivacyBannerAcked { acked_at } => {
             tasks
                 .spawn(async move {
-                    if let Err(e) = xai_grok_shell::util::config::set_privacy_banner_acked(
+                    if let Err(e) = crate::settings_config::set_privacy_banner_acked(
                             acked_at,
                         )
                         .await
@@ -2714,7 +2701,7 @@ pub(crate) fn execute(
         Effect::PersistPluginCtaDismissed { plugin_id } => {
             tasks
                 .spawn(async move {
-                    if let Err(e) = xai_grok_shell::config::run_add_dismissed_plugin_cta(
+                    if let Err(e) = xai_grok_shared::config::run_add_dismissed_plugin_cta(
                             plugin_id,
                         )
                         .await
@@ -2727,7 +2714,7 @@ pub(crate) fn execute(
         Effect::PersistConsentAnswer { account, notice_id, version, acked } => {
             tasks
                 .spawn(async move {
-                    match xai_grok_shell::util::config::set_consent_answer(
+                    match crate::settings_config::set_consent_answer(
                             account,
                             notice_id,
                             version,
@@ -2813,7 +2800,7 @@ pub(crate) fn execute(
             let model_id_str = model_id.0.to_string();
             tasks
                 .spawn(async move {
-                    let result = xai_grok_shell::util::config::persist_models_default(
+                    let result = crate::settings_config::persist_models_default(
                             Some(model_id_str),
                             reasoning_effort,
                         )
@@ -3376,7 +3363,7 @@ pub(crate) fn execute(
                             let inner = wrapper.get("result").unwrap_or(&wrapper);
                             serde_json::from_value::<
                                 Vec<
-                                    xai_grok_tools::implementations::skills::types::SkillInfo,
+                                    xai_tool_types::skills::SkillInfo,
                                 >,
                             >(inner.get("skills").cloned().unwrap_or_default())
                                 .map_err(|_| "couldn't load skills".to_string())
@@ -3574,7 +3561,7 @@ pub(crate) fn execute(
                             let inner = wrapper.get("result").unwrap_or(&wrapper);
                             let parsed = serde_json::from_value::<
                                 Vec<
-                                    xai_grok_tools::implementations::skills::types::SkillInfo,
+                                    xai_tool_types::skills::SkillInfo,
                                 >,
                             >(inner.get("skills").cloned().unwrap_or_default())
                                 .map_err(|_| "couldn't toggle skill".to_string());
@@ -3602,6 +3589,10 @@ pub(crate) fn execute(
                 });
         }
         Effect::CheckMarketplaceUpdates { agent_id, session_id } => {
+            if external_agent {
+                return (false, meta);
+            }
+            #[cfg(feature = "stock-runtime")]
             if xai_grok_workspace::permission::resolution::managed_settings()
                 .plugin_auto_update
                 .is_disabled()
@@ -3907,7 +3898,7 @@ pub(crate) fn execute(
                         session_id: String,
                         server_name: String,
                         #[serde(flatten)]
-                        config: xai_grok_shell::util::config::McpServerConfig,
+                        config: crate::settings_config::McpServerConfig,
                     }
                     let req_body = McpUpsertRequest {
                         session_id: session_id.0.to_string(),
@@ -4026,7 +4017,7 @@ pub(crate) fn execute(
                 });
         }
         Effect::ShareSession { agent_id, session_id } => {
-            use xai_grok_shell::session::{ShareSessionRequest, ShareSessionResponse};
+            use xai_grok_shared::session::share::{ShareSessionRequest, ShareSessionResponse};
             let tx = acp_tx.clone();
             tasks
                 .spawn(async move {
@@ -4108,17 +4099,18 @@ pub(crate) fn execute(
         }
         Effect::ShowSessionInfo { agent_id, session_id, show_resolved_model, nonce } => {
             let is_api_key_auth = session_flags.is_api_key_auth;
-            let api_key_env_set = xai_grok_shell::agent::auth_method::has_xai_api_key_env();
+            let api_key_env_set = xai_grok_login::auth_method::has_xai_api_key_env();
             let tx = acp_tx.clone();
             tasks
                 .spawn(async move {
                     match fetch_session_info(&session_id, &tx).await {
                         Ok(info) => {
-            let title = if info.session_name.is_some() {
-                None
-            } else {
+            #[cfg(feature = "stock-runtime")]
+            let title = if !external_agent && info.session_name.is_none() {
                 lookup_session_title(&session_id, &info.cwd).await
-            };
+            } else { None };
+            #[cfg(not(feature = "stock-runtime"))]
+            let title: Option<String> = None;
                             let text = format_session_info(
                                 &info,
                                 title.as_deref(),
@@ -4404,8 +4396,8 @@ pub(crate) fn execute(
             draft,
             origin,
         } => {
-            use xai_grok_shell::session::ClientType;
-            use xai_grok_shell::session::acp_types::{
+            use xai_grok_shared::session::feedback::ClientType;
+            use xai_grok_shared::session::feedback::{
                 ClientFeedbackInput, FeedbackDraftEditedBody, FeedbackDraftSendRequest,
             };
             let terminal_info = Some(
@@ -4486,7 +4478,7 @@ pub(crate) fn execute(
                             TaskResult::FeedbackComplete {
                                 agent_id,
                                 origin,
-                                outcome: xai_grok_shell::session::FeedbackOutcome::OutcomeUnknown,
+                                outcome: xai_grok_shared::session::FeedbackOutcome::OutcomeUnknown,
                                 trace_upload_token: None,
                             }
                         }
@@ -4494,7 +4486,7 @@ pub(crate) fn execute(
                             match send {
                                 Ok(response) => {
                                     match serde_json::from_str::<
-                                        xai_grok_shell::session::FeedbackResponse,
+                                        xai_grok_shared::session::FeedbackResponse,
                                     >(response.0.get()) {
                                         Ok(response) => {
                                             TaskResult::FeedbackComplete {
@@ -4503,7 +4495,7 @@ pub(crate) fn execute(
                                                 outcome: response
                                                     .outcome
                                                     .unwrap_or(
-                                                        xai_grok_shell::session::FeedbackOutcome::Submitted,
+                                                        xai_grok_shared::session::FeedbackOutcome::Submitted,
                                                     ),
                                                 trace_upload_token: response.trace_upload_token,
                                             }
@@ -4530,7 +4522,7 @@ pub(crate) fn execute(
                                     TaskResult::FeedbackComplete {
                                         agent_id,
                                         origin,
-                                        outcome: xai_grok_shell::session::FeedbackOutcome::OutcomeUnknown,
+                                        outcome: xai_grok_shared::session::FeedbackOutcome::OutcomeUnknown,
                                         trace_upload_token: None,
                                     }
                                 }
@@ -4726,7 +4718,7 @@ pub(crate) fn execute(
                             update,
                         ) => {
                             let raw_params = match serde_json::value::to_raw_value(
-                                &xai_grok_shell::session::FeedbackDraftUpdateRequest {
+                                &xai_grok_shared::session::feedback::FeedbackDraftUpdateRequest {
                                     session_id: session_id.0.to_string(),
                                     draft_id: update.draft_id.clone(),
                                     input: xai_grok_feedback::FeedbackDraftInput {
@@ -4900,6 +4892,7 @@ pub(crate) fn execute(
                     }
                 });
         }
+        #[cfg(feature = "stock-runtime")]
         Effect::SaveMemoryNote { agent_id, text, cwd, pinned_mode } => {
             tasks
                 .spawn(async move {
@@ -5388,7 +5381,7 @@ pub(crate) fn execute(
                                 if let Some(hits) = payload.get("results") {
                                     results = serde_json::from_value::<
                                         Vec<
-                                            xai_grok_shell::extensions::session_search::SearchSessionHit,
+                                            xai_grok_shared::session::catalog::SearchSessionHit,
                                         >,
                                     >(hits.clone())
                                         .unwrap_or_default();
@@ -5465,7 +5458,7 @@ pub(crate) fn execute(
                                             continue;
                                         }
                                         results.push(
-                                            xai_grok_shell::extensions::session_search::SearchSessionHit {
+                                            xai_grok_shared::session::catalog::SearchSessionHit {
                                                 session_id,
                                                 cwd: hit
                                                     .get("cwd")
@@ -5606,6 +5599,7 @@ pub(crate) fn execute(
                 .spawn(async move {
                     let sid_str = parent_session_id.0.to_string();
                     let parent_cwd_str = parent_cwd.to_string_lossy().into_owned();
+                    #[cfg(feature = "stock-runtime")]
                     if let Some(ref nid) = new_session_id
                         && let Err(e) = crate::app::session_startup::ensure_session_id_available(
                             nid,
@@ -5668,6 +5662,7 @@ pub(crate) fn execute(
                     }
                 });
         }
+        #[cfg(feature = "stock-runtime")]
         Effect::HydrateSessionMetaFromDisk {
             agent_id,
             session_id,
@@ -5676,11 +5671,11 @@ pub(crate) fn execute(
         } => {
             tasks
                 .spawn(async move {
-                    let info = xai_grok_shell::session::info::Info {
+                    let info = xai_grok_shared::session::Info {
                         id: session_id,
                         cwd: cwd.to_string_lossy().to_string(),
                     };
-                    let path = xai_grok_shell::session::persistence::session_dir(&info)
+                    let path = xai_grok_shared::session::session_dir(&info)
                         .join("summary.json");
                     type DiskTitle = (Option<(String, bool)>, Option<String>);
                     let (title, last_turn_summary) = tokio::task::spawn_blocking(move || -> Option<
@@ -5714,7 +5709,7 @@ pub(crate) fn execute(
             let tx = acp_tx.clone();
             tasks
                 .spawn(async move {
-                    use xai_grok_shell::extensions::billing::BillingConfigResponse;
+                    use xai_grok_shared::session::billing::BillingConfigResponse;
                     let req = acp::ExtRequest::new(
                         "x.ai/billing",
                         serde_json::value::to_raw_value(&serde_json::json!({}))
@@ -5769,14 +5764,15 @@ pub(crate) fn execute(
                     }
                 });
         }
+        #[cfg(feature = "stock-runtime")]
         Effect::RefreshGate => {
             tasks
                 .spawn(async move {
                     let settings = tokio::task::spawn_blocking(|| {
-                            if !xai_grok_shell::util::config::resolve_remote_fetch_enabled() {
+                            if !crate::settings_config::resolve_remote_fetch_enabled() {
                                 return None;
                             }
-                            let grok_home = xai_grok_shell::util::grok_home::grok_home();
+                            let grok_home = xai_grok_config::grok_home();
                             let store = xai_grok_login::read_auth_json(
                                     &grok_home.join("auth.json"),
                                 )
@@ -5810,7 +5806,7 @@ pub(crate) fn execute(
             let tx = acp_tx.clone();
             tasks
                 .spawn(async move {
-                    use xai_grok_shell::extensions::billing::BillingConfigResponse;
+                    use xai_grok_shared::session::billing::BillingConfigResponse;
                     let req = acp::ExtRequest::new(
                         "x.ai/billing",
                         serde_json::value::to_raw_value(&serde_json::json!({}))
@@ -6003,7 +5999,7 @@ async fn fetch_session_info(
 async fn fetch_session_usage(
     session_id: &acp::SessionId,
     tx: &AcpAgentTx,
-) -> Result<xai_grok_shell::extensions::notification::PromptUsage, String> {
+) -> Result<xai_grok_shared::session::notification::PromptUsage, String> {
     let request = acp::ExtRequest::new(
         "x.ai/session/usage",
         serde_json::value::to_raw_value(
@@ -6023,7 +6019,7 @@ async fn fetch_session_usage(
                 sanitize_user_error(&e.to_string())
             }
         })?;
-    let parsed: xai_grok_shell::extensions::usage::SessionUsageResponse = serde_json::from_str(
+    let parsed: xai_grok_shared::session::usage::SessionUsageResponse = serde_json::from_str(
             resp.0.get(),
         )
         .map_err(|e| {
@@ -6066,22 +6062,24 @@ async fn session_rename_rpc(
 }
 /// Session title from local persistence: loads only this session's summary, never the all-sessions list.
 /// `cwd` comes from the `x.ai/session/info` response.
+#[cfg(feature = "stock-runtime")]
 async fn lookup_session_title(session_id: &acp::SessionId, cwd: &str) -> Option<String> {
     lookup_session_title_in(
-            xai_grok_shell::util::grok_home::grok_home(),
+            xai_grok_config::grok_home(),
             session_id,
             cwd,
         )
         .await
 }
 /// [`lookup_session_title`] against an explicit root, for tests.
+#[cfg(feature = "stock-runtime")]
 async fn lookup_session_title_in(
     root: std::path::PathBuf,
     session_id: &acp::SessionId,
     cwd: &str,
 ) -> Option<String> {
     use xai_grok_shell::session::storage::{JsonlStorageAdapter, StorageAdapter};
-    let info = xai_grok_shell::session::info::Info {
+    let info = xai_grok_shared::session::Info {
         id: session_id.clone(),
         cwd: cwd.to_string(),
     };
@@ -6174,7 +6172,7 @@ pub(crate) fn session_info_fields(
     }
     push("Working directory", info.cwd.to_string(), false);
     let model = info.data.model.as_deref().unwrap_or("unknown");
-    let model_display = xai_grok_shell::session::model_display_name(
+    let model_display = xai_grok_shared::session::model_display_name(
         info.data.model_display_name.as_deref(),
         model,
         info.data.resolved_model_id.as_deref(),

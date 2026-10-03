@@ -140,12 +140,7 @@ impl GoalPauseReason {
 /// `Achieved` indicates the adversarial skeptic panel judged the goal complete; `NotAchieved` means another worker round is warranted.
 /// Serialized in snake_case to match `GoalStatus` / `GoalPhase`.
 /// The enum name retains the `Classifier` prefix for wire stability across the verification-stage rewire.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum GoalClassifierVerdict {
-    Achieved,
-    NotAchieved,
-}
+pub use xai_grok_shared::session::notification::GoalClassifierVerdict;
 
 // History
 

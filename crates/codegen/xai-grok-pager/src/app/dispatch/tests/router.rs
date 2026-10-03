@@ -1852,7 +1852,7 @@ fn conversation_entry_load_sets_chat_kind_bit() {
     );
     assert_eq!(
         agent.rename_kind(),
-        xai_grok_shell::session::unified_list::SessionKind::Chat
+        xai_grok_shared::session::catalog::SessionKind::Chat
     );
     let rename = dispatch(
         Action::RenameSession {
@@ -1864,7 +1864,7 @@ fn conversation_entry_load_sets_chat_kind_bit() {
         matches!(
             &rename[..],
             [Effect::RenameSession { kind, .. }]
-                if *kind == xai_grok_shell::session::unified_list::SessionKind::Chat
+                if *kind == xai_grok_shared::session::catalog::SessionKind::Chat
         ),
         "conversation-entry rename must send kind=chat, got {rename:?}"
     );
@@ -1903,7 +1903,7 @@ fn chat_mode_resume_without_local_disk_loads_as_chat() {
     );
     assert_eq!(
         agent.rename_kind(),
-        xai_grok_shell::session::unified_list::SessionKind::Chat
+        xai_grok_shared::session::catalog::SessionKind::Chat
     );
     assert!(
         agent.app_chat_mode,
@@ -1919,7 +1919,7 @@ fn chat_mode_resume_without_local_disk_loads_as_chat() {
         matches!(
             &rename[..],
             [Effect::RenameSession { kind, .. }]
-                if *kind == xai_grok_shell::session::unified_list::SessionKind::Chat
+                if *kind == xai_grok_shared::session::catalog::SessionKind::Chat
         ),
         "sticky --chat gateway resume rename must send kind=chat, got {rename:?}"
     );
@@ -1963,7 +1963,7 @@ fn load_sticky_chat_history_bypass_rename_kind_is_build() {
     );
     assert_eq!(
         agent.rename_kind(),
-        xai_grok_shell::session::unified_list::SessionKind::Build
+        xai_grok_shared::session::catalog::SessionKind::Build
     );
     let rename = dispatch(
         Action::RenameSession {
@@ -1975,7 +1975,7 @@ fn load_sticky_chat_history_bypass_rename_kind_is_build() {
         matches!(
             &rename[..],
             [Effect::RenameSession { kind, title, .. }]
-                if *kind == xai_grok_shell::session::unified_list::SessionKind::Build
+                if *kind == xai_grok_shared::session::catalog::SessionKind::Build
                     && title == "local title"
         ),
         "history-bypass rename must send kind=build, got {rename:?}"
@@ -2029,7 +2029,7 @@ fn chat_mode_allows_conversation_entry_even_if_local_path() {
     );
     assert_eq!(
         agent.rename_kind(),
-        xai_grok_shell::session::unified_list::SessionKind::Chat
+        xai_grok_shared::session::catalog::SessionKind::Chat
     );
 }
 #[test]
@@ -2111,9 +2111,7 @@ fn dispatch_fork_no_flag_always_reopens_modal_after_previous_answer() {
 #[test]
 fn translate_local_submit_skipped_returns_changed_with_no_action() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: vec![QuestionOption {
@@ -2142,9 +2140,7 @@ fn translate_local_submit_skipped_returns_changed_with_no_action() {
 #[test]
 fn translate_local_submit_no_selection_returns_changed_no_action() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..2)
@@ -2173,9 +2169,7 @@ fn translate_local_submit_no_selection_returns_changed_no_action() {
 #[test]
 fn translate_local_submit_out_of_range_index_returns_changed_no_action() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..2)
@@ -2205,9 +2199,7 @@ fn translate_local_submit_out_of_range_index_returns_changed_no_action() {
 #[test]
 fn handle_ask_user_question_does_not_push_system_block_when_displaced_acp_modal() {
     use crate::views::question_view::QuestionViewState;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let mut app = fork_test_app();
     let id = AgentId(0);
     let stashed = app.agents.get_mut(&id).unwrap().prompt.stash();

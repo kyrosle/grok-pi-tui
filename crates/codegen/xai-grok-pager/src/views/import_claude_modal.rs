@@ -1149,7 +1149,7 @@ mod tests {
     #[test]
     fn filtered_plan_respects_per_item_selection_after_grouping() {
         use xai_grok_shell::claude_import::ImportableItem;
-        use xai_grok_shell::util::config::{McpServerConfig, McpServerTransportConfig};
+        use crate::settings_config::{McpServerConfig, McpServerTransportConfig};
         use xai_grok_workspace::permission::types::{PatternMode, PermissionRule, ToolFilter};
 
         // Mix Permissions, MCP servers, and EnvVars in a non-sorted order so

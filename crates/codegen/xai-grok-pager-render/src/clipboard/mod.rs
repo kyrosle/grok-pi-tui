@@ -794,7 +794,7 @@ pub fn paste_payload_needs_clipboard_attachment_probe(payload: &str) -> bool {
 }
 
 /// Terminals rewrite `\n` to `\r` on paste. A mismatch is an IME commit or a diverged tmux buffer, not a clipboard paste.
-/// Reads `pbpaste`; call only off the event loop.
+/// Reads clipboard text; call only off the event loop.
 pub fn bracketed_payload_came_from_clipboard(payload: &str) -> bool {
     bracketed_payload_came_from_clipboard_result(payload).unwrap_or(false)
 }
@@ -888,14 +888,35 @@ pub fn attachment_probe_would_run(clipboard_text: Option<&str>) -> bool {
     attachment_probe_gate(clipboard_text).is_some()
 }
 
-/// Attachment probing failed.
+/// Why a native clipboard probe attached nothing. Kept in the native component, independent of product telemetry.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ClipboardProbeError;
+pub enum ClipboardProbeDropReason {
+    ReadFailed,
+    Timeout,
+    Panicked,
+    PersistFailed,
+    PasteboardChangedBeforeRead,
+    PasteboardChangedAfterRead,
+    BracketedPayloadMismatch,
+    BracketedOriginReadFailed,
+}
+
+/// `Timeout` when the read's helper process was killed at its deadline; every other read error is `ReadFailed`.
+fn read_drop_reason(error: &anyhow::Error) -> ClipboardProbeDropReason {
+    if error
+        .downcast_ref::<xai_grok_shared::clipboard::WaitTimeout>()
+        .is_some()
+    {
+        ClipboardProbeDropReason::Timeout
+    } else {
+        ClipboardProbeDropReason::ReadFailed
+    }
+}
 
 /// Probe image / file-url pasteboard types per [`attachment_probe_route`].
 pub fn system_clipboard_probe_attachments(
     clipboard_text: Option<&str>,
-) -> Result<(Option<ImageData>, Option<String>), ClipboardProbeError> {
+) -> Result<(Option<ImageData>, Option<String>), ClipboardProbeDropReason> {
     // Native snapshot (sub-ms, no subprocess) skips the osascript image probe for a text paste when the pasteboard holds no raster
     // This is the single gate site
     if !attachment_probe_would_run(clipboard_text) {
@@ -920,6 +941,52 @@ pub fn system_clipboard_probe_attachments(
     }
 }
 
+/// Why a probe attached nothing; `image` is a raster it read and then discarded.
+#[derive(Debug)]
+pub struct ProbeDrop {
+    pub reason: ClipboardProbeDropReason,
+    pub image: Option<ImageData>,
+    /// Error text for the completion's toast; only a failed session persist has one.
+    pub message: Option<String>,
+}
+
+/// Bracket one pasteboard read with the `changeCount` guard so a paste never attaches what was not on the board at `baseline`
+/// (today [`attachment_probe_gate`]'s snapshot after the `pbpaste` text read, so a copy landing during that read is not caught).
+/// A move before the read drops unread; a move during it drops what was read and outranks the read's own failure, except a
+/// deadline kill, where the hang is the signal. A `None` baseline (no `changeCount` on this platform) leaves the read unguarded.
+pub fn guarded_pasteboard_read(
+    baseline: Option<u64>,
+    mut change_count: impl FnMut() -> Option<u64>,
+    read: impl FnOnce() -> Result<(Option<ImageData>, Option<String>), ClipboardProbeDropReason>,
+) -> Result<(Option<ImageData>, Option<String>), ProbeDrop> {
+    let dropped = |reason, image| ProbeDrop {
+        reason,
+        image,
+        message: None,
+    };
+    let Some(baseline) = baseline else {
+        return read().map_err(|reason| dropped(reason, None));
+    };
+    if change_count() != Some(baseline) {
+        return Err(dropped(
+            ClipboardProbeDropReason::PasteboardChangedBeforeRead,
+            None,
+        ));
+    }
+    let outcome = read();
+    // A count that stops answering mid-paste cannot vouch for the board either, so it counts as a move
+    if !matches!(outcome, Err(ClipboardProbeDropReason::Timeout))
+        && change_count() != Some(baseline)
+    {
+        let image = outcome.ok().and_then(|(image, _)| image);
+        return Err(dropped(
+            ClipboardProbeDropReason::PasteboardChangedAfterRead,
+            image,
+        ));
+    }
+    outcome.map_err(|reason| dropped(reason, None))
+}
+
 /// One clipboard-read event. No-op, and no terminal-context detection, when telemetry is disabled.
 fn log_clipboard_paste_event(
     probe: &str,
@@ -942,7 +1009,7 @@ fn log_clipboard_paste_event(
 /// Read file URLs and image from the system clipboard in one macOS `osascript`.
 ///
 /// On non-macOS this composes separate arboard reads.
-fn system_clipboard_get_attachments() -> Result<AttachmentsProbeResult, ClipboardProbeError> {
+fn system_clipboard_get_attachments() -> Result<AttachmentsProbeResult, ClipboardProbeDropReason> {
     let started = std::time::Instant::now();
     match xai_grok_shared::clipboard::get_attachments() {
         Ok(att) => {
@@ -960,7 +1027,7 @@ fn system_clipboard_get_attachments() -> Result<AttachmentsProbeResult, Clipboar
         Err(e) => {
             tracing::debug!("clipboard attachments read failed: {e}");
             log_clipboard_paste_event("attachments", "error", "", started);
-            Err(ClipboardProbeError)
+            Err(read_drop_reason(&e))
         }
     }
 }
@@ -973,7 +1040,7 @@ struct AttachmentsProbeResult {
 }
 
 /// Re-export [`ImageData`] so pager code does not import the shell directly.
-pub use xai_grok_shared::clipboard::ImageData;
+pub use xai_grok_shared::clipboard::{ImageData, OSASCRIPT_WAIT};
 
 /// One pasteboard snapshot `(change_count, has_pasteable_image)` read in a single native pass (macOS native, sub-millisecond, no data read).
 /// `(None, false)` off-macOS or when AppKit cannot be loaded.
@@ -1020,7 +1087,7 @@ pub fn prewarm_image_probe() {
 }
 
 /// Read an image while preserving an empty-versus-error distinction.
-fn system_clipboard_get_image_result() -> Result<Option<ImageData>, ClipboardProbeError> {
+fn system_clipboard_get_image_result() -> Result<Option<ImageData>, ClipboardProbeDropReason> {
     let started = std::time::Instant::now();
     match xai_grok_shared::clipboard::get_image() {
         Ok(img) => {
@@ -1034,7 +1101,7 @@ fn system_clipboard_get_image_result() -> Result<Option<ImageData>, ClipboardPro
         Err(e) => {
             tracing::debug!("clipboard image read failed: {e}");
             log_clipboard_paste_event("image", "error", "", started);
-            Err(ClipboardProbeError)
+            Err(read_drop_reason(&e))
         }
     }
 }
@@ -1052,11 +1119,11 @@ pub fn system_clipboard_get_image() -> Option<ImageData> {
 /// Does not propagate to `spawn_blocking` — the off-thread probe reads the real pasteboard. Drive completion directly in tests.
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support {
-    use super::{ClipboardProbeError, ClipboardTextReadError, ImageData};
+    use super::{ClipboardProbeDropReason, ClipboardTextReadError, ImageData};
     use std::cell::{Cell, RefCell};
 
     pub(super) type AttachmentProbeResult =
-        Result<(Option<ImageData>, Option<String>), ClipboardProbeError>;
+        Result<(Option<ImageData>, Option<String>), ClipboardProbeDropReason>;
 
     /// Snapshot: no raster `(Some, false)`, has raster `(Some, true)`, unavailable `(None, _)`. Prefer the named constructors.
     #[derive(Clone, Default)]
@@ -1177,7 +1244,7 @@ pub mod test_support {
             h.borrow().as_ref().map(|hook| {
                 PROBE_CALLS.with(|c| c.set(c.get() + 1));
                 if hook.attachment_probe_failed {
-                    Err(ClipboardProbeError)
+                    Err(ClipboardProbeDropReason::ReadFailed)
                 } else {
                     Ok((hook.image.clone(), hook.file_urls.clone()))
                 }
@@ -1543,7 +1610,7 @@ mod tests {
 
         assert_eq!(
             system_clipboard_probe_attachments(None),
-            Err(ClipboardProbeError)
+            Err(ClipboardProbeDropReason::ReadFailed)
         );
         clear_clipboard_probe_hook();
     }
@@ -2280,5 +2347,156 @@ mod tests {
             }
             other => panic!("expected Clipboard delivery, got {other:?}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod pasteboard_guard_tests {
+    use super::ClipboardProbeDropReason as Reason;
+    use super::{ProbeDrop, guarded_pasteboard_read};
+    use crate::clipboard::ImageData;
+    use std::cell::Cell;
+
+    type Read = Result<(Option<ImageData>, Option<String>), Reason>;
+    type Outcome = Result<(Option<ImageData>, Option<String>), ProbeDrop>;
+
+    fn raster() -> ImageData {
+        ImageData {
+            data: vec![0x89, b'P', b'N', b'G'],
+            mime_type: "image/png".into(),
+        }
+    }
+
+    /// Serves `counts` to successive changeCount polls; returns the outcome and how many times the read ran.
+    fn run(baseline: Option<u64>, counts: &[Option<u64>], read: Read) -> (Outcome, usize) {
+        let polls = Cell::new(0usize);
+        let reads = Cell::new(0usize);
+        let outcome = guarded_pasteboard_read(
+            baseline,
+            || {
+                let count = counts
+                    .get(polls.get())
+                    .copied()
+                    .expect("a changeCount poll past the script");
+                polls.set(polls.get() + 1);
+                count
+            },
+            || {
+                reads.set(reads.get() + 1);
+                read
+            },
+        );
+        assert_eq!(
+            polls.get(),
+            counts.len(),
+            "every scripted changeCount poll must be consumed"
+        );
+        (outcome, reads.get())
+    }
+
+    #[test]
+    fn unchanged_board_passes_the_read_through() {
+        let (outcome, reads) = run(Some(7), &[Some(7), Some(7)], Ok((Some(raster()), None)));
+        let (image, file_urls) = outcome.expect("read stands");
+        assert_eq!(image.map(|img| img.data), Some(raster().data));
+        assert!(file_urls.is_none());
+        assert_eq!(reads, 1);
+    }
+
+    #[test]
+    fn change_before_the_read_drops_without_reading() {
+        let (outcome, reads) = run(Some(7), &[Some(8)], Ok((Some(raster()), None)));
+        let drop = outcome.expect_err("stale baseline drops");
+        assert_eq!(drop.reason, Reason::PasteboardChangedBeforeRead);
+        assert!(drop.image.is_none());
+        assert_eq!(reads, 0, "a stale board must not be read at all");
+    }
+
+    #[test]
+    fn change_during_the_read_discards_the_raster_and_names_it() {
+        let (outcome, _) = run(Some(7), &[Some(7), Some(8)], Ok((Some(raster()), None)));
+        let drop = outcome.expect_err("a copy landing mid-read drops");
+        assert_eq!(drop.reason, Reason::PasteboardChangedAfterRead);
+        assert_eq!(drop.image.map(|img| img.data), Some(raster().data));
+
+        let (outcome, _) = run(
+            Some(7),
+            &[Some(7), Some(8)],
+            Ok((None, Some("/tmp/a".into()))),
+        );
+        assert_eq!(
+            outcome.expect_err("file URLs drop the same way").reason,
+            Reason::PasteboardChangedAfterRead
+        );
+        let (outcome, _) = run(Some(7), &[Some(7), Some(8)], Ok((None, None)));
+        assert_eq!(
+            outcome
+                .expect_err("an empty read under a late change is not what was pasted")
+                .reason,
+            Reason::PasteboardChangedAfterRead
+        );
+        // A count that stops answering after the read cannot vouch for the board either
+        let (outcome, _) = run(Some(7), &[Some(7), None], Ok((Some(raster()), None)));
+        let drop = outcome.expect_err("a vanished changeCount counts as a move");
+        assert_eq!(drop.reason, Reason::PasteboardChangedAfterRead);
+        assert_eq!(drop.image.map(|img| img.data), Some(raster().data));
+    }
+
+    /// No `changeCount` on this platform: the read runs once, unguarded, and the board is never polled.
+    #[test]
+    fn missing_baseline_leaves_the_read_unguarded() {
+        let (outcome, reads) = run(None, &[], Ok((Some(raster()), None)));
+        assert!(outcome.expect("the read stands").0.is_some());
+        assert_eq!(reads, 1);
+    }
+
+    #[test]
+    fn read_failures_propagate_with_their_own_reason() {
+        let (outcome, _) = run(
+            Some(7),
+            &[Some(7), Some(7)],
+            Err(Reason::BracketedPayloadMismatch),
+        );
+        assert_eq!(
+            outcome.expect_err("read error").reason,
+            Reason::BracketedPayloadMismatch
+        );
+        let (outcome, _) = run(None, &[], Err(Reason::ReadFailed));
+        assert_eq!(outcome.expect_err("read error").reason, Reason::ReadFailed);
+        // A copy landing during the read is what made it fail, so the move is the reported reason.
+        let (outcome, _) = run(Some(7), &[Some(7), Some(8)], Err(Reason::ReadFailed));
+        assert_eq!(
+            outcome.expect_err("the board moved under the read").reason,
+            Reason::PasteboardChangedAfterRead
+        );
+    }
+
+    /// A copy landing during a hung read did not cause the hang: the kill is the signal and the board is not polled again.
+    #[test]
+    fn a_killed_read_stays_a_timeout_whatever_the_board_did() {
+        let (outcome, _) = run(Some(7), &[Some(7)], Err(Reason::Timeout));
+        assert_eq!(
+            outcome.expect_err("the read was killed").reason,
+            Reason::Timeout
+        );
+    }
+}
+
+#[cfg(test)]
+mod read_reason_tests {
+    #[test]
+    fn killed_helper_keeps_its_timeout_even_with_context() {
+        let timeout = anyhow::Error::from(xai_grok_shared::clipboard::WaitTimeout(
+            super::OSASCRIPT_WAIT,
+        ))
+        .context("osascript image read");
+        assert_eq!(
+            super::read_drop_reason(&timeout),
+            super::ClipboardProbeDropReason::Timeout
+        );
+        assert_eq!(
+            super::read_drop_reason(&anyhow::anyhow!("read failed")),
+            super::ClipboardProbeDropReason::ReadFailed
+        );
     }
 }

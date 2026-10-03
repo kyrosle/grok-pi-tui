@@ -15,13 +15,7 @@ pub struct SchedulerDeleteInput {
     pub id: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct SchedulerDeleteOutput {
-    pub success: bool,
-    pub message: String,
-}
-
-impl xai_tool_runtime::ToolOutput for SchedulerDeleteOutput {}
+pub use xai_tool_types::output_dependencies::SchedulerDeleteOutput;
 
 #[derive(Debug, Default)]
 pub struct SchedulerDeleteTool;

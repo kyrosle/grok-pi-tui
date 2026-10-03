@@ -546,13 +546,13 @@ impl GoalRoleModelFailOpenReason {
 }
 
 /// The exhaustive match catches drift if either side adds a variant.
-impl From<crate::session::goal_tracker::GoalClassifierVerdict> for GoalClassifierVerdictTelemetry {
-    fn from(verdict: crate::session::goal_tracker::GoalClassifierVerdict) -> Self {
-        use crate::session::goal_tracker::GoalClassifierVerdict;
-        match verdict {
-            GoalClassifierVerdict::Achieved => Self::Achieved,
-            GoalClassifierVerdict::NotAchieved => Self::NotAchieved,
-        }
+pub(crate) fn goal_classifier_verdict_telemetry(
+    verdict: crate::session::goal_tracker::GoalClassifierVerdict,
+) -> GoalClassifierVerdictTelemetry {
+    use crate::session::goal_tracker::GoalClassifierVerdict;
+    match verdict {
+        GoalClassifierVerdict::Achieved => GoalClassifierVerdictTelemetry::Achieved,
+        GoalClassifierVerdict::NotAchieved => GoalClassifierVerdictTelemetry::NotAchieved,
     }
 }
 

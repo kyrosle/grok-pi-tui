@@ -90,47 +90,16 @@ pub fn validate_tool_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Max protocol icons kept per server/tool at ingest.
-pub const MAX_MCP_ICONS_PER_ENTITY: usize = 8;
+pub use xai_tool_types::mcp::{McpIcon, McpIconTheme, MAX_MCP_ICONS_PER_ENTITY, MAX_MCP_ICON_SRC_BYTES, MAX_MCP_ICON_MIME_TYPE_BYTES, MAX_MCP_ICON_SIZES, MAX_MCP_ICON_SIZE_TOKEN_BYTES};
 
-/// Max bytes for a single icon `src` (including data URIs) at ingest.
-pub const MAX_MCP_ICON_SRC_BYTES: usize = 64 * 1024;
-
-/// Max bytes for a single icon `mime_type` string at ingest.
-pub const MAX_MCP_ICON_MIME_TYPE_BYTES: usize = 128;
-
-/// Max size tokens kept per icon (`48x48`, `any`, …) at ingest.
-pub const MAX_MCP_ICON_SIZES: usize = 8;
-
-/// Max bytes for a single size token at ingest.
-pub const MAX_MCP_ICON_SIZE_TOKEN_BYTES: usize = 32;
-
-/// Wire theme for MCP protocol icons.
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum McpIconTheme {
-    Light,
-    Dark,
-    #[serde(other)]
-    Unknown,
+/// Original SDK ingest conversion for the canonical icon wire type.
+pub trait McpIconExt: Sized {
+    fn from_rmcp(icon: rmcp::model::Icon) -> Option<Self>;
+    fn from_rmcp_list(icons: Option<Vec<rmcp::model::Icon>>) -> Vec<Self>;
 }
-
-/// ACP-facing MCP protocol icon (SEP-973), mirrored from rmcp so clients never depend on the quarantined SDK types.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct McpIcon {
-    pub src: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mime_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sizes: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub theme: Option<McpIconTheme>,
-}
-
-impl McpIcon {
+impl McpIconExt for McpIcon {
     /// Convert an rmcp icon with ingest rules: trim `src`, allow only `https://` and `data:image/…`, drop empty/oversized values.
-    pub fn from_rmcp(icon: rmcp::model::Icon) -> Option<Self> {
+    fn from_rmcp(icon: rmcp::model::Icon) -> Option<Self> {
         let src = icon.src.trim();
         if src.is_empty() || src.len() > MAX_MCP_ICON_SRC_BYTES {
             return None;
@@ -174,7 +143,7 @@ impl McpIcon {
         })
     }
 
-    pub fn from_rmcp_list(icons: Option<Vec<rmcp::model::Icon>>) -> Vec<Self> {
+    fn from_rmcp_list(icons: Option<Vec<rmcp::model::Icon>>) -> Vec<Self> {
         icons
             .unwrap_or_default()
             .into_iter()
@@ -1198,25 +1167,7 @@ pub fn parse_mcp_meta_config(
 pub use xai_grok_telemetry::enums::McpInitStrategy;
 
 /// Parse a non-empty `server__tool` ID with one overlap-aware delimiter and valid [`xai_tool_protocol::ToolId`] syntax.
-pub fn parse_mcp_qualified_name(name: &str) -> Option<(xai_tool_protocol::ToolId, &str, &str)> {
-    let delimiter = MCP_TOOL_NAME_DELIMITER.as_bytes();
-    // Byte windows preserve both overlapping `__` boundaries in `___`.
-    let mut boundaries = name
-        .as_bytes()
-        .windows(delimiter.len())
-        .enumerate()
-        .filter_map(|(index, window)| (window == delimiter).then_some(index));
-    let boundary = boundaries.next()?;
-    if boundaries.next().is_some() {
-        return None;
-    }
-    let (server, tool_with_delimiter) = name.split_at(boundary);
-    let tool = &tool_with_delimiter[MCP_TOOL_NAME_DELIMITER.len()..];
-    if server.is_empty() || tool.is_empty() {
-        return None;
-    }
-    Some((xai_tool_protocol::ToolId::new(name).ok()?, server, tool))
-}
+pub use xai_tool_protocol::parse_mcp_qualified_name;
 
 /// Parse an MCP tool name in `server__tool` format into owned segments.
 pub fn parse_mcp_tool_name(name: &str) -> Option<(String, String)> {

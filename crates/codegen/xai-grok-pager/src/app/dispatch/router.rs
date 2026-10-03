@@ -24,6 +24,7 @@ use super::dashboard::{
     dispatch_dashboard_toggle_pin, dispatch_dashboard_toggle_worktree, dispatch_exit_dashboard,
     dispatch_open_dashboard,
 };
+#[cfg(feature = "stock-runtime")]
 use super::import_claude::{
     dispatch_dismiss_claude_import, dispatch_import_claude, dispatch_import_claude_cancel,
     dispatch_import_claude_confirm,
@@ -122,11 +123,12 @@ use super::status::{
     dispatch_show_usage, set_coding_data_sharing,
 };
 use super::task_result::{dispatch_task_result, unregister_all_active_sessions};
+#[cfg(feature = "stock-runtime")]
+use super::transcript::dispatch_open_config_agents_modal;
 use super::transcript::{
     dispatch_copy_assistant_message, dispatch_copy_block_content, dispatch_copy_block_meta,
     dispatch_dump_input_log, dispatch_export_conversation, dispatch_open_block_viewer,
-    dispatch_open_config_agents_modal, dispatch_open_extensions_modal,
-    dispatch_open_transcript_pager,
+    dispatch_open_extensions_modal, dispatch_open_transcript_pager,
 };
 use super::turn::{
     dispatch_cancel_scheduled_task, dispatch_cancel_turn, dispatch_cancel_turn_choice,
@@ -284,9 +286,13 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
             app.new_worktree_dialog = Some(crate::app::app_view::NewWorktreeDialogState::new());
             vec![]
         }
+        #[cfg(feature = "stock-runtime")]
         Action::ImportClaudeSettings => dispatch_import_claude(app),
+        #[cfg(feature = "stock-runtime")]
         Action::ImportClaudeConfirm => dispatch_import_claude_confirm(app),
+        #[cfg(feature = "stock-runtime")]
         Action::ImportClaudeCancel => dispatch_import_claude_cancel(app),
+        #[cfg(feature = "stock-runtime")]
         Action::DismissClaudeImport => dispatch_dismiss_claude_import(app),
         Action::LoadSession(session_id, session_cwd, chat_kind) => {
             dispatch_load_session(app, session_id, session_cwd, chat_kind)
@@ -809,6 +815,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
             }
             dispatch_open_extensions_modal(app, tab, trigger)
         }
+        #[cfg(feature = "stock-runtime")]
         Action::OpenConfigAgentsModal(tab) => dispatch_open_config_agents_modal(app, tab),
         Action::McpAuthTrigger { server_name } => {
             let ActiveView::Agent(id) = app.active_view else {

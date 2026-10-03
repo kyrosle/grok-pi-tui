@@ -510,7 +510,7 @@ pub enum ActiveModal {
         /// Shared modal window chrome state.
         window: ModalWindowState,
         /// Content-based (deep search) results from ACP session search.
-        content_results: Option<Vec<xai_grok_shell::extensions::session_search::SearchSessionHit>>,
+        content_results: Option<Vec<xai_grok_shared::session::catalog::SearchSessionHit>>,
         /// Whether a deep search is currently in flight.
         content_loading: bool,
         /// Monotonically increasing sequence number for deep search requests.
@@ -583,7 +583,7 @@ pub enum ActiveModal {
         block: crate::scrollback::blocks::ContextInfoBlock,
         scroll: u16,
         window: ModalWindowState,
-        cache_metrics: Option<xai_grok_shell::session::CacheSessionMetrics>,
+        cache_metrics: Option<xai_grok_shared::session::CacheSessionMetrics>,
         view: crate::views::cache_graph::CacheGraphView,
         /// Selected assistant-message row in cache views; defaults to latest.
         selected_row: Option<usize>,
@@ -709,6 +709,7 @@ pub enum PaletteCommand {
     /// Open the settings modal.
     OpenSettings,
     /// Open the Agents modal (listing all agent definitions).
+    #[cfg(feature = "stock-runtime")]
     OpenAgentsModal,
     /// Open the feedback modal directly in the full TUI. Minimal mode carries a slash draft instead.
     OpenFeedbackModal,
@@ -887,6 +888,7 @@ pub(crate) fn default_palette_entries(
                 crate::views::extensions_modal::ExtensionsTab::McpServers,
             ),
         },
+        #[cfg(feature = "stock-runtime")]
         PaletteEntry {
             label: "Manage Agents".into(),
             shortcut: "/config-agents".into(),
@@ -967,7 +969,7 @@ pub(crate) fn palette_entries_with_acp_commands(
     sharing_enabled: bool,
     slash: &crate::slash::SlashController,
     available_commands: &[agent_client_protocol::AvailableCommand],
-    placements: &[xai_grok_shell::host_features::HostPaletteSpec],
+    placements: &[xai_grok_shared::host_features::HostPaletteSpec],
 ) -> Vec<PaletteEntry> {
     let mut entries = default_palette_entries(sharing_enabled, slash);
     let mut seen = std::collections::HashSet::new();
@@ -1700,7 +1702,7 @@ pub fn render_context_info_overlay(
     scroll: &mut u16,
     compact: bool,
     theme: &Theme,
-    cache_metrics: Option<&xai_grok_shell::session::CacheSessionMetrics>,
+    cache_metrics: Option<&xai_grok_shared::session::CacheSessionMetrics>,
     view: crate::views::cache_graph::CacheGraphView,
     selected_row: Option<usize>,
     detail_open: bool,
@@ -2496,7 +2498,7 @@ mod palette_sharing_tests {
             .meta(pi_meta()),
         ];
         let placements = [
-            xai_grok_shell::host_features::HostPaletteSpec {
+            xai_grok_shared::host_features::HostPaletteSpec {
                 command: "later",
                 section: "Extension actions",
                 section_order: 50,
@@ -2505,7 +2507,7 @@ mod palette_sharing_tests {
                 shortcut: None,
                 source: "test/grok-pi.json",
             },
-            xai_grok_shell::host_features::HostPaletteSpec {
+            xai_grok_shared::host_features::HostPaletteSpec {
                 command: "first",
                 section: "Extension actions",
                 section_order: 50,
@@ -2514,7 +2516,7 @@ mod palette_sharing_tests {
                 shortcut: Some("⌘1"),
                 source: "test/grok-pi.json",
             },
-            xai_grok_shell::host_features::HostPaletteSpec {
+            xai_grok_shared::host_features::HostPaletteSpec {
                 command: "disabled-feature-command",
                 section: "Extension actions",
                 section_order: 50,

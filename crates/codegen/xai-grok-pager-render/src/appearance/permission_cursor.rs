@@ -10,7 +10,7 @@
 use std::cell::Cell;
 
 use agent_client_protocol as acp;
-use xai_grok_workspace::permission::is_enable_always_approve_option;
+use xai_grok_shared::permissions::is_enable_always_approve_option;
 
 /// Persisted as `[ui].default_selected_permission`. Steers only the first prompt; later prompts stick to the last-used kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -199,7 +199,7 @@ fn load_string_from_effective_config(key: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xai_grok_workspace::permission::ENABLE_ALWAYS_APPROVE_OPTION_ID;
+    use xai_grok_shared::permissions::ENABLE_ALWAYS_APPROVE_OPTION_ID;
 
     fn opt(id: &str, kind: acp::PermissionOptionKind) -> acp::PermissionOption {
         acp::PermissionOption::new(acp::PermissionOptionId::new(id), id.to_owned(), kind)
@@ -397,7 +397,7 @@ mod tests {
             set_last_used_permission(DefaultSelectedPermission::AllowCommandAlways);
             let options = [
                 opt(
-                    xai_grok_workspace::permission::ENABLE_ALWAYS_APPROVE_OPTION_ID,
+                    xai_grok_shared::permissions::ENABLE_ALWAYS_APPROVE_OPTION_ID,
                     acp::PermissionOptionKind::AllowOnce,
                 ),
                 opt("allow-once", acp::PermissionOptionKind::AllowOnce),

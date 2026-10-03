@@ -30,7 +30,7 @@ pub struct SessionPickerSurface {
     pub entries: Option<Vec<crate::app::app_view::SessionPickerEntry>>,
     pub loading: bool,
     pub lanes: crate::views::session_picker::SessionPickerLanes,
-    pub content_results: Option<Vec<xai_grok_shell::extensions::session_search::SearchSessionHit>>,
+    pub content_results: Option<Vec<xai_grok_shared::session::catalog::SearchSessionHit>>,
     pub content_loading: bool,
     /// Per-surface counters; the dashboard host does not share the welcome picker's `session_picker_list_seq` / `session_picker_deep_search_seq`.
     pub list_seq: u64,
@@ -80,7 +80,7 @@ pub(crate) struct SessionPickerRenderCtx<'a> {
     pub(crate) pending_hint: Option<crate::views::shortcuts_bar::PendingHint>,
     pub(crate) shortcuts_area: Option<Rect>,
     pub(crate) content_results:
-        Option<&'a [xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+        Option<&'a [xai_grok_shared::session::catalog::SearchSessionHit]>,
     pub(crate) content_loading: bool,
     pub(crate) entries_query: Option<&'a str>,
     pub(crate) tick: u64,

@@ -3250,17 +3250,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fancy-regex"
-version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "998b056554fbe42e03ae0e152895cd1a7e1002aec800fdc6635d20270260c46f"
-dependencies = [
- "bit-set 0.8.0",
- "regex-automata",
- "regex-syntax",
-]
-
-[[package]]
 name = "fast-float2"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7240,6 +7229,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "onig"
+version = "6.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc3cbf698f9438986c11a880c90a6d04b9de27575afd28bbf45b154b6c709e2"
+dependencies = [
+ "bitflags 2.13.0",
+ "libc",
+ "once_cell",
+ "onig_sys",
+]
+
+[[package]]
+name = "onig_sys"
+version = "69.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e68317604e77e53b85896388e1a803c1d21b74c899ec9e5e1112db90735edd7"
+dependencies = [
+ "cc",
+ "pkg-config",
+]
+
+[[package]]
 name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10609,10 +10620,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "656b45c05d95a5704399aeef6bd0ddec7b2b3531b7c9e900abbf7c4d2190c925"
 dependencies = [
  "bincode",
- "fancy-regex 0.16.2",
  "flate2",
  "fnv",
  "once_cell",
+ "onig",
  "plist",
  "regex-syntax",
  "serde",
@@ -13505,6 +13516,7 @@ dependencies = [
  "uuid",
  "xai-dirs",
  "xai-gix-status",
+ "xai-grok-config-types",
  "xai-sqlite-journal",
  "xai-test-utils",
  "xai-tty-utils",
@@ -13637,6 +13649,7 @@ dependencies = [
  "tracing",
  "xai-dirs",
  "xai-grok-config",
+ "xai-grok-config-types",
  "xai-grok-hooks",
  "xai-grok-sampling-types",
  "xai-grok-tools",
@@ -13736,11 +13749,13 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
+ "serde_yaml",
  "strum 0.27.2",
  "toml",
  "tracing",
  "xai-grok-announcements",
  "xai-grok-config",
+ "xai-grok-sampling-types",
 ]
 
 [[package]]
@@ -14187,6 +14202,7 @@ dependencies = [
  "xai-dirs",
  "xai-fast-worktree",
  "xai-file-utils",
+ "xai-fuzzy-file-search",
  "xai-grok-active-sessions",
  "xai-grok-agent",
  "xai-grok-announcements",
@@ -14219,6 +14235,7 @@ dependencies = [
  "xai-grok-version",
  "xai-grok-voice",
  "xai-grok-workspace",
+ "xai-grok-workspace-types",
  "xai-hooks-plugins-types",
  "xai-prompt-queue",
  "xai-ratatui-inline",
@@ -14292,8 +14309,10 @@ dependencies = [
  "chrono",
  "crossterm",
  "ratatui",
+ "serial_test",
  "similar",
  "tracing",
+ "unicode-width 0.2.0",
  "uuid",
  "xai-grok-pager",
  "xai-grok-pager-diff",
@@ -14546,28 +14565,47 @@ dependencies = [
  "anyhow",
  "arboard",
  "base64 0.22.1",
+ "chrono",
  "dunce",
+ "fs2",
+ "glob",
  "image",
+ "indexmap",
  "libc",
  "objc2 0.6.3",
  "parking_lot",
  "prod-mc-cli-chat-proxy-types",
  "regex",
+ "semver",
  "serde",
  "serde_json",
+ "strum 0.27.2",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
  "toml",
  "tracing",
+ "tree-sitter",
+ "tree-sitter-bash",
  "urlencoding",
  "uuid",
  "wl-clipboard-rs",
+ "xai-agent-lifecycle",
+ "xai-chat-state",
  "xai-dirs",
+ "xai-grok-announcements",
  "xai-grok-config",
+ "xai-grok-config-types",
+ "xai-grok-feedback",
  "xai-grok-image",
  "xai-grok-models",
+ "xai-grok-sampling-types",
+ "xai-grok-session-events",
  "xai-grok-status-line",
+ "xai-grok-version",
+ "xai-hooks-plugins-types",
  "xai-token-estimation",
+ "xai-tool-protocol",
  "xai-tool-types",
  "xai-tty-utils",
 ]
@@ -14848,6 +14886,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
+ "toml",
  "tonic",
  "tracing",
  "tracing-appender",
@@ -14860,6 +14899,7 @@ dependencies = [
  "xai-file-utils",
  "xai-grok-auth",
  "xai-grok-config",
+ "xai-grok-config-types",
  "xai-grok-env",
  "xai-grok-extra-ca",
  "xai-grok-otel",
@@ -14969,6 +15009,7 @@ dependencies = [
  "xai-file-utils",
  "xai-grok-auth",
  "xai-grok-config",
+ "xai-grok-config-types",
  "xai-grok-env",
  "xai-grok-extra-ca",
  "xai-grok-feedback",
@@ -15003,6 +15044,7 @@ dependencies = [
  "tonic-prost",
  "xai-proto-build",
  "xai-tool-protocol",
+ "xai-tool-types",
 ]
 
 [[package]]
@@ -15030,12 +15072,14 @@ dependencies = [
  "url",
  "wiremock",
  "xai-dirs",
+ "xai-grok-config",
  "xai-grok-extra-ca",
  "xai-grok-login",
  "xai-grok-shell",
+ "xai-grok-shell-base",
  "xai-grok-telemetry",
- "xai-grok-tools",
  "xai-grok-version",
+ "xai-tty-utils",
  "zstd",
 ]
 
@@ -15213,6 +15257,8 @@ dependencies = [
  "serde_json",
  "strum 0.27.2",
  "thiserror 2.0.18",
+ "xai-grok-config-types",
+ "xai-tool-protocol",
 ]
 
 [[package]]
@@ -15390,13 +15436,17 @@ name = "xai-tool-types"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "derive_more 2.1.1",
  "indexmap",
  "minijinja",
  "schemars 1.0.4",
  "serde",
  "serde_json",
+ "similar",
+ "strip-ansi-escapes",
  "strum 0.26.3",
+ "url",
 ]
 
 [[package]]

@@ -26,7 +26,6 @@ fn external_session_created_clears_starting_session_indicator() {
             agent_id: id,
             session_id: "pi-session-ready".into(),
             models: None,
-            scheduler_background_loops: None,
         }),
         &mut app,
     );
@@ -2207,9 +2206,7 @@ fn dispatch_new_worktree_session_repoints_dashboard_attached_agent() {
 #[test]
 fn translate_local_submit_always_returns_persist_always_for_new_session() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..4)
@@ -2249,9 +2246,7 @@ fn translate_local_submit_always_returns_persist_always_for_new_session() {
 #[test]
 fn translate_local_submit_never_returns_persist_never_for_new_session() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let q = Question {
         question: "?".into(),
         options: (0..4)
@@ -2375,7 +2370,7 @@ fn delete_current_session_confirm_emits_effect() {
 /// Session delete must kill background tasks as `Teardown`; the wire default (`ClientUi`) would auto-wake.
 #[test]
 fn delete_current_session_kills_bg_tasks_as_teardown() {
-    use xai_grok_shell::extensions::task::TaskKillSource;
+    use xai_tool_types::task_wire::TaskKillSource;
     let mut app = test_app_with_agent();
     {
         let a = app.agents.get_mut(&AgentId(0)).unwrap();

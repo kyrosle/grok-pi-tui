@@ -11,7 +11,7 @@
 //! - **Reads** snapshot the live `UiConfig` (and pager-local state for PAGER-owned).
 //!   The modal carries the snapshot for the duration of one open session.
 //! - **Writes** are typed `Action::SetX(value)` variants dispatched directly by the modal (no `compute()` indirection, no `Vec<Action>` factories).
-//!   Persistence goes through `Effect::PersistSetting`, which routes to `xai_grok_shell::util::config::set_<field>(value).await`.
+//!   Persistence goes through `Effect::PersistSetting`, which routes to `crate::settings_config::set_<field>(value).await`.
 //!
 //! The registry is built once in `main` and threaded through `AppView::settings_registry: Arc<SettingsRegistry>`.
 //! This mirrors the `ActionRegistry` pattern. No `LazyLock`, no global state.

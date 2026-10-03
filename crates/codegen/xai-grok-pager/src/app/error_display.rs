@@ -33,15 +33,15 @@ impl WireErrorType {
         match s {
             "auth_transient" => Self::AuthTransient,
             "legacy_auth" => Self::LegacyAuth,
-            s if s == xai_grok_shell::extensions::notification::CONTEXT_LENGTH_ERROR_TYPE => {
+            s if s == xai_grok_shared::session::notification::CONTEXT_LENGTH_ERROR_TYPE => {
                 Self::ContextLength
             }
             "encrypted_content_mismatch" => Self::EncryptedContentMismatch,
-            s if s == xai_grok_shell::extensions::notification::DISK_FULL_ERROR_TYPE => {
+            s if s == xai_grok_shared::session::notification::DISK_FULL_ERROR_TYPE => {
                 Self::DiskFull
             }
             s => s
-                .parse::<xai_grok_shell::sampling::error::SamplingErrorKind>()
+                .parse::<xai_grok_shared::session::sampling_error::SamplingErrorKind>()
                 .map(Into::into)
                 .unwrap_or(Self::Other),
         }
@@ -55,9 +55,9 @@ pub(crate) fn wire_error_kind(raw: Option<&str>) -> Option<WireErrorType> {
 }
 
 /// The shared vocabulary maps 1:1 onto the pager's wire types; kinds without their own copy render as [`Self::Other`].
-impl From<xai_grok_shell::sampling::error::SamplingErrorKind> for WireErrorType {
-    fn from(kind: xai_grok_shell::sampling::error::SamplingErrorKind) -> Self {
-        use xai_grok_shell::sampling::error::SamplingErrorKind as K;
+impl From<xai_grok_shared::session::sampling_error::SamplingErrorKind> for WireErrorType {
+    fn from(kind: xai_grok_shared::session::sampling_error::SamplingErrorKind) -> Self {
+        use xai_grok_shared::session::sampling_error::SamplingErrorKind as K;
         match kind {
             K::Auth => Self::Auth,
             K::Http => Self::Http,
@@ -193,7 +193,7 @@ pub(crate) fn format_request_failure(
 fn truncation_recovered_from_untyped_raw(error_type: Option<WireErrorType>, raw: &str) -> bool {
     error_type.is_none()
         && parse_http_status(raw).is_none()
-        && raw.contains(xai_grok_shell::sampling::error::MAX_TOKENS_TRUNCATION_MESSAGE)
+        && raw.contains(xai_grok_shared::session::sampling_error::MAX_TOKENS_TRUNCATION_MESSAGE)
 }
 
 fn refine_untyped_wire(

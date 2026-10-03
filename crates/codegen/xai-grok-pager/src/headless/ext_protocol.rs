@@ -17,8 +17,8 @@ fn ext_response_from<T: serde::Serialize>(value: &T) -> AcpResult<acp::ExtRespon
 /// Answer a reverse `ext_method` request without a UI.
 /// Known interaction methods get a policy reply; dropping `response_tx` instead would fail the whole turn with a channel `recv_failed`.
 pub(crate) fn reply_headless_ext_method(args: AcpArgsBox<acp::ExtRequest>) {
-    use xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionExtResponse;
-    use xai_grok_tools::implementations::grok_build::exit_plan_mode::ExitPlanModeExtResponse;
+    use xai_tool_types::plan::ExitPlanModeExtResponse;
+    use xai_tool_types::questions::AskUserQuestionExtResponse;
 
     let method = args.request.method.as_ref();
     // Known methods are answered without parsing params: even a malformed request gets the policy reply rather than a dropped channel
@@ -26,7 +26,7 @@ pub(crate) fn reply_headless_ext_method(args: AcpArgsBox<acp::ExtRequest>) {
         // The model sees the tool's NO_OPERATOR_TEXT (headless sessions are non-interactive), not the interactive "user declined" cancel text
         "x.ai/ask_user_question" => ext_response_from(&AskUserQuestionExtResponse::Cancelled),
         "x.ai/mcp/elicit" => {
-            use xai_grok_tools::mcp_elicitation::McpElicitExtResponse;
+            use xai_tool_types::mcp_elicitation::McpElicitExtResponse;
             ext_response_from(&McpElicitExtResponse::Cancel)
         }
         // The model sees "Your plan has been approved. You can now start coding.".
@@ -282,7 +282,7 @@ fn decode_session_notification(method: &str, params: &str) -> ExtEvent {
             #[serde(default)]
             stop_reason: Option<String>,
             #[serde(default)]
-            usage: Option<xai_grok_shell::extensions::notification::ResponseUsage>,
+            usage: Option<xai_grok_shared::session::notification::ResponseUsage>,
             #[serde(default)]
             signature: Option<String>,
             #[serde(default)]

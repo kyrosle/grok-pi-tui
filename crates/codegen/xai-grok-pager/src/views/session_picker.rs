@@ -98,7 +98,7 @@ pub(crate) fn pending_delete_from_selection(
     selected: usize,
     entry_map: &[Option<PickerItem>],
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
 ) -> Option<PendingDelete> {
     match entry_map.get(selected).and_then(|e| e.as_ref())? {
         PickerItem::Fuzzy { original_index } => entries
@@ -286,8 +286,8 @@ impl SourceFilter {
 
     /// The server-side headless policy a fetch or content search for this page must carry.
     /// `Only` on the Headless page, `Exclude` everywhere else (foreign rows are never headless, so External keeps the default).
-    pub fn headless_policy(self) -> xai_grok_shell::session::unified_list::HeadlessPolicy {
-        use xai_grok_shell::session::unified_list::HeadlessPolicy;
+    pub fn headless_policy(self) -> xai_grok_shared::session::catalog::HeadlessPolicy {
+        use xai_grok_shared::session::catalog::HeadlessPolicy;
         if self == Self::Headless {
             HeadlessPolicy::Only
         } else {
@@ -329,7 +329,7 @@ enum PickerSelectionKey {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn capture_picker_selection(
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
     state: &PickerState,
     query: &str,
     grouped: bool,
@@ -375,7 +375,7 @@ pub(crate) fn capture_picker_selection(
 pub(crate) fn restore_picker_selection(
     anchor: PickerSelectionAnchor,
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
     state: &mut PickerState,
     query: &str,
     grouped: bool,
@@ -509,7 +509,7 @@ pub(crate) fn filter_session_entries(
 /// Build a flat list of picker items from fuzzy and content results, deduplicating content hits that already appear in the fuzzy list.
 pub(crate) fn build_virtual_list(
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
     query: &str,
     source_filter: SourceFilter,
 ) -> Vec<PickerItem> {
@@ -563,7 +563,7 @@ pub(crate) fn expand_all_mapped_session_items(
 /// Build the position-indexed session map, including non-selectable headers.
 pub(crate) fn build_entry_map(
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
     query: &str,
     grouped: bool,
     content_loading: bool,
@@ -669,7 +669,7 @@ pub(crate) fn session_picker_worktree_selection(
     entry_map: &[Option<PickerItem>],
     non_selectable: &[bool],
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
 ) -> Option<SessionPickerWorktreeSelection> {
     if key.kind != crossterm::event::KeyEventKind::Press || !crate::key!('w', CONTROL).matches(key)
     {
@@ -707,7 +707,7 @@ pub(crate) fn session_picker_worktree_selection(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn sync_session_picker_query_expansion(
     entries: Option<&[SessionPickerEntry]>,
-    content_results: Option<&[xai_grok_shell::extensions::session_search::SearchSessionHit]>,
+    content_results: Option<&[xai_grok_shared::session::catalog::SearchSessionHit]>,
     entries_query: Option<&str>,
     state: &mut PickerState,
     grouped: bool,
@@ -1064,7 +1064,7 @@ pub(crate) fn build_grouped_picker_entries<'a>(
 /// already appear in the fuzzy results. The returned entries should be appended after the fuzzy
 /// section (and its header row).
 pub(crate) fn build_content_entry_data(
-    hits: &[xai_grok_shell::extensions::session_search::SearchSessionHit],
+    hits: &[xai_grok_shared::session::catalog::SearchSessionHit],
     entries_data: &[SessionPickerEntry],
     filtered_indices: &[usize],
     state: &PickerState,
@@ -1334,8 +1334,8 @@ mod tests {
 
     fn make_content_hit(
         session_id: &str,
-    ) -> xai_grok_shell::extensions::session_search::SearchSessionHit {
-        xai_grok_shell::extensions::session_search::SearchSessionHit {
+    ) -> xai_grok_shared::session::catalog::SearchSessionHit {
+        xai_grok_shared::session::catalog::SearchSessionHit {
             session_id: session_id.into(),
             summary: session_id.into(),
             cwd: "/r".into(),

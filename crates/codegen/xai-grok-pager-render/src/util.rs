@@ -5,7 +5,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub use xai_grok_config::grok_home;
-pub use xai_grok_tools::util::format_bytes;
+pub use xai_grok_shared::format_bytes;
 
 /// A closed stdout (`grok du | head`) is a clean stop, not a failure.
 pub fn ignore_broken_pipe(result: std::io::Result<()>) -> std::io::Result<()> {

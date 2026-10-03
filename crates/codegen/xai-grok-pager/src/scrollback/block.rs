@@ -688,7 +688,7 @@ impl RenderBlock {
     /// The block stores the raw `ContextInfo` snapshot and model name and rebuilds its styled output on every redraw.
     /// Theme switches thus take effect without re-running `/context`.
     pub fn context_info(
-        snapshot: xai_grok_shell::session::ContextInfo,
+        snapshot: xai_grok_shared::session::ContextInfo,
         model: impl Into<String>,
     ) -> Self {
         RenderBlock::ContextInfo(ContextInfoBlock::new(snapshot, model))
@@ -1423,7 +1423,7 @@ mod searchable_text_tests {
     use crate::scrollback::blocks::tool::WebSearchToolCallBlock;
     use crate::scrollback::blocks::tool::memory_search::{MemoryResult, MemorySearchToolCallBlock};
     use std::time::Duration;
-    use xai_grok_shell::session::ContextInfo;
+    use xai_grok_shared::session::ContextInfo;
 
     #[test]
     fn system_indexes_message_text() {

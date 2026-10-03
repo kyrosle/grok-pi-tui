@@ -6,8 +6,8 @@ use super::super::task_result::{
 };
 use super::*;
 use crate::app::subagent::{SubagentLifecycleReduction, SubagentLifecycleTransition};
-use xai_grok_shell::session::helpers::session_compact::COMPACT_CANCELLED_MSG;
-use xai_grok_shell::session::unified_list::ListScope;
+use xai_grok_shared::session::catalog::ListScope;
+use xai_grok_shared::session::compact::COMPACT_CANCELLED_MSG;
 
 #[test]
 fn live_session_kind_distinguishes_missing_conversation_and_build_matches() {
@@ -1919,7 +1919,7 @@ fn delete_both_session_clears_modal_and_welcome_content_hits() {
     let mut foreign = make_picker_entry("shared", "/r");
     foreign.source = "codex".into();
     open_session_picker_with(&mut app, vec![both.clone(), foreign.clone()]);
-    let hit = xai_grok_shell::extensions::session_search::SearchSessionHit {
+    let hit = xai_grok_shared::session::catalog::SearchSessionHit {
         session_id: "shared".into(),
         summary: "shared".into(),
         cwd: "/r".into(),
@@ -2040,7 +2040,7 @@ fn delete_remote_session_clears_modal_and_welcome_content_hits() {
     let mut remote = make_picker_entry("remote-only", "/r");
     remote.source = "remote".into();
     open_session_picker_with(&mut app, vec![remote.clone()]);
-    let hit = xai_grok_shell::extensions::session_search::SearchSessionHit {
+    let hit = xai_grok_shared::session::catalog::SearchSessionHit {
         session_id: "remote-only".into(),
         summary: "remote-only".into(),
         cwd: "/r".into(),
@@ -2442,7 +2442,7 @@ fn gate_refreshed_emits_check_subscription_on_gate_lift() {
     assert!(!app.has_access());
 
     // Server-side settings now show no gate (user purchased subscription).
-    let settings = xai_grok_shell::util::config::RemoteSettings::default();
+    let settings = crate::settings_config::RemoteSettings::default();
     let effects = dispatch_task_result(
         TaskResult::GateRefreshed {
             settings: Some(settings),
@@ -2472,7 +2472,7 @@ fn gate_refreshed_no_effect_when_still_gated() {
         label: None,
     });
 
-    let settings = xai_grok_shell::util::config::RemoteSettings {
+    let settings = crate::settings_config::RemoteSettings {
         gate_message: Some("Subscribe".into()),
         ..Default::default()
     };
@@ -2493,7 +2493,7 @@ fn gate_refreshed_no_effect_when_already_unblocked() {
     let mut app = test_app();
     assert!(app.has_access()); // no gate
 
-    let settings = xai_grok_shell::util::config::RemoteSettings::default();
+    let settings = crate::settings_config::RemoteSettings::default();
     let effects = dispatch_task_result(
         TaskResult::GateRefreshed {
             settings: Some(settings),
@@ -2511,7 +2511,7 @@ fn gate_refreshed_newly_blocked_defers_gate_for_verification() {
     let mut app = test_app();
     assert!(app.has_access()); // ungated
 
-    let settings = xai_grok_shell::util::config::RemoteSettings {
+    let settings = crate::settings_config::RemoteSettings {
         gate_message: Some("Subscribe".into()),
         ..Default::default()
     };
@@ -2834,7 +2834,7 @@ fn gate_refreshed_without_gate_clears_pending_verification() {
     let _effs = app.impose_gate(test_gate());
     let generation = app.gate_verify_gen;
 
-    let settings = xai_grok_shell::util::config::RemoteSettings::default();
+    let settings = crate::settings_config::RemoteSettings::default();
     let effects = dispatch_task_result(
         TaskResult::GateRefreshed {
             settings: Some(settings),

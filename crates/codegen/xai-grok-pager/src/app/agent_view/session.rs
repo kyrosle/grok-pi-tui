@@ -300,6 +300,7 @@ impl AgentView {
             feedback_modal: None,
             pending_feedback_trace_uploads: Default::default(),
             parked_feedback_trace_consents: Default::default(),
+            #[cfg(feature = "stock-runtime")]
             agents_modal: None,
             persona_detail: None,
             btw_state: None,
@@ -1293,7 +1294,7 @@ impl AgentView {
     /// Update context state with a full snapshot from live callers.
     ///
     /// No-op for gateway/chat-kind sessions: local GetSessionInfo / sampler breakdowns must not populate the context bar (remote owns context).
-    pub fn apply_full_context_info(&mut self, next: xai_grok_shell::session::ContextInfo) {
+    pub fn apply_full_context_info(&mut self, next: xai_grok_shared::session::ContextInfo) {
         if self.chat_kind {
             self.context_state = None;
             return;
@@ -1323,9 +1324,9 @@ impl AgentView {
                 snap.free_tokens = xai_token_estimation::free_tokens(snap.total, used);
             }
             None => {
-                self.context_state = Some(xai_grok_shell::session::ContextInfo::from_notification(
-                    used, total,
-                ));
+                self.context_state = Some(
+                    xai_grok_shared::session::ContextInfo::from_notification(used, total),
+                );
             }
         }
     }
@@ -1455,11 +1456,11 @@ impl AgentView {
         self.set_restricted_commands(restricted_commands);
     }
     /// ACP `kind` for `x.ai/session/rename`: which list (Chat or Build) this session opened on.
-    pub(crate) fn rename_kind(&self) -> xai_grok_shell::session::unified_list::SessionKind {
+    pub(crate) fn rename_kind(&self) -> xai_grok_shared::session::catalog::SessionKind {
         if self.conversation_entry {
-            xai_grok_shell::session::unified_list::SessionKind::Chat
+            xai_grok_shared::session::catalog::SessionKind::Chat
         } else {
-            xai_grok_shell::session::unified_list::SessionKind::Build
+            xai_grok_shared::session::catalog::SessionKind::Build
         }
     }
     /// Show or hide the `/recap` slash command in this agent's registry.

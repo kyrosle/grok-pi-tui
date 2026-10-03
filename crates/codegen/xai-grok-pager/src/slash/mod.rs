@@ -26,7 +26,7 @@ use crate::acp::model_state::ModelState;
 
 use matcher::FuzzyMatcher;
 use registry::{CommandRegistry, CommandSource, CommandTrigger};
-use xai_grok_tools::implementations::skills::types::SkillScope;
+use xai_tool_types::skills::SkillScope;
 
 pub use command::{
     AppCtx, ArgItem, CommandExecCtx, CommandProvenance, CommandResult, SlashCommand,

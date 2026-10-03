@@ -908,9 +908,9 @@ fn marketplace_add(url: &str, force: bool) -> Result<()> {
     }
 
     let is_official = matches!(&input, MarketplaceAddInput::GitUrl(u)
-        if xai_grok_plugin_marketplace::is_official_source_url(u));
+        if xai_hooks_plugins_types::marketplace::is_official_source_url(u));
     let name = if is_official {
-        xai_grok_plugin_marketplace::OFFICIAL_SOURCE_NAME.to_string()
+        xai_hooks_plugins_types::marketplace::OFFICIAL_SOURCE_NAME.to_string()
     } else {
         match &input {
             MarketplaceAddInput::GitUrl(u) => plugin::name_from_url(u),
@@ -921,7 +921,7 @@ fn marketplace_add(url: &str, force: bool) -> Result<()> {
     // Shared locked add core (same as the shell modal): init flock across the
     // read-modify-write, idempotent normalized dedup, atomic replace.
     let grok_home = xai_grok_config::grok_home();
-    let _flock = xai_grok_shell::util::config::acquire_init_lock(&grok_home)?;
+    let _flock = crate::settings_config::acquire_init_lock(&grok_home)?;
     plugin::add_marketplace_source(
         &grok_home.join(xai_grok_config::USER_CONFIG_FILENAME),
         &name,
@@ -1008,7 +1008,7 @@ fn marketplace_remove(
     // Uninstall + config rewrite under the init flock with atomic replace, mirroring the shell
     // modal twin (`remove_source_locked`); an unlocked remove is the lost-update race.
     let grok_home = xai_grok_config::grok_home();
-    let _flock = xai_grok_shell::util::config::acquire_init_lock(&grok_home)?;
+    let _flock = crate::settings_config::acquire_init_lock(&grok_home)?;
 
     let uninstalled = plugin::uninstall_marketplace_source_plugins(&identity)
         .map_err(|e| anyhow::anyhow!("{e}"))?;

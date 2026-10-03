@@ -174,13 +174,7 @@ impl std::fmt::Debug for GoalUpdateHandle {
 // Output
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct UpdateGoalOutput {
-    pub success: bool,
-    pub summary: String,
-}
-
-impl xai_tool_runtime::ToolOutput for UpdateGoalOutput {}
+pub use xai_tool_types::output_dependencies::UpdateGoalOutput;
 
 // ---------------------------------------------------------------------------
 // Tool implementation

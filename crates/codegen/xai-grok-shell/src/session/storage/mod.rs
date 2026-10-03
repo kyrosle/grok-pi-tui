@@ -956,29 +956,10 @@ fn acp_user_chunk_prompt_index(update: &SessionUpdate) -> Option<usize> {
         .map(|v| v as usize)
 }
 
-pub(crate) const HOST_TURN_META_KEY: &str = "hostTurn";
-
-pub(crate) fn is_host_turn_chunk(chunk: &acp::ContentChunk) -> bool {
-    chunk_meta_flag(chunk, HOST_TURN_META_KEY)
-}
-
-/// `ContentChunk._meta` flag on a persisted mid-turn interjection's user chunks. The text block keeps the
-/// model-facing frame and carries the typed text in `displayText`; the pager and the chat rebuilders key on this.
-pub const INTERJECTION_META_KEY: &str = "interjection";
-
-pub fn is_interjection_chunk(chunk: &acp::ContentChunk) -> bool {
-    chunk_meta_flag(chunk, INTERJECTION_META_KEY)
-}
-
-/// Boolean `ContentChunk._meta` flag; anything but a literal `true` reads as `false`.
-pub fn chunk_meta_flag(chunk: &acp::ContentChunk, key: &str) -> bool {
-    chunk
-        .meta
-        .as_ref()
-        .and_then(|m| m.get(key))
-        .and_then(|v| v.as_bool())
-        == Some(true)
-}
+pub use xai_grok_shared::session::chunk_meta::{
+    HOST_TURN_META_KEY, INTERJECTION_META_KEY, chunk_meta_flag, is_host_turn_chunk,
+    is_interjection_chunk,
+};
 
 fn is_host_turn_update(update: &SessionUpdate) -> bool {
     let SessionUpdate::Acp(n) = update else {

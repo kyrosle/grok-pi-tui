@@ -2,7 +2,7 @@
     //! Hook notifications: success leaves no trace, a failed run gets one bulleted `HookOutcome` line, a deny gets none here (the shell's annotation carries it).
     use super::*;
     use crate::acp::tracker::WaitingReason;
-    use xai_grok_shell::extensions::notification::{HookRunEntryDto, HookRunStatusDto};
+    use xai_grok_shared::session::notification::{HookRunEntryDto, HookRunStatusDto};
 
     fn xai_hook_run_started_notif(session_id: &str, event_name: &str, count: usize) -> acp::ExtNotification {
         xai_hook_run_started_notif_for(session_id, event_name, count, None, None)

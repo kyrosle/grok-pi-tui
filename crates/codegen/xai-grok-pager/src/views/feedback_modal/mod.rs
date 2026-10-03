@@ -12,7 +12,7 @@ pub use xai_grok_feedback::{
     FeedbackType,
 };
 use xai_grok_feedback::{FeedbackSource, structured_feedback};
-pub use xai_grok_shell::session::FeedbackTraceUploadIntent;
+pub use xai_grok_shared::session::feedback::FeedbackTraceUploadIntent;
 
 use crate::views::modal_window::{self, ModalWindowOutcome, ModalWindowState};
 use crate::views::prompt_widget::{EnterOutcome, FeedbackImages, PromptEvent, PromptWidget};

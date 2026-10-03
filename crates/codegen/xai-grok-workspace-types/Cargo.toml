@@ -6,6 +6,8 @@ edition.workspace = true
 description = "Wire types for the xAI workspace API (request/chunk/event enums shared by client and server)"
 
 [dependencies]
+xai-grok-config-types = { workspace = true }
+xai-tool-protocol = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }

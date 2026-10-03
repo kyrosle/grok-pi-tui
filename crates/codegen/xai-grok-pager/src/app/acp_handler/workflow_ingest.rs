@@ -7,7 +7,7 @@ fn upsert_workflow_block(
     name: &str,
     objective: &str,
     status: &str,
-    phases: &[xai_grok_shell::extensions::notification::WorkflowPhaseInfo],
+    phases: &[xai_grok_shared::session::notification::WorkflowPhaseInfo],
     current_phase: Option<&str>,
     active_agents: u32,
     elapsed_ms: u64,

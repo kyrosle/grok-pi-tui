@@ -272,6 +272,7 @@ pub(crate) fn finish(
             if let Err(error) = editor_result {
                 tracing::warn!(%error, "configuration editor: child failed");
             }
+            #[cfg(feature = "stock-runtime")]
             if let Some(tab) = refresh_agents_modal
                 && let ActiveView::Agent(id) = app.active_view
                 && let Some(agent) = app.agents.get_mut(&id)

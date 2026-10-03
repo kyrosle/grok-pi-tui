@@ -63,7 +63,7 @@ pub mod types;
 /// MCP tool name delimiter: server names are qualified as `"server__tool"`.
 /// Lives here so the permission-validation and MCP transport layers can share it without dragging the full workspace or rmcp into each other.
 /// Re-exported by `xai_grok_workspace::permission` for callers that historically imported it from there.
-pub const MCP_TOOL_NAME_DELIMITER: &str = "__";
+pub use xai_tool_protocol::MCP_TOOL_NAME_DELIMITER;
 
 pub use crate::chunks::{ChunkKind, OpsChunk, SessionChunk, ToolChunk, ToolResponse};
 pub use crate::error::{IoKind, WorkspaceError};

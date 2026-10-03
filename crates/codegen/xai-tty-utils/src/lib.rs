@@ -60,6 +60,9 @@ pub use bundled_git::{
 mod child_wait;
 pub use child_wait::{is_child_wait_identity_uncertain, spawn_child_reaper, wait_child_bounded};
 
+mod display_char;
+pub use display_char::is_unsafe_display_char;
+
 mod kill_on_drop;
 pub use kill_on_drop::KillOnDrop;
 

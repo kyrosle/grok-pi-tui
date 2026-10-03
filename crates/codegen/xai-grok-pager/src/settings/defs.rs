@@ -11,9 +11,9 @@ use crate::appearance::ScrollMode;
 use crate::appearance::TextSelection;
 use crate::appearance::permission_cursor::DefaultSelectedPermission;
 
-use xai_grok_shell::agent::config::UiConfig;
-use xai_grok_shell::util::config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
-use xai_grok_tools::implementations::grok_build::ask_user_question;
+use xai_grok_shared::ui_config::UiConfig;
+use crate::settings_config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
+use xai_tool_types::questions as ask_user_question;
 
 // Int bounds for `max_thoughts_width`. `pub(crate)` so the dispatcher's clamp and the shell helper's defensive
 // clamp share these bounds.
@@ -981,7 +981,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
             ],
             kind: SettingKind::Bool {
                 // The const is shared with the resolver, so the modal shows the effective default when the user layer is unset
-                default: xai_grok_shell::util::config::DEFAULT_REMEMBER_TOOL_APPROVALS,
+                default: crate::settings_config::DEFAULT_REMEMBER_TOOL_APPROVALS,
             },
             restart_required: true,
             hidden_in_minimal: false,

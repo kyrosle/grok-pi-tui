@@ -39,64 +39,7 @@ use crate::extensions::mcp::{MANAGED_GATEWAY_ENTRY_PREFIX, McpServerSource};
 /// Tumbling-window coalescing period. See module doc.
 pub(crate) const COALESCE_WINDOW: Duration = Duration::from_millis(50);
 
-/// Method name for the ACP push.
-pub const SERVER_STATUS_METHOD: &str = "x.ai/mcp/server_status";
-
-/// JSON payload pushed over ACP. Fields written in camelCase per ACP convention.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct McpServerStatusPayload {
-    pub session_id: String,
-    /// MCP server name (`managed_gateway:linear`, `github`, ...).
-    pub name: String,
-    /// `managed` for gateway catalog ids (`managed_gateway:*`), else `local`.
-    pub source: McpServerSource,
-    pub status: McpServerStatus,
-    pub reason: McpServerStatusReason,
-    /// Optional human-readable detail.
-    /// Passes the full handshake / transport error reason to the UI verbatim (no sanitization or truncation) so failures are easy to debug.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub detail: Option<String>,
-    /// Reserved for future use; always `null` today.
-    /// It may later carry the post-restart tool list so the client can re-render without a follow-up `mcp/list` round-trip.
-    pub tools: Option<serde_json::Value>,
-}
-
-/// Status enum sent on the wire. Lowercase serialization to match the existing pager `McpSessionStatus` family.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum McpServerStatus {
-    /// Client is in [`xai_grok_mcp::servers::ClientStateKind::Ready`] and the transport is healthy.
-    Ready,
-    /// Per-server handshake is in flight, or a restart is being debounced.
-    Initializing,
-    /// Transport closed, handshake failed, or the server is disabled/unconfigured.
-    Unavailable,
-    /// OAuth required but not yet acquired.
-    NeedsAuth,
-}
-
-/// Reason a status delta was emitted. Lowercase, snake_case serialization to keep the wire schema stable.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum McpServerStatusReason {
-    TransportClosed,
-    HandshakeFailed,
-    ConfigAdded,
-    ConfigRemoved,
-    ConfigChanged,
-    Disabled,
-    AuthExpired,
-    /// First-time successful handshake (a new server transitioned from `Initializing` to `Ready`).
-    /// Every `McpClientEvent::Ready` maps to this reason.
-    Initialized,
-    /// A watcher fired `TransportClosed`, the auto-restart path re-handshook, and the new handshake succeeded.
-    RestartSucceeded,
-    /// The auto-restart path exhausted retries.
-    RestartFailed,
-    /// Old leaders still emit this after reactive reauth. Not produced anymore.
-    ManagedTokenRefreshed,
-}
+pub use xai_tool_types::mcp::{SERVER_STATUS_METHOD, McpServerStatusPayload, McpServerStatus, McpServerStatusReason};
 
 /// Live managed connectors are gateway catalog rows (`managed_gateway:*`); everything else is local.
 pub(crate) fn classify_source(name: &str) -> McpServerSource {

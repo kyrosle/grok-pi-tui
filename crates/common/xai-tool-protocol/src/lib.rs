@@ -18,6 +18,8 @@ pub mod frames;
 mod handshake;
 mod hook;
 mod ids;
+mod mcp_names;
+pub use mcp_names::{MCP_TOOL_NAME_DELIMITER, parse_mcp_qualified_name};
 pub mod methods;
 pub mod notification_wire;
 pub mod output_wire;

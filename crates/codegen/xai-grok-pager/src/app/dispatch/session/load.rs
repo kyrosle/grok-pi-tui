@@ -141,6 +141,7 @@ fn dispatch_load_session_ungated(
     let bypass_chat_refusal = app.welcome_history_load_as_build;
     #[cfg(not(feature = "local-workspace"))]
     let bypass_chat_refusal = false;
+    #[cfg(feature = "stock-runtime")]
     if !bypass_chat_refusal
         && crate::app::session_startup::chat_mode_refuses_local_build_load(
             app.chat_mode,
@@ -419,9 +420,11 @@ pub(in crate::app::dispatch) fn dispatch_pick_session(
         return dispatch_load_session(app, session_id, None, true);
     }
     let local_cwd = app.cwd.to_string_lossy().to_string();
+    #[cfg(feature = "stock-runtime")]
     if xai_grok_shell::session::resolve_local_session(&session_id, &local_cwd).is_some() {
         return dispatch_load_session(app, session_id, None, false);
     }
+    #[cfg(feature = "stock-runtime")]
     if let Some(original_cwd) = xai_grok_shell::session::resolve_local_session_any_cwd(&session_id)
     {
         return dispatch_load_session(
@@ -1105,9 +1108,11 @@ pub(in crate::app::dispatch) fn dispatch_pick_content_session(
         return dispatch_load_session(app, session_id, None, true);
     }
     let local_cwd = app.cwd.to_string_lossy().to_string();
+    #[cfg(feature = "stock-runtime")]
     if xai_grok_shell::session::resolve_local_session(&session_id, &local_cwd).is_some() {
         return dispatch_load_session(app, session_id, None, false);
     }
+    #[cfg(feature = "stock-runtime")]
     if let Some(original_cwd) = xai_grok_shell::session::resolve_local_session_any_cwd(&session_id)
     {
         return dispatch_load_session(
@@ -1134,6 +1139,7 @@ pub(in crate::app::dispatch) fn dispatch_load_session_with_restore(
     let bypass_chat_refusal = app.welcome_history_load_as_build;
     #[cfg(not(feature = "local-workspace"))]
     let bypass_chat_refusal = false;
+    #[cfg(feature = "stock-runtime")]
     if !bypass_chat_refusal
         && crate::app::session_startup::chat_mode_refuses_local_build_load(
             app.chat_mode,
@@ -1279,7 +1285,7 @@ pub(in crate::app::dispatch) fn handle_session_loaded(
     new_models: Option<acp::SessionModelState>,
     code_restored: bool,
     restore_summary: Option<String>,
-    restore_degree: Option<xai_grok_workspace::session::git::RestoreDegree>,
+    restore_degree: Option<xai_grok_workspace_types::rpc::git::RestoreDegree>,
     running_prompt_id: Option<String>,
 ) -> Vec<Effect> {
     tracing::info!(
@@ -1365,12 +1371,13 @@ pub(in crate::app::dispatch) fn handle_session_loaded(
         let page_flip_entry = drain.page_flip_entry;
         effects.extend(drain.effects);
         let cwd = agent.session.cwd.clone();
-        effects.push(Effect::HydrateSessionMetaFromDisk {
+        #[cfg(feature = "stock-runtime")]
+        if !app.external_agent { effects.push(Effect::HydrateSessionMetaFromDisk {
             agent_id,
             session_id: hydrate_sid.clone(),
             cwd: cwd.clone(),
             last_turn_summary_gen: agent.last_turn_summary_gen,
-        });
+        }); }
         agent.seed_prompt_history_from_scrollback();
         agent.session.prompt_history_loading = true;
         effects.push(Effect::FetchPromptHistory {
@@ -1572,6 +1579,7 @@ pub(in crate::app::dispatch) fn handle_session_restored(
     let bypass_chat_refusal = app.welcome_history_load_as_build;
     #[cfg(not(feature = "local-workspace"))]
     let bypass_chat_refusal = false;
+    #[cfg(feature = "stock-runtime")]
     if !bypass_chat_refusal
         && crate::app::session_startup::chat_mode_refuses_local_build_load(
             app.chat_mode,
@@ -1660,7 +1668,7 @@ pub(in crate::app::dispatch) fn handle_session_restore_failed(
 pub(in crate::app::dispatch) fn handle_deep_search_results(
     app: &mut AppView,
     request: PickerRequest,
-    results: Vec<xai_grok_shell::extensions::session_search::SearchSessionHit>,
+    results: Vec<xai_grok_shared::session::catalog::SearchSessionHit>,
 ) -> Vec<Effect> {
     let Some(target) = accept_picker_result(
         app,

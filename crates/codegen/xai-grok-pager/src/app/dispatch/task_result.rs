@@ -83,17 +83,19 @@ pub(super) fn unregister_all_active_sessions(app: &AppView) -> Vec<Effect> {
         .collect()
 }
 fn displaced_draft_feedback_notice(
-    outcome: xai_grok_shell::session::FeedbackOutcome,
+    outcome: xai_grok_shared::session::FeedbackOutcome,
 ) -> &'static str {
     match outcome {
-        xai_grok_shell::session::FeedbackOutcome::Submitted => super::notes::FEEDBACK_THANKS_NOTICE,
-        xai_grok_shell::session::FeedbackOutcome::SubmittedCleanupFailed => {
+        xai_grok_shared::session::FeedbackOutcome::Submitted => {
+            super::notes::FEEDBACK_THANKS_NOTICE
+        }
+        xai_grok_shared::session::FeedbackOutcome::SubmittedCleanupFailed => {
             "Feedback was sent, but the stored draft could not be deleted. Delete it manually; do not resend."
         }
-        xai_grok_shell::session::FeedbackOutcome::LocalOnly => {
+        xai_grok_shared::session::FeedbackOutcome::LocalOnly => {
             "Feedback was saved locally but was not sent. The draft was kept."
         }
-        xai_grok_shell::session::FeedbackOutcome::OutcomeUnknown => {
+        xai_grok_shared::session::FeedbackOutcome::OutcomeUnknown => {
             "The remote outcome is unknown. The draft was kept; do not resend it yet."
         }
         _ => "The remote outcome is unknown. The draft was kept; do not resend it yet.",
@@ -631,7 +633,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
             if let Some(agent) = app.agents.get_mut(&agent_id) {
                 if let Some((raw, is_manual)) = title
                     && let Some(t) =
-                        xai_grok_shell::session::persistence::sanitize_and_cap_title(&raw)
+                        xai_grok_shared::session::title::sanitize_and_cap_title(&raw)
                 {
                     if is_manual && agent.display_name.is_none() {
                         agent.display_name = Some(t.clone());
@@ -688,7 +690,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                 vec![Effect::DetectForeignResumeHint {
                     canonical_cwd,
                     compat: app.foreign_session_compat,
-                    grok_home: xai_grok_tools::util::grok_home::grok_home(),
+                    grok_home: xai_grok_config::grok_home(),
                     launch_token,
                 }]
             } else {
@@ -842,6 +844,11 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
         TaskResult::RosterFailed { error } => {
             tracing::debug!(error = %error, "leader roster fetch failed");
             app.dashboard_sessions_loading = false;
+            vec![]
+        }
+        TaskResult::DashboardSessionsFailed { error } => {
+            app.dashboard_sessions_loading = false;
+            app.show_toast(&error);
             vec![]
         }
         TaskResult::DashboardSessionsLoaded { sessions } => {
@@ -1085,7 +1092,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
         TaskResult::ChangelogFetched { markdown, entries } => {
             app.changelog_markdown = markdown;
             app.changelog_bullets =
-                xai_grok_shell::util::changelog::bullets_from_entries(&entries, 3);
+                xai_grok_shell_base::util::changelog::bullets_from_entries(&entries, 3);
             vec![]
         }
         TaskResult::ClipboardAttachmentProbed {
@@ -1202,7 +1209,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
             vec![]
         }
         TaskResult::PromptHistoryLoaded { agent_id, prompts } => {
-            use xai_grok_tools::implementations::skills::skill::extract_skill_display_text;
+            use xai_tool_types::skills::extract_skill_display_text;
             if let Some(agent) = app.agents.get_mut(&agent_id) {
                 agent.session.prompt_history_loading = false;
                 let fetched: Vec<String> = prompts
@@ -1426,6 +1433,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
         } => {
             if let Some(agent) = app.agents.get_mut(&agent_id) {
                 agent.session_agent_name = agent_name.clone();
+                #[cfg(feature = "stock-runtime")]
                 if let Some(modal) = agent.agents_modal.as_mut() {
                     modal.active_agent = agent_name;
                 }
@@ -1451,6 +1459,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                     return vec![];
                 }
                 agent.session_agent_name = info.data.agent_name.clone();
+                #[cfg(feature = "stock-runtime")]
                 if let Some(modal) = agent.agents_modal.as_mut() {
                     modal.active_agent = info.data.agent_name.clone();
                 }
@@ -1748,7 +1757,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
             if matches!(origin, crate::app::actions::FeedbackSendOrigin::Immediate)
                 && matches!(
                     outcome,
-                    xai_grok_shell::session::FeedbackOutcome::OutcomeUnknown
+                    xai_grok_shared::session::FeedbackOutcome::OutcomeUnknown
                 )
                 && let Some(agent) = app.agents.get_mut(&agent_id)
             {
@@ -1777,7 +1786,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                         .is_some_and(|modal| modal.matches_id(modal_id));
                     if has_matching_modal {
                         match outcome {
-                            xai_grok_shell::session::FeedbackOutcome::Submitted => {
+                            xai_grok_shared::session::FeedbackOutcome::Submitted => {
                                 agent.feedback_modal = None;
                                 agent.scrollback.push_block(
                                     crate::scrollback::block::RenderBlock::system(
@@ -1785,12 +1794,12 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                                     ),
                                 );
                             }
-                            xai_grok_shell::session::FeedbackOutcome::SubmittedCleanupFailed => {
+                            xai_grok_shared::session::FeedbackOutcome::SubmittedCleanupFailed => {
                                 if let Some(modal) = agent.feedback_modal.as_mut() {
                                     modal.mark_draft_cleanup_failed();
                                 }
                             }
-                            xai_grok_shell::session::FeedbackOutcome::LocalOnly => {
+                            xai_grok_shared::session::FeedbackOutcome::LocalOnly => {
                                 if let Some(modal) = agent.feedback_modal.as_mut() {
                                     modal
                                         .mark_draft_send_error(
@@ -1799,8 +1808,8 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                                         );
                                 }
                             }
-                            xai_grok_shell::session::FeedbackOutcome::OutcomeUnknown
-                            | xai_grok_shell::session::FeedbackOutcome::Other => {
+                            xai_grok_shared::session::FeedbackOutcome::OutcomeUnknown
+                            | xai_grok_shared::session::FeedbackOutcome::Other => {
                                 if let Some(modal) = agent.feedback_modal.as_mut() {
                                     unknown_copy = modal.mark_draft_submit_unknown();
                                     unknown_draft_request = modal.take_pending_request();
@@ -1822,7 +1831,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                     }
                 } else if matches!(
                     outcome,
-                    xai_grok_shell::session::FeedbackOutcome::OutcomeUnknown
+                    xai_grok_shared::session::FeedbackOutcome::OutcomeUnknown
                 ) {
                     agent
                         .scrollback
@@ -1848,8 +1857,8 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                 }
                 let posted = matches!(
                     outcome,
-                    xai_grok_shell::session::FeedbackOutcome::Submitted
-                        | xai_grok_shell::session::FeedbackOutcome::SubmittedCleanupFailed
+                    xai_grok_shared::session::FeedbackOutcome::Submitted
+                        | xai_grok_shared::session::FeedbackOutcome::SubmittedCleanupFailed
                 );
                 if posted {
                     if let Some(trace_upload_token) = trace_upload_token

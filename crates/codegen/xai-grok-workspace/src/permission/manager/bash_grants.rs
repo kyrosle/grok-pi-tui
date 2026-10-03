@@ -8,29 +8,8 @@ use crate::permission::bash_command_splitting::{
 };
 use crate::permission::state::PermissionState;
 
-/// Whether accepting the always-allow row at scope `n` persists a grant that replays. Arrows skip scopes that would save nothing.
-/// What persists is an argv-unambiguous prefix at or above the dangerous-command floor, or the full unwrapped script as raw text. Ambiguous joins are refused.
-pub fn always_allow_scope_persists(h: &BashCommandHighlights, n: usize) -> bool {
-    let words = &h.highlighted_words;
-    if n == 0 || n > words.len() || n < super::minimum_always_allow_scope(words) {
-        return false;
-    }
-    // The raw-text fallback needs a single unwrapped command spanning the whole script (empty prefix/suffix)
-    words_join_unambiguously(&words[..n])
-        || (n == words.len() && h.prefix.is_empty() && h.suffix.is_empty())
-}
-
-/// Whether `join(" ")` round-trips these words to the same single command.
-/// Whitespace or metacharacters collapse into a different argv or chain, so a join is a grant key only if re-parsing yields this exact argv.
-pub(super) fn words_join_unambiguously(words: &[String]) -> bool {
-    let joined = words.join(" ");
-    try_parse_shell(&joined)
-        .and_then(|tree| try_parse_word_only_commands_sequence(&tree, &joined))
-        .is_some_and(|segments| {
-            matches!(segments.as_slice(),
-                [only] if only.spans_whole_script(&joined) && only.words() == words)
-        })
-}
+pub use xai_grok_shared::permissions::bash_scope::always_allow_scope_persists;
+pub(super) use xai_grok_shared::permissions::bash_scope::words_join_unambiguously;
 
 /// Whether persisted grants exactly cover the whole script: the raw text, or the join of a single argv-unambiguous command spanning it.
 /// The join counts because prompt-saved grants are dequoted joins while `cmd` is raw.

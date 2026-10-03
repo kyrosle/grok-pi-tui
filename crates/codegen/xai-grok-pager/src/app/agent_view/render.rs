@@ -33,7 +33,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Widget;
 use std::collections::HashSet;
 use std::time::Instant;
-use xai_grok_shell::sampling::types::ReasoningEffort;
+use xai_grok_sampling_types::types::ReasoningEffort;
 /// AppView-owned per-frame inputs to [`AgentView::draw`] — state the agent
 /// view cannot see itself (the voice pipeline and app-level Esc ownership).
 /// AppView-owned per-frame inputs to [`AgentView::draw`]: state the agent
@@ -443,8 +443,11 @@ impl AgentView {
         if self.active_subagent.as_deref() != Some(child_sid.as_str()) {
             self.close_subagent_fullscreen();
         }
-        let replay_outcome = crate::app::subagent::ensure_subagent_child_replayed(self, &child_sid);
-        tracing::debug!(child_sid = %child_sid, ?replay_outcome, "opened subagent fullscreen");
+        #[cfg(feature = "stock-runtime")]
+        {
+            let replay_outcome = crate::app::subagent::ensure_subagent_child_replayed(self, &child_sid);
+            tracing::debug!(child_sid = %child_sid, ?replay_outcome, "opened subagent fullscreen");
+        }
         self.active_subagent = Some(child_sid);
     }
     /// Open a descendant subagent from the root Tasks tree. Each ancestor is
@@ -486,6 +489,7 @@ impl AgentView {
 
     pub(crate) fn close_subagent_fullscreen(&mut self) {
         if let Some(child_sid) = self.active_subagent.take() {
+            #[cfg(feature = "stock-runtime")]
             let _ = crate::app::subagent::evict_finished_child_view(self, &child_sid);
         }
     }
@@ -496,6 +500,7 @@ impl AgentView {
         &mut self,
         child_sid: &str,
     ) -> Option<&mut AgentView> {
+        #[cfg(feature = "stock-runtime")]
         crate::app::subagent::replay_resumed_child_before_live_block(self, child_sid);
         self.subagent_views.get_mut(child_sid).map(|v| &mut **v)
     }
@@ -1299,13 +1304,13 @@ impl AgentView {
                 || self.block_viewer.is_some()
                 || self.extensions_modal.is_some()
                 || self.feedback_modal.is_some()
-                || self.agents_modal.is_some()
+                || self.stock_agents_modal_open()
                 || self.btw_state.is_some()
                 || self.line_viewer.is_some()
                 || self.active_modal.is_some())
         {
             self.inline_media_active = false;
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 for &id in self.inline_media_ids.values() {
                     let clear = crate::terminal::image::clear_kitty_image(id);
                     let _ = std::io::Write::write_all(stderr, clear.as_bytes());
@@ -1316,7 +1321,7 @@ impl AgentView {
         }
         if let Some(ref child_sid) = self.active_subagent.clone() {
             if let Some(esc) = self.take_own_inline_media_clear_escapes() {
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let _ = std::io::Write::write_all(stderr, esc.as_bytes());
                 });
             }
@@ -1336,7 +1341,7 @@ impl AgentView {
             );
         }
         if let Some(esc) = self.take_subagent_inline_media_clear_escapes() {
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 let _ = std::io::Write::write_all(stderr, esc.as_bytes());
             });
         }
@@ -4710,6 +4715,7 @@ impl AgentView {
             self.pane_areas = layout.pane_areas();
             return (prompt_cursor_pos, prompt_post_flush);
         }
+        #[cfg(feature = "stock-runtime")]
         if let Some(ref mut modal_state) = self.agents_modal {
             let overlay_area = Rect {
                 x: area.x,
@@ -5667,7 +5673,7 @@ mod permission_hint_tests {
         perm.description = vec!["Warning: this file is protected".into()];
         perm.options = vec![acp::PermissionOption::new(
             acp::PermissionOptionId::new(Arc::from(
-                xai_grok_workspace::permission::ALLOW_EDITS_SESSION_OPTION_ID,
+                xai_grok_shared::permissions::ALLOW_EDITS_SESSION_OPTION_ID,
             )),
             "Allow all edits this session".to_owned(),
             acp::PermissionOptionKind::AllowAlways,
@@ -5706,9 +5712,7 @@ mod status_line_draw_tests {
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::Color;
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     fn draw_script(output: &str, rows: u16) -> Buffer {
         draw_script_for(&mut make_agent(), output, rows)
     }

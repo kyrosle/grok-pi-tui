@@ -697,7 +697,7 @@ pub(super) fn handle_context_info_complete(
     app: &mut AppView,
     agent_id: AgentId,
     session_id: &acp::SessionId,
-    info: Box<xai_grok_shell::session::SessionInfoResponse>,
+    info: Box<xai_grok_shared::session::SessionInfoResponse>,
     nonce: u64,
 ) -> Vec<Effect> {
     let minimal = app.screen_mode.is_minimal();

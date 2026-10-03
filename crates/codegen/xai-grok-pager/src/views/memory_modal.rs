@@ -318,7 +318,7 @@ fn compute_filtered(entries: &[MemoryFileEntry], query: &str) -> Vec<usize> {
 }
 
 pub fn build_entries(
-    files: Vec<xai_grok_shell::extensions::notification::MemoryFileInfo>,
+    files: Vec<xai_grok_shared::session::notification::MemoryFileInfo>,
 ) -> Vec<MemoryFileEntry> {
     let now_secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1140,8 +1140,7 @@ fn format_modified(epoch_secs: Option<u64>, now_secs: u64) -> String {
 }
 
 fn load_fullscreen_pref() -> bool {
-    let path =
-        xai_grok_tools::util::grok_home::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
+    let path = xai_grok_config::grok_home().join(xai_grok_config::USER_CONFIG_FILENAME);
     let Some(doc) = crate::config_toml_edit::read_config_document_for_edit(&path) else {
         return false;
     };
@@ -1177,7 +1176,7 @@ mod tests {
 
     #[test]
     fn build_entries_groups_by_source() {
-        use xai_grok_shell::extensions::notification::MemoryFileInfo;
+        use xai_grok_shared::session::notification::MemoryFileInfo;
 
         let files = vec![
             MemoryFileInfo {

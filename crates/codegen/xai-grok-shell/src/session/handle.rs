@@ -29,7 +29,7 @@ pub(crate) enum SessionLiveState {
     Attaching,
 }
 /// `_meta` key carrying the persistent-memory implementation pinned at session spawn.
-pub const MEMORY_MODE_META_KEY: &str = "x.ai/memoryMode";
+pub use xai_grok_shared::session::chunk_meta::MEMORY_MODE_META_KEY;
 /// Everything the `session/new` reply reads from session state; built before the actor task starts so the reply cannot wait on it.
 #[derive(Clone)]
 pub struct SpawnSnapshot {

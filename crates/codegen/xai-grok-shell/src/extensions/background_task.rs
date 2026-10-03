@@ -3,7 +3,6 @@
 //! Incrementals (`task_backgrounded` / `task_completed`) stay on their own
 //! methods; this list is the full-state twin of `SessionUpdate::Plan`.
 
-use chrono::{DateTime, Utc};
 use xai_grok_tools::computer::types::TaskKind;
 use xai_grok_tools::types::TaskSnapshot;
 
@@ -12,68 +11,11 @@ use crate::tools::task_completed_frame::{
     FIELD_MAX_BYTES, FRAME_MAX_BYTES, jsonrpc_line_len, prefix_within_encoded_len,
 };
 
-/// Client-facing status for one background task in a list snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BackgroundTaskStatus {
-    Running,
-    Completed,
-    Failed,
-}
-
-/// One background task in a durable list snapshot. No stdout — clients that
-/// need output still use incrementals / `get_task_output`.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct BackgroundTaskRow {
-    pub task_id: String,
-    pub command: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_command: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub cwd: String,
-    pub kind: TaskKind,
-    pub status: BackgroundTaskStatus,
-    pub started_at: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ended_at: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output_file: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub exit_code: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signal: Option<String>,
-}
+pub use xai_grok_shared::session::notification::{
+    BackgroundTaskRow, BackgroundTaskStatus, background_task_status,
+};
 
 const SESSION_NOTIFICATION_METHOD: &str = "x.ai/session_notification";
-
-impl BackgroundTaskRow {
-    pub(crate) fn from_snapshot(snapshot: TaskSnapshot) -> Self {
-        let status = background_task_status(&snapshot);
-        let output_file = {
-            let path = snapshot.output_file;
-            if path.as_os_str().is_empty() {
-                None
-            } else {
-                Some(path.to_string_lossy().into_owned())
-            }
-        };
-        Self {
-            task_id: snapshot.task_id,
-            command: snapshot.command,
-            display_command: snapshot.display_command,
-            description: snapshot.description,
-            cwd: snapshot.cwd,
-            kind: snapshot.kind,
-            status,
-            started_at: rfc3339(snapshot.start_time),
-            ended_at: snapshot.end_time.map(rfc3339),
-            output_file,
-            exit_code: snapshot.exit_code,
-            signal: snapshot.signal,
-        }
-    }
-}
 
 /// Outcome of awaiting the snapshot listing. Distinguishes timeout (skip emit)
 /// from a missing backend (`Ok(None)` → authoritative clear).
@@ -261,22 +203,6 @@ fn notification_params(
         meta: meta.cloned(),
     };
     serde_json::value::to_raw_value(&notification).ok()
-}
-
-fn background_task_status(snapshot: &TaskSnapshot) -> BackgroundTaskStatus {
-    if !snapshot.completed {
-        return BackgroundTaskStatus::Running;
-    }
-    if snapshot.exit_code == Some(0) || (snapshot.exit_code.is_none() && snapshot.signal.is_none())
-    {
-        BackgroundTaskStatus::Completed
-    } else {
-        BackgroundTaskStatus::Failed
-    }
-}
-
-fn rfc3339(time: std::time::SystemTime) -> String {
-    DateTime::<Utc>::from(time).to_rfc3339()
 }
 
 #[cfg(test)]

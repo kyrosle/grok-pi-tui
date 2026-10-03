@@ -402,7 +402,7 @@ impl AgentView {
 
     fn finish_elicitation(
         &mut self,
-        response: xai_grok_tools::mcp_elicitation::McpElicitExtResponse,
+        response: xai_tool_types::mcp_elicitation::McpElicitExtResponse,
     ) -> InputOutcome {
         let Some(mut ev) = self.elicitation_view.take() else {
             return InputOutcome::Unchanged;

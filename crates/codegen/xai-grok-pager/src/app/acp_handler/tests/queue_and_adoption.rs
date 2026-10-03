@@ -1989,7 +1989,7 @@
             "child-stale",
             crate::app::subagent::SubagentAttemptKey::from_wire(Some("at1.stale")),
             lifecycle,
-            xai_grok_shell::extensions::notification::SessionNotification {
+            xai_grok_shared::session::notification::SessionNotification {
                 session_id: acp::SessionId::new("sess-a"),
                 update: test_subagent_finished_for_attempt("child-stale", Some("at1.stale")),
                 meta: None,

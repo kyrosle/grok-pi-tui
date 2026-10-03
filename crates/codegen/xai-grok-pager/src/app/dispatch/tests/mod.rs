@@ -83,6 +83,8 @@ fn test_app() -> AppView {
     let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
     AppView {
         pending_startup: None,
+        screen_mode_switch_hint: None,
+        session_picker_detail_generation: 0,
         active_view: ActiveView::Welcome,
         auth_return_view: None,
         agents: IndexMap::new(),
@@ -90,7 +92,7 @@ fn test_app() -> AppView {
         models: ModelState::default(),
         registry: crate::actions::ActionRegistry::defaults(),
         settings_registry: std::sync::Arc::new(crate::settings::SettingsRegistry::defaults()),
-        current_ui: xai_grok_shell::agent::config::UiConfig::default(),
+        current_ui: xai_grok_shared::ui_config::UiConfig::default(),
         cwd: PathBuf::from("/tmp"),
         cwd_has_git_ancestor: false,
         acp_tx: tx,
@@ -689,24 +691,22 @@ fn make_ask_user_question_args(
     xai_acp_lib::AcpArgs<acp::ExtRequest>,
     tokio::sync::oneshot::Receiver<xai_acp_lib::AcpResult<acp::ExtResponse>>,
 ) {
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        AskUserQuestionExtRequest, Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{AskUserQuestionExtRequest, Question, QuestionOption};
     let req = AskUserQuestionExtRequest {
         session_id: "test-session".into(),
         tool_call_id: tool_call_id.into(),
-        mode: xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionMode::Default,
+        mode: xai_tool_types::questions::AskUserQuestionMode::Default,
         questions: vec![Question {
-                question: "ACP-driven question".into(),
-                options: vec![QuestionOption {
-                    label: "ok".into(),
-                    description: "ok".into(),
-                    preview: None,
-                    id: None,
-                }],
-                multi_select: Some(false),
-                            id: None,
+            question: "ACP-driven question".into(),
+            options: vec![QuestionOption {
+                label: "ok".into(),
+                description: "ok".into(),
+                preview: None,
+                id: None,
             }],
+            multi_select: Some(false),
+            id: None,
+        }],
     };
     let (tx, rx) = tokio::sync::oneshot::channel();
     let ext = acp::ExtRequest::new(
@@ -936,7 +936,7 @@ fn enqueue_permission_with_enable_always_approve(
         vec![
             acp::PermissionOption::new(
                 acp::PermissionOptionId::new(Arc::from(
-                    xai_grok_workspace::permission::ENABLE_ALWAYS_APPROVE_OPTION_ID,
+                    xai_grok_shared::permissions::ENABLE_ALWAYS_APPROVE_OPTION_ID,
                 )),
                 "Yes, and don't ask again for anything",
                 acp::PermissionOptionKind::AllowOnce,

@@ -73,11 +73,11 @@ fn enqueue_permission(
         .and_then(|meta| serde_json::from_value(serde_json::Value::Object(meta.clone())).ok());
     let bash_selection_count = bash_highlights
         .as_ref()
-        .map(|h| xai_grok_workspace::permission::default_always_allow_scope(&h.highlighted_words))
+        .map(|h| xai_grok_shared::permissions::default_always_allow_scope(&h.highlighted_words))
         .unwrap_or(0);
     let bash_deny_selection_count = bash_highlights
         .as_ref()
-        .map(|h| xai_grok_workspace::permission::default_always_deny_scope(&h.highlighted_words))
+        .map(|h| xai_grok_shared::permissions::default_always_deny_scope(&h.highlighted_words))
         .unwrap_or(0);
 
     if let Some(h) = bash_highlights.as_ref() {
@@ -85,7 +85,7 @@ fn enqueue_permission(
             o.option_id.0.as_ref() == crate::views::permission_view::ALLOW_ALWAYS_COMMAND_OPTION_ID
         });
         if offers_allow_row
-            && !xai_grok_workspace::permission::always_allow_scope_persists(h, bash_selection_count)
+            && !xai_grok_shared::permissions::always_allow_scope_persists(h, bash_selection_count)
         {
             tracing::warn!(
                 scope = bash_selection_count,
@@ -102,7 +102,7 @@ fn enqueue_permission(
         .find(|o| o.option_id.0.as_ref() == "allow-always-mcp")
         .and_then(|opt| opt.meta.as_ref())
         .and_then(|m| {
-            serde_json::from_value::<xai_grok_workspace::permission::McpToolPermission>(
+            serde_json::from_value::<xai_grok_shared::permissions::McpToolPermission>(
                 serde_json::Value::Object(m.clone()),
             )
             .ok()
@@ -196,7 +196,7 @@ pub(super) fn build_permission_display(
     let is_bash = bash_highlights.is_some();
 
     let bash_input = req.tool_call.fields.raw_input.as_ref().and_then(|v| {
-        serde_json::from_value::<xai_grok_tools::implementations::BashToolInput>(v.clone()).ok()
+        serde_json::from_value::<xai_tool_types::output_dependencies::BashToolInput>(v.clone()).ok()
     });
 
     let ask = hook_ask(req);
@@ -248,7 +248,7 @@ pub(super) fn build_permission_display(
         } else if let Some(t) = acp_title {
             format!(
                 "Allow {}?",
-                xai_grok_workspace::permission::mcp_pretty_name_if_qualified(t)
+                xai_grok_shared::permissions::mcp_pretty_name_if_qualified(t)
             )
         } else {
             "Allow Edit?".to_string()
@@ -256,7 +256,7 @@ pub(super) fn build_permission_display(
     } else if let Some(t) = acp_title {
         format!(
             "Allow {}?",
-            xai_grok_workspace::permission::mcp_pretty_name_if_qualified(t)
+            xai_grok_shared::permissions::mcp_pretty_name_if_qualified(t)
         )
     } else {
         match req.tool_call.fields.kind {
@@ -291,7 +291,7 @@ fn qualify_permission_title_for_local_workspace(
 
 fn permission_description_lines(
     req: &acp::RequestPermissionRequest,
-    hook_ask: Option<&xai_grok_workspace::permission::HookAsk>,
+    hook_ask: Option<&xai_grok_shared::permissions::HookAsk>,
 ) -> Vec<String> {
     let mut lines = mcp_args_lines(req);
     if is_edit_permission(req)
@@ -305,19 +305,17 @@ fn permission_description_lines(
     lines
 }
 
-fn hook_ask(
-    req: &acp::RequestPermissionRequest,
-) -> Option<xai_grok_workspace::permission::HookAsk> {
+fn hook_ask(req: &acp::RequestPermissionRequest) -> Option<xai_grok_shared::permissions::HookAsk> {
     let value = req
         .meta
         .as_ref()?
-        .get(xai_grok_workspace::permission::HOOK_ASK_META_KEY)?;
+        .get(xai_grok_shared::permissions::HOOK_ASK_META_KEY)?;
     serde_json::from_value(value.clone()).ok()
 }
 
 fn protected_edit_description(req: &acp::RequestPermissionRequest) -> Option<String> {
     let meta = req.meta.as_ref()?;
-    let protected: xai_grok_workspace::permission::ProtectedEditPermission =
+    let protected: xai_grok_shared::permissions::ProtectedEditPermission =
         serde_json::from_value(serde_json::Value::Object(meta.clone())).ok()?;
     protected.description.filter(|s| !s.is_empty())
 }

@@ -19,19 +19,7 @@ pub struct SkillInput {
 }
 
 /// Output from the Skill tool
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct SkillOutput {
-    /// Whether the skill was successfully resolved
-    pub success: bool,
-    /// Brief fallback message, used as the tool result when there is no skill body.
-    pub tool_result: String,
-    /// The skill's display name
-    pub skill_name: String,
-    /// The formatted skill content, delivered to the model as the tool result.
-    pub skill_message: Option<String>,
-    /// Error message if the skill failed to load
-    pub error: Option<String>,
-}
+pub use xai_tool_types::output_dependencies::SkillOutput;
 
 // Old `SkillToolImpl` + `impl Tool` deleted.
 // New implementation is in `grok_build/skill/`.
@@ -116,64 +104,7 @@ pub fn format_skill_name(skill: &SkillInfo) -> String {
     format!("{}:{}", skill.scope.as_ref(), skill.name)
 }
 
-/// Extract a clean display string from skill XML markup. Returns `Some("/NAME ARGS")` if the text
-/// contains skill markup, `None` otherwise. Falls back to `<command-name>` when `<command-message>`
-/// is absent (e.g. stored session titles that were truncated to just the first XML tag).
-pub fn extract_skill_display_text(text: &str) -> Option<String> {
-    let name_open = "<command-name>";
-    let name_close = "</command-name>";
-    if !text.contains(name_open) {
-        return None;
-    }
-
-    // Try <command-message> first (canonical wire format).
-    let command = 'cmd: {
-        let cmd_open = "<command-message>";
-        let cmd_close = "</command-message>";
-        let start = match text.find(cmd_open) {
-            Some(s) => s + cmd_open.len(),
-            None => break 'cmd None,
-        };
-        text[start..]
-            .find(cmd_close)
-            .map(|rel| &text[start..start + rel])
-    };
-
-    if let Some(cmd) = command.filter(|c| !c.is_empty()) {
-        let args = extract_command_args(text);
-        return Some(match args {
-            Some(a) => format!("{cmd} {a}"),
-            None => cmd.to_string(),
-        });
-    }
-
-    // Fallback: derive "/NAME" from <command-name>NAME</command-name>.
-    let inner = text.find(name_open)? + name_open.len();
-    let end = inner + text[inner..].find(name_close)?;
-    let name = &text[inner..end];
-    if name.is_empty() {
-        return None;
-    }
-    let args = extract_command_args(text);
-    Some(match args {
-        Some(a) => format!("/{name} {a}"),
-        None => format!("/{name}"),
-    })
-}
-
-/// Extract trimmed args from `<command-args>…</command-args>`, if present and non-empty.
-/// Falls back to taking everything after `<command-args>` when the closing tag is
-/// missing (truncated titles stored in `generated_title`).
-fn extract_command_args(text: &str) -> Option<&str> {
-    let open = "<command-args>";
-    let close = "</command-args>";
-    let start = text.find(open)? + open.len();
-    let end = text[start..]
-        .find(close)
-        .map_or(text.len(), |rel| start + rel);
-    let args = text[start..end].trim();
-    if args.is_empty() { None } else { Some(args) }
-}
+pub use xai_tool_types::skills::extract_skill_display_text;
 
 /// Escape XML special characters
 #[cfg(test)]

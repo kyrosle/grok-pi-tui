@@ -231,7 +231,7 @@ pub const LOOP_COMPLETION_OUTPUT_CAP: usize = 4_000;
 /// How long a recurring scheduled task lives before auto-expiry. Single source of truth for the
 /// TTL: task construction stamps `expires_at = now + days(this)`, and user-facing copy (pager
 /// notice, tool descriptions) must read the same constant so the number cannot drift.
-pub const RECURRING_TASK_TTL_DAYS: i64 = 7;
+pub use xai_tool_types::scheduled_task::RECURRING_TASK_TTL_DAYS;
 
 const MAX_SCHEDULER_TRANSITIONS: usize = 50;
 

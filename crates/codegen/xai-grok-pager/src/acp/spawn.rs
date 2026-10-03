@@ -268,7 +268,7 @@ pub(super) fn boot_auth_manager(
 pub async fn spawn_grok_shell(
     agent_config: AgentConfig,
     cancel: &CancellationToken,
-    memory_config: Option<xai_grok_shell::config::MemoryConfig>,
+    memory_config: Option<xai_grok_config_types::MemoryConfig>,
 ) -> Result<SpawnedAgent> {
     let auth_manager = boot_auth_manager(&grok_home(), &agent_config);
     // Pause token refreshes across system sleep so an OIDC refresh can't

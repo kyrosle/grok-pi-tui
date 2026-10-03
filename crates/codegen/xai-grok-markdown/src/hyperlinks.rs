@@ -132,9 +132,17 @@ pub(crate) fn emit_segment_hyperlinks(
         if s_in >= e_in {
             continue;
         }
-        let col_start = col + unicode_display_width(&segment[..s_in]);
-        let col_end = col_start + unicode_display_width(&segment[s_in..e_in]);
-        let lt = &link_targets[clr.link_idx];
+        let Some(prefix) = segment.get(..s_in) else {
+            continue;
+        };
+        let Some(mid) = segment.get(s_in..e_in) else {
+            continue;
+        };
+        let col_start = col + unicode_display_width(prefix);
+        let col_end = col_start + unicode_display_width(mid);
+        let Some(lt) = link_targets.get(clr.link_idx) else {
+            continue;
+        };
         out.push(HyperlinkTarget {
             line_index,
             column_range: col_start..col_end,
@@ -151,6 +159,18 @@ mod hyperlink_tests {
     use crate::{StreamingMarkdownRenderer, render_markdown_ratatui_full};
     use pretty_assertions::assert_eq;
     use ratatui::text::Line;
+
+    #[test]
+    fn stale_link_index_is_skipped_during_segment_projection() {
+        let links = [super::ChunkLinkRange {
+            xform_start: 0,
+            xform_end: 3,
+            link_idx: 1,
+        }];
+        let mut output = Vec::new();
+        super::emit_segment_hyperlinks(&links, &[], "中", 0, 0, 0, &mut output);
+        assert!(output.is_empty());
+    }
 
     fn line_to_string(line: &Line<'static>) -> String {
         line.spans.iter().map(|s| s.content.as_ref()).collect()

@@ -399,12 +399,7 @@ impl AgentView {
             ClipboardPasteCompletion, ClipboardPasteFailure, ProbedAttachment,
         };
         self.paste_probe_in_flight = self.paste_probe_in_flight.saturating_sub(1);
-        let insert_deferred_text = matches!(
-            &image,
-            ProbedAttachment::NoRaster
-                | ProbedAttachment::ProbeDropped
-                | ProbedAttachment::ProbeFailed
-        );
+        let text_on_miss = ctx.source.text_to_insert_on_miss(&image);
         let attachment = match image {
             ProbedAttachment::Image(pasted) => {
                 if self.reject_shared_queue_image_edit(&pasted) {
@@ -452,14 +447,7 @@ impl AgentView {
         } else {
             None
         };
-        let text = if insert_deferred_text {
-            ctx.source
-                .text_to_insert_on_miss()
-                .filter(|text| !text.trim().is_empty())
-                .map(|text| self.insert_prompt_plain_text(Some(text)).1)
-        } else {
-            None
-        };
+        let text = text_on_miss.map(|text| self.insert_prompt_plain_text(Some(text)).1);
         let completion = crate::app::actions::reduce_clipboard_paste_completion(
             &ctx.source,
             attachment,
@@ -513,6 +501,13 @@ impl AgentView {
             return ClipboardPasteCompletion::Dropped;
         }
         modal.note_paste_probe_finished();
+        let inserted_caption = match ctx.source.text_to_insert_on_miss(&image) {
+            Some(text) => {
+                modal.handle_paste(text);
+                true
+            }
+            None => false,
+        };
         match image {
             ProbedAttachment::Image(pasted) => match modal.insert_image(pasted) {
                 Ok(()) => ClipboardPasteCompletion::Handled,
@@ -525,23 +520,12 @@ impl AgentView {
                 modal.set_error("Couldn't save pasted image".to_string());
                 ClipboardPasteCompletion::Failed(ClipboardPasteFailure::AlreadyReported)
             }
-            ProbedAttachment::NoRaster => {
-                let inserted_caption = if let Some(text) = ctx
-                    .source
-                    .text_to_insert_on_miss()
-                    .filter(|text| !text.trim().is_empty())
-                {
-                    modal.handle_paste(text);
-                    true
-                } else {
-                    false
-                };
-                if inserted_caption || ctx.source.synchronous_insertion().is_some() {
-                    ClipboardPasteCompletion::Handled
-                } else {
-                    ClipboardPasteCompletion::FullMiss
-                }
+            ProbedAttachment::NoRaster
+                if inserted_caption || ctx.source.synchronous_insertion().is_some() =>
+            {
+                ClipboardPasteCompletion::Handled
             }
+            ProbedAttachment::NoRaster => ClipboardPasteCompletion::FullMiss,
             ProbedAttachment::ProbeDropped => ClipboardPasteCompletion::Dropped,
             ProbedAttachment::ProbeFailed => {
                 ClipboardPasteCompletion::Failed(ClipboardPasteFailure::AttachmentRead)
@@ -1604,16 +1588,14 @@ pub(super) mod paste_key_tests {
     /// Build a `QuestionViewState` already in `InputMode` focus.
     pub(in crate::app::agent_view) fn make_question_view_state_in_input_mode()
     -> crate::views::question_view::QuestionViewState {
-        let question = xai_grok_tools::implementations::grok_build::ask_user_question::Question {
+        let question = xai_tool_types::questions::Question {
             question: "Pick one?".to_string(),
-            options: vec![
-                xai_grok_tools::implementations::grok_build::ask_user_question::QuestionOption {
-                    label: "A".to_string(),
-                    description: "Option A".to_string(),
-                    preview: None,
-                    id: None,
-                },
-            ],
+            options: vec![xai_tool_types::questions::QuestionOption {
+                label: "A".to_string(),
+                description: "Option A".to_string(),
+                preview: None,
+                id: None,
+            }],
             multi_select: Some(false),
             id: None,
         };

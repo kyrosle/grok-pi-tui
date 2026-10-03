@@ -223,7 +223,7 @@ fn hook_denied_finalize_requeues_blocked_prompt_and_opens_card() {
     use crate::views::question_view::LocalQuestionKind;
 
     // The context is built through the shared wire type, so the test breaks if the shell's serialization and the pager's parse ever drift apart
-    let context = serde_json::to_value(xai_grok_shell::session::commands::CancellationContext {
+    let context = serde_json::to_value(xai_grok_shared::session::completion::CancellationContext {
         hook_name: Some("global/block-hihi:user_prompt_submit[0].hooks[0]".into()),
         reason: Some("it contains 'hihi'".into()),
         ..Default::default()
@@ -433,7 +433,7 @@ fn blocked_prompt_card_refuses_skip() {
 
     // The focused card's footer must not advertise the refused dismissal.
     let labels: Vec<String> = agent
-        .current_shortcut_hints(&crate::actions::ActionRegistry::defaults())
+        .current_shortcut_hints(&crate::actions::ActionRegistry::defaults(), false)
         .iter()
         .map(|hint| hint.label.to_string())
         .collect();
@@ -603,9 +603,7 @@ fn saving_unrelated_row_keeps_hold_and_reopens_card() {
 #[test]
 fn deferred_card_reopens_when_other_question_closes() {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
 
     let mut agent = running_viewer("p1");
     stash_in_flight(&mut agent);
@@ -1413,7 +1411,7 @@ fn viewer_finalize_truncation_wire_pair_renders_exact_user_copy() {
         TerminalSignal {
             prompt_id: Some("p1"),
             stop_reason: Some("error"),
-            agent_result: Some(xai_grok_shell::sampling::error::MAX_TOKENS_TRUNCATION_MESSAGE),
+            agent_result: Some(xai_grok_shared::session::sampling_error::MAX_TOKENS_TRUNCATION_MESSAGE),
             error_kind: Some(WireErrorType::MaxTokensTruncation),
             ..Default::default()
         },

@@ -36,7 +36,7 @@ impl AgentView {
             || self.active_modal.is_some()
             || self.extensions_modal.is_some()
             || self.feedback_modal.is_some()
-            || self.agents_modal.is_some()
+            || self.stock_agents_modal_open()
             || self.persona_detail.is_some()
             || self.scrollback_search.is_some()
             || self.line_viewer.is_some()
@@ -76,7 +76,7 @@ impl AgentView {
             && self.gboom.is_none()
             && self.extensions_modal.is_none()
             && self.feedback_modal.is_none()
-            && self.agents_modal.is_none()
+            && !self.stock_agents_modal_open()
             && self.persona_detail.is_none()
             && self.btw_state.is_none()
             && self.scrollback_search.is_none()
@@ -108,7 +108,7 @@ impl AgentView {
             || self.gboom.is_some()
             || self.video_viewer.is_some()
             || self.image_viewer.is_some()
-            || self.agents_modal.is_some()
+            || self.stock_agents_modal_open()
             || self.persona_detail.is_some()
             || self.block_viewer.is_some()
     }
@@ -194,7 +194,7 @@ impl AgentView {
         pane_clear
             && matches!(self.prompt_mode, crate::app::queue_edit::PromptMode::Normal)
             && self.inline_edit.is_none()
-            && self.agents_modal.is_none()
+            && !self.stock_agents_modal_open()
             && self.persona_detail.is_none()
             && self.no_esc_consumer_pending()
             && self.no_input_overlay_pending()
@@ -790,7 +790,8 @@ impl AgentView {
                 _ => InputOutcome::Changed,
             };
         }
-        if self.agents_modal.is_some() {
+        #[cfg(feature = "stock-runtime")]
+        if self.stock_agents_modal_open() {
             return match ev {
                 Event::Key(key) if key.kind != KeyEventKind::Release => {
                     if registry.lookup(key, When::Always).is_some() {
@@ -1613,7 +1614,7 @@ mod background_and_tasks_shortcut_tests {
             .expect("file-search context");
         agent.prompt.file_search.set_test_state(
             context,
-            vec![xai_grok_workspace::file_system::FuzzyMatchResult {
+            vec![xai_fuzzy_file_search::FuzzyMatchResult {
                 path: nucleo::Utf32String::from("src/lib.rs"),
                 score: 100,
                 indices: Vec::new(),

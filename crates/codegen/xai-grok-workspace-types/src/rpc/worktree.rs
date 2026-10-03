@@ -630,3 +630,22 @@ mod tests {
         assert_eq!(transport_for_resolved("copy", None), None);
     }
 }
+
+impl From<xai_grok_config_types::WorktreeType> for WorktreeType {
+    fn from(t: xai_grok_config_types::WorktreeType) -> Self {
+        match t {
+            xai_grok_config_types::WorktreeType::Linked => WorktreeType::Linked,
+            xai_grok_config_types::WorktreeType::Standalone => WorktreeType::Standalone,
+            xai_grok_config_types::WorktreeType::Git => WorktreeType::Git,
+        }
+    }
+}
+impl From<WorktreeType> for xai_grok_config_types::WorktreeType {
+    fn from(t: WorktreeType) -> Self {
+        match t {
+            WorktreeType::Linked => xai_grok_config_types::WorktreeType::Linked,
+            WorktreeType::Standalone => xai_grok_config_types::WorktreeType::Standalone,
+            WorktreeType::Git => xai_grok_config_types::WorktreeType::Git,
+        }
+    }
+}

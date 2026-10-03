@@ -270,6 +270,7 @@ impl AgentView {
 
     // -- Agents modal input handling --
 
+    #[cfg(feature = "stock-runtime")]
     pub(super) fn handle_agents_modal_key(
         &mut self,
         key: &crossterm::event::KeyEvent,
@@ -335,6 +336,7 @@ impl AgentView {
         }
     }
 
+    #[cfg(feature = "stock-runtime")]
     pub(super) fn handle_agents_modal_paste(&mut self, text: &str) -> InputOutcome {
         let Some(ref mut state) = self.agents_modal else {
             return InputOutcome::Unchanged;
@@ -345,6 +347,7 @@ impl AgentView {
         }
     }
 
+    #[cfg(feature = "stock-runtime")]
     pub(super) fn handle_agents_modal_mouse(
         &mut self,
         mouse: &crossterm::event::MouseEvent,
@@ -382,6 +385,7 @@ impl AgentView {
             PersonaDetailOutcome::Close => {
                 self.persona_detail = None;
                 // Refresh the personas list in case edits were made.
+                #[cfg(feature = "stock-runtime")]
                 if let Some(ref mut modal) = self.agents_modal {
                     modal.refresh_personas();
                 }
@@ -420,6 +424,7 @@ impl AgentView {
         match handle_persona_detail_mouse(detail, mouse) {
             PersonaDetailOutcome::Close => {
                 self.persona_detail = None;
+                #[cfg(feature = "stock-runtime")]
                 if let Some(ref mut modal) = self.agents_modal {
                     modal.refresh_personas();
                 }
@@ -2960,13 +2965,11 @@ mod extensions_action_target_tests {
             load_errors: Vec::new(),
         });
         let mut skills = ExtensionsModalState::new(ExtensionsTab::Skills);
-        skills.skills_data = TabDataState::Loaded(vec![
-            xai_grok_tools::implementations::skills::types::SkillInfo {
-                name: "my-skill".into(),
-                enabled: true,
-                ..Default::default()
-            },
-        ]);
+        skills.skills_data = TabDataState::Loaded(vec![xai_tool_types::skills::SkillInfo {
+            name: "my-skill".into(),
+            enabled: true,
+            ..Default::default()
+        }]);
 
         for (noun, modal) in [("hook", hooks), ("skill", skills)] {
             let mut agent = pipeline_agent(modal);
@@ -3229,12 +3232,12 @@ mod extensions_action_target_tests {
             let mut agent = super::test_fixtures::make_agent();
             let mut modal = ExtensionsModalState::new(ExtensionsTab::Skills);
             modal.skills_data = TabDataState::Loaded(vec![
-                xai_grok_tools::implementations::skills::types::SkillInfo {
+                xai_tool_types::skills::SkillInfo {
                     name: "other-skill".into(),
                     enabled,
                     ..Default::default()
                 },
-                xai_grok_tools::implementations::skills::types::SkillInfo {
+                xai_tool_types::skills::SkillInfo {
                     name: "my-skill".into(),
                     enabled,
                     ..Default::default()
@@ -3267,7 +3270,7 @@ mod extensions_action_target_tests {
 
     #[test]
     fn skills_toggle_resolves_name_and_resulting_state() {
-        let skill = xai_grok_tools::implementations::skills::types::SkillInfo {
+        let skill = xai_tool_types::skills::SkillInfo {
             name: "my-skill".into(),
             enabled: false,
             ..Default::default()

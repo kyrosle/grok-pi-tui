@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use xai_grok_config::grok_home;
 use xai_grok_shell::agent::config::Config as AgentConfig;
 use xai_grok_shell::session::repo_changes::UploadMethod;
-use xai_grok_shell::util::grok_home::grok_home;
 
 #[derive(Debug, clap::Args, Clone)]
 pub struct TraceArgs {

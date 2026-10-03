@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use toml::Value as TomlValue;
-use xai_grok_shell::util::config::{
+use crate::settings_config::{
     DISPLAY_REFRESH_DEFAULT_CADENCE_MS, MotionCadence, RemoteSettings, resolve_display_refresh,
     resolve_motion_cadence,
 };

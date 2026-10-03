@@ -5,7 +5,7 @@
 /// Canonical tool name advertised by the scheduler create tool. Gating code
 /// (shell `CommandAvailability`, pager `required_tools`, host command lists)
 /// keys `/loop` availability on this name.
-pub const SCHEDULER_CREATE_TOOL_NAME: &str = "scheduler_create";
+pub use xai_tool_types::tool_names::SCHEDULER_CREATE_TOOL_NAME;
 
 /// Usage hint shown when `/loop` is invoked with no arguments.
 pub fn loop_usage_message() -> &'static str {

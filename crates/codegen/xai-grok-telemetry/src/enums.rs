@@ -30,28 +30,4 @@ pub enum PrCreationSource {
     Mcp,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PermissionMode {
-    /// Prompt the user for each tool call (default).
-    #[default]
-    Ask,
-    /// Approve everything without prompting.
-    AlwaysApprove,
-    /// LLM transcript classifier reviews non-fast-path tool calls.
-    Auto,
-}
-
-impl PermissionMode {
-    pub fn is_always_approve(self) -> bool {
-        matches!(self, Self::AlwaysApprove)
-    }
-
-    pub fn is_auto(self) -> bool {
-        matches!(self, Self::Auto)
-    }
-
-    pub fn from_yolo(yolo: bool) -> Self {
-        if yolo { Self::AlwaysApprove } else { Self::Ask }
-    }
-}
+pub use xai_grok_config_types::PermissionMode;

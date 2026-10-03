@@ -93,9 +93,7 @@ pub(super) fn open_credit_limit_upsell(
     max_tier: bool,
 ) {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
 
     if agent.question_view.is_some() {
         return;
@@ -215,9 +213,7 @@ fn open_supergrok_upsell(
     auth_method: Option<String>,
 ) -> bool {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
 
     // Never displace an already-open question modal
     // Callers that consume input on open must check this `false` and keep the input instead
@@ -354,7 +350,7 @@ pub(super) fn handle_billing_fetched(
 
 pub(super) fn handle_gate_refreshed(
     app: &mut AppView,
-    settings: Option<xai_grok_shell::util::config::RemoteSettings>,
+    settings: Option<xai_grok_config_types::RemoteSettings>,
 ) -> Vec<Effect> {
     let Some(rs) = settings else {
         return vec![];

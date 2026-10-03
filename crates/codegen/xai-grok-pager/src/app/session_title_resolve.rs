@@ -6,7 +6,11 @@
 //! Materialization keeps [`select_by_title`] as the authoritative error source (ambiguity / no-match).
 //! It is also the fallback for callers that bypass pinning.
 
-use xai_grok_shell::session::persistence::{RecentSessionSelection, Summary};
+#[cfg(feature = "stock-runtime")]
+use xai_grok_shell::session::persistence::RecentSessionSelectionExt;
+#[cfg(feature = "stock-runtime")]
+use xai_grok_shell::session::persistence::Summary;
+use xai_grok_shared::session::catalog::RecentSessionSelection;
 
 /// UUID-shaped resume args always take the id path, even when no such id exists and a session is titled with that exact UUID.
 pub(crate) fn is_uuid_shaped(arg: &str) -> bool {
@@ -32,6 +36,7 @@ pub(crate) fn title_miss_hint(arg: &str) -> String {
 /// `Ok(Some)`: exactly one match, or a sole manual `/rename` among duplicates (explicit user intent beats colliding auto titles).
 /// `Err`: ambiguous; never silently pick one, headless scripts need determinism.
 /// Candidate titles are Debug-escaped: `/rename` accepts arbitrary text, and raw control characters would corrupt the listing.
+#[cfg(feature = "stock-runtime")]
 pub(crate) fn select_by_title<'a>(
     arg: &str,
     summaries: &'a [Summary],
@@ -103,6 +108,7 @@ impl PinnedResumeTarget {
 /// The saved-profile peek and materialization must consume one immutable target, not re-run title selection against mutable summaries.
 /// That preserves the restored-child id so the peek cannot drift to a same-id session in another cwd.
 /// Errs on a listing failure (fail closed instead of guessing) and on ambiguity, which must be reported before the sandbox rather than after it.
+#[cfg(feature = "stock-runtime")]
 pub(crate) fn presandbox_resume_target(
     arg: &str,
     cwd: Option<&str>,
@@ -149,6 +155,6 @@ pub(crate) fn worktree_resume_failure_message(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "stock-runtime"))]
 #[path = "session_title_resolve_tests.rs"]
 mod tests;

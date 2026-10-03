@@ -890,7 +890,7 @@ fn cta_install_done_non_success_sets_error_with_sanitized_message() {
         name: "figma".into(),
     };
     // Input and expectation both derive from the shared table so no service name is respelled here and a rename cannot strand the assertions
-    let (pattern, expected) = xai_grok_shell::sampling::error::SERVICE_NAME_REWRITES[0];
+    let (pattern, expected) = xai_grok_shared::session::sampling_error::SERVICE_NAME_REWRITES[0];
     let effects = dispatch(
         Action::TaskComplete(TaskResult::CtaPluginInstallDone {
             agent_id: id,

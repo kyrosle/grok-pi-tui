@@ -117,7 +117,7 @@ fn perform_screen_transition(
     match to {
         ScreenMode::Minimal => {
             let mouse_was_captured = super::MOUSE_CAPTURE_ENABLED.swap(false, Ordering::AcqRel);
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 if mouse_was_captured {
                     let _ = execute!(stderr, event::DisableMouseCapture);
                 }
@@ -130,12 +130,12 @@ fn perform_screen_transition(
             #[cfg(windows)]
             super::win_native_selection::enable_native_selection();
             if from.is_fullscreen() {
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let _ = execute!(stderr, LeaveAlternateScreen);
                 });
             } else {
                 // Clear(All) only: Purge would destroy the user's real scrollback
-                xai_grok_shell::util::with_locked_stderr(|stderr| {
+                xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                     let _ = execute!(
                         stderr,
                         Clear(ClearType::All),
@@ -151,7 +151,7 @@ fn perform_screen_transition(
             match terminal.set_viewport(ratatui::Viewport::Inline(viewport_rows)) {
                 Ok(()) => ModeSwitchOutcome::Switched,
                 Err(error) => {
-                    xai_grok_shell::util::with_locked_stderr(|stderr| {
+                    xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                         if from.is_fullscreen() {
                             let _ = execute!(stderr, EnterAlternateScreen);
                         }
@@ -180,7 +180,7 @@ fn perform_screen_transition(
             }
         }
         ScreenMode::Fullscreen => {
-            xai_grok_shell::util::with_locked_stderr(|stderr| {
+            xai_grok_shared::stderr::with_locked_stderr(|stderr| {
                 let _ = execute!(stderr, EnterAlternateScreen);
                 let _ = execute!(stderr, event::EnableMouseCapture);
             });
@@ -245,7 +245,7 @@ fn dismiss_agent_surfaces(agent: &mut AgentView, writer: &crate::render::draw::E
     // `take()` no-ops once dismiss has consumed the viewer) or later keys
     // carry unexpected release events.
     if agent.block_viewer_image_active {
-        xai_grok_shell::util::with_locked_stderr(|stderr| {
+        xai_grok_shared::stderr::with_locked_stderr(|stderr| {
             let clear =
                 crate::terminal::overlay::PostFlush::from(crate::terminal::overlay::clear_kitty());
             let _ = clear.write_to(stderr);
@@ -253,7 +253,10 @@ fn dismiss_agent_surfaces(agent: &mut AgentView, writer: &crate::render::draw::E
         agent.block_viewer_image_active = false;
     }
     agent.persona_detail = None;
-    agent.agents_modal = None;
+    #[cfg(feature = "stock-runtime")]
+    {
+        agent.agents_modal = None;
+    }
     agent.show_goal_detail = false;
     for child in agent.subagent_views.values_mut() {
         dismiss_agent_surfaces(child, writer);

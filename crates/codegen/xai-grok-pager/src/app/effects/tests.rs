@@ -1,7 +1,7 @@
 #![cfg_attr(rustfmt, rustfmt::skip)]
 use super::*;
 use std::path::PathBuf;
-use xai_grok_shell::extensions::billing::{BillingConfig, Cent, UsagePeriod};
+use xai_grok_shared::session::billing::{BillingConfig, Cent, UsagePeriod};
 /// The invalid-params server detail survives `attach_prompt_usage` wrapping `error.data` as `{message, promptUsage}`.
 #[test]
 fn format_acp_error_reads_detail_from_wrapped_data() {
@@ -59,7 +59,7 @@ fn format_acp_error_typed_truncation_kind_renders_truncation_copy() {
 }
 #[test]
 fn format_acp_error_rate_limit_surfaces_detail_or_fallback() {
-    use xai_grok_shell::sampling::error::{
+    use xai_grok_shared::session::sampling_error::{
         FREE_USAGE_USER_MESSAGE, RATE_LIMITED_ERROR_CODE,
         RATE_LIMITED_USER_MESSAGE_API_KEY, RATE_LIMITED_USER_MESSAGE_OAUTH,
     };
@@ -162,8 +162,8 @@ fn parse_kill_outcome_reads_result_envelope() {
 /// This guards against the two sides drifting apart.
 #[test]
 fn parse_kill_outcome_round_trips_agent_serialization() {
-    use xai_grok_shell::extensions::task::KillTaskResponse;
-    use xai_grok_shell::session::result::ExtMethodResult;
+    use xai_tool_types::task_wire::KillTaskResponse;
+    use xai_grok_shared::session::result::ExtMethodResult;
     use xai_grok_tools::types::KillOutcome;
     let wire = serde_json::to_string(
             &ExtMethodResult::success(KillTaskResponse {
@@ -242,7 +242,7 @@ fn parse_subagent_kill_outcome_unknown_kind_falls_back_to_legacy_bool() {
 /// Round-trip through the agent's own serializer guards the two sides against drifting apart.
 #[test]
 fn parse_subagent_kill_outcome_round_trips_agent_serialization() {
-    use xai_grok_shell::extensions::task::{
+    use xai_tool_types::task_wire::{
         CancelSubagentResponse, SubagentCancelOutcomeDto,
     };
     let wire = serde_json::to_string(
@@ -556,7 +556,7 @@ fn credit_balance_effective_blends_budget_for_legacy_shape_under_100() {
 }
 #[test]
 fn parse_worktree_restore_payload_full() {
-    use xai_grok_workspace::session::git::RestoreDegree;
+    use xai_grok_workspace_types::rpc::git::RestoreDegree;
     let value = serde_json::json!({
             "codeRestored": true,
             "restoreSummary": "checked out abc12345, staged: true, unstaged: false, untracked: 3",
@@ -569,7 +569,7 @@ fn parse_worktree_restore_payload_full() {
 }
 #[test]
 fn parse_worktree_restore_payload_head_only() {
-    use xai_grok_workspace::session::git::RestoreDegree;
+    use xai_grok_workspace_types::rpc::git::RestoreDegree;
     let value = serde_json::json!({
             "codeRestored": true,
             "restoreSummary": "checked out abc (session registry disabled — staged/unstaged/untracked not restored)",
@@ -619,7 +619,7 @@ fn parse_worktree_strategy_summary_grove_success_and_empty() {
 }
 #[test]
 fn parse_session_load_restore_meta_full_shape() {
-    use xai_grok_workspace::session::git::RestoreDegree;
+    use xai_grok_workspace_types::rpc::git::RestoreDegree;
     let meta = serde_json::json!({
             "codeRestore": {
                 "restored": true,
@@ -1824,7 +1824,7 @@ async fn deep_search_sessions_echoes_routing_and_policy() {
             generation: 11,
             query: "abc".into(),
             seq: 4,
-            headless_policy: xai_grok_shell::session::unified_list::HeadlessPolicy::Only,
+            headless_policy: xai_grok_shared::session::catalog::HeadlessPolicy::Only,
         },
         &mut tasks,
         &tx,
@@ -2461,7 +2461,7 @@ fn make_session_info(
     used: u64,
     total: u64,
 ) -> xai_grok_shell::session::SessionInfoResponse {
-    use xai_grok_shell::session::acp_types::{ContextInfo, SessionInfoData};
+    use xai_grok_shared::session::{ContextInfo, SessionInfoData};
     xai_grok_shell::session::SessionInfoResponse {
         session_id: "test-session-id".into(),
         cwd: "/tmp/test".into(),
@@ -2650,7 +2650,7 @@ fn session_picker_summary_preserves_normal_text() {
 }
 #[test]
 fn sanitize_user_error_rewrites_shared_service_names() {
-    for (pattern, replacement) in xai_grok_shell::sampling::error::SERVICE_NAME_REWRITES {
+    for (pattern, replacement) in xai_grok_shared::session::sampling_error::SERVICE_NAME_REWRITES {
         for variant in [pattern.to_string(), pattern.to_ascii_uppercase()] {
             assert_eq!(
                     sanitize_user_error(&format!("ACP error: {variant} unreachable")),
@@ -2762,9 +2762,10 @@ fn session_picker_entry_maps_to_dormant_roster_row() {
         parent_session_path: None,
         last_turn_summary: Some("Fixed the parser".to_string()),
         last_recap: None,
+        session_kind: None,
         card_detail: None,
     };
-    let roster = session_picker_entry_to_roster(&entry);
+    let roster = session_picker_entry_to_roster(entry);
     assert_eq!(roster.session_id, "sess-1");
     assert_eq!(roster.title.as_deref(), Some("Wire up dashboard"));
     assert_eq!(roster.cwd, "/repo/app");
@@ -2835,4 +2836,13 @@ fn remote_tui_enqueues_rapid_keys_in_order_before_tasks_run() {
         received.push_str(value["data"].as_str().unwrap());
     }
     assert_eq!(received, "deepseek");
+}
+
+#[tokio::test]
+async fn external_sessions_do_not_inject_stock_mcp_servers() {
+    let temp = tempfile::tempdir().unwrap();
+    // A file cannot be a project root; external ownership must bypass discovery entirely.
+    let root = temp.path().join("invalid-project-root");
+    std::fs::write(&root, "fixture").unwrap();
+    assert!(super::discover_mcp_servers(root, true).await.is_empty());
 }

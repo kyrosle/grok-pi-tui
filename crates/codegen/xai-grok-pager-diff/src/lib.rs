@@ -5,7 +5,7 @@
 //! [`DiffHunk`]s that the pager renders, and back into unified-diff text.
 
 use similar::{ChangeTag, TextDiff};
-use xai_grok_tools::types::output::SearchReplaceEditDetail;
+use xai_tool_types::edit::SearchReplaceEditDetail;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiffLine {
@@ -315,28 +315,30 @@ fn stitch_hunk_pair(a: &DiffHunk, b: &DiffHunk) -> Option<DiffHunk> {
 ///
 /// Returns `(hunks, edit_count)`.
 pub fn extract_edit_hunks(tc: &agent_client_protocol::ToolCall) -> (Vec<DiffHunk>, usize) {
-    use xai_grok_tools::types::output::{
-        SearchReplaceEditContextInformation, SearchReplaceOutput, ToolOutput,
-    };
+    use xai_tool_types::edit::SearchReplaceEditContextInformation;
 
-    // Strategy 1: structured edit details from raw_output (via ToolOutput wrapper)
-    if let Some(raw) = &tc.raw_output {
-        match serde_json::from_value::<ToolOutput>(raw.clone()) {
-            Ok(ToolOutput::SearchReplace(SearchReplaceOutput::EditsApplied(edits))) => {
-                let hunks = build_diff_hunks(&edits.edits.details);
+    // Strategy 1: the real Tools envelope is internally tagged by `type`, with
+    // the SearchReplace enum's EditsApplied payload inside. Read only its canonical
+    // edit-detail DTO so rendering does not depend on the execution runtime.
+    if let Some(raw) = &tc.raw_output
+        && raw.as_object().is_some_and(|envelope| envelope.len() == 2)
+        && raw.get("type").and_then(serde_json::Value::as_str) == Some("SearchReplace")
+        && let Some(edits) = raw
+            .get("EditsApplied")
+            .and_then(|applied| applied.get("edits"))
+    {
+        match serde_json::from_value::<SearchReplaceEditContextInformation>(edits.clone()) {
+            Ok(edits) => {
+                let hunks = build_diff_hunks(&edits.details);
                 let count = hunks.len().max(1);
                 return (hunks, count);
             }
-            Err(e) => {
+            Err(error) => {
                 tracing::warn!(
                     tool_call_id = %tc.tool_call_id.0,
-                    error_kind = ?e.classify(),
-                    "extract_edit_hunks: raw_output failed to deserialize as ToolOutput, \
-                     falling back to Diff.meta"
+                    error_kind = ?error.classify(),
+                    "extract_edit_hunks: malformed edit details, falling back to Diff.meta"
                 );
-            }
-            _ => {
-                // raw_output is a different ToolOutput variant (not SearchReplace::EditsApplied)
             }
         }
     }
@@ -1115,6 +1117,45 @@ mod tests {
         let (hunks, count) = extract_edit_hunks(&tc);
         assert_eq!(hunks.len(), 1, "should have 1 hunk from content diff");
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn raw_edit_boundary_rejects_other_variants_and_malformed_details() {
+        use agent_client_protocol as acp;
+        use serde_json::json;
+        let details = json!({"details": [{
+            "old_string": "wrong old", "old_line": 1,
+            "new_string": "wrong new", "new_line": 1,
+            "context_before": "", "context_after": ""
+        }]});
+        for raw in [
+            json!({"type":"ReadFile", "EditsApplied":{"edits":details}}),
+            json!({"type":"SearchReplace", "NoMatchesFound":{"edits":details}}),
+            json!({"EditsApplied":{"edits":details}}),
+            json!({"type":"SearchReplace", "EditsApplied":{"edits":{"details":"invalid"}}}),
+            json!({"type":"SearchReplace", "EditsApplied":{"edits":details}, "FileNotFound":"missing"}),
+        ] {
+            let call = acp::ToolCall::new("edit", "Edit")
+                .raw_output(Some(raw))
+                .content(vec![acp::ToolCallContent::Diff(
+                    acp::Diff::new("test.rs", "new\n".to_owned())
+                        .old_text(Some("old\n".to_owned())),
+                )]);
+            let (hunks, count) = extract_edit_hunks(&call);
+            assert_eq!(count, 1);
+            assert!(
+                hunks
+                    .iter()
+                    .flatten()
+                    .any(|line| line.tag == ChangeTag::Delete && line.text.trim_end() == "old")
+            );
+            assert!(
+                hunks
+                    .iter()
+                    .flatten()
+                    .all(|line| !line.text.contains("wrong"))
+            );
+        }
     }
 
     #[test]

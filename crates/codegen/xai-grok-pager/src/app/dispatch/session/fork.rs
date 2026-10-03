@@ -24,6 +24,7 @@ use std::time::Instant;
 /// a `LocalSet` (how `grok-pi` hosts the pager — multi-thread runtime + LocalSet
 /// for `!Send` Pi adapter). Run the async collect on a dedicated OS thread with
 /// its own tiny runtime instead.
+#[cfg(feature = "stock-runtime")]
 pub(in crate::app::dispatch) fn collect_recent_dirs_blocking(
     limit: usize,
 ) -> Vec<(PathBuf, DateTime<Utc>)> {
@@ -97,9 +98,8 @@ pub(in crate::app::dispatch) fn apply_persist_worktree_mode(
     }
 }
 /// Build the two persistence options shared by the fork and new-session worktree question modals ("Always worktree" / "Never worktree").
-pub(super) fn worktree_persist_options()
--> [xai_grok_tools::implementations::grok_build::ask_user_question::QuestionOption; 2] {
-    use xai_grok_tools::implementations::grok_build::ask_user_question::QuestionOption;
+pub(super) fn worktree_persist_options() -> [xai_tool_types::questions::QuestionOption; 2] {
+    use xai_tool_types::questions::QuestionOption;
     [
         QuestionOption {
             label: "Always worktree".into(),
@@ -119,9 +119,7 @@ pub(super) fn worktree_persist_options()
 /// Refuses with a toast if a question (ACP or local) is already on screen, so two questions never collide.
 fn open_fork_question(app: &mut AppView, directive: Option<String>) -> Vec<Effect> {
     use crate::views::question_view::{LocalQuestionKind, QuestionViewState};
-    use xai_grok_tools::implementations::grok_build::ask_user_question::{
-        Question, QuestionOption,
-    };
+    use xai_tool_types::questions::{Question, QuestionOption};
     let ActiveView::Agent(id) = app.active_view else {
         return vec![];
     };
@@ -395,7 +393,7 @@ pub(in crate::app::dispatch) fn handle_worktree_forked(
     session_cwd: std::path::PathBuf,
     code_restored: bool,
     restore_summary: Option<String>,
-    restore_degree: Option<xai_grok_workspace::session::git::RestoreDegree>,
+    restore_degree: Option<xai_grok_workspace_types::rpc::git::RestoreDegree>,
     resume_session_id: Option<String>,
     strategy_summary: Option<String>,
 ) -> Vec<Effect> {
@@ -406,6 +404,7 @@ pub(in crate::app::dispatch) fn handle_worktree_forked(
         .get(&agent_id)
         .is_some_and(|a| a.conversation_entry);
     let conversation_entry = pending_entry || agent_entry;
+    #[cfg(feature = "stock-runtime")]
     if crate::app::session_startup::chat_mode_refuses_local_build_load(
         app.chat_mode,
         conversation_entry,
@@ -487,6 +486,7 @@ pub(in crate::app::dispatch) fn handle_fork_session_ready(
         .get(&agent_id)
         .is_some_and(|a| a.conversation_entry);
     let conversation_entry = pending_entry || agent_entry;
+    #[cfg(feature = "stock-runtime")]
     if crate::app::session_startup::chat_mode_refuses_local_build_load(
         app.chat_mode,
         conversation_entry,

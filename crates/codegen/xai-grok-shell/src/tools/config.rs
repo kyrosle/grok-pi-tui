@@ -83,16 +83,6 @@ impl BashToolConfig {
 
 /// User configurable settings for the ask_user_question tool (`[toolset.ask_user_question]`). Consumed by `crate::util::config::resolve_ask_user_question_params_from_disk`, which reads the raw config layers directly.
 /// That keeps the documented precedence (requirements > env > user > managed > remote). This struct exists so the keys are recognized in `config.toml` and round-trip through `AgentConfig`.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct AskUserQuestionToolConfig {
-    /// Whether the questionnaire timeout is enabled (default: `true`).
-    /// `false` waits forever for answers.
-    pub timeout_enabled: Option<bool>,
-    /// Wait budget in seconds when the timer is enabled (positive integer; default: 1800 / 30 minutes).
-    pub timeout_secs: Option<u64>,
-}
-
 /// User configurable settings for the web_fetch tool (`[toolset.web_fetch]`).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -697,3 +687,5 @@ mod tests {
         );
     }
 }
+
+pub use xai_grok_config_types::AskUserQuestionToolConfig;

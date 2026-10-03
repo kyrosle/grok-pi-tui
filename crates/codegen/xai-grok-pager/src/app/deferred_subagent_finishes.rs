@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use xai_grok_shell::extensions::notification::{SessionNotification, SessionUpdate};
+use xai_grok_shared::session::notification::{SessionNotification, SessionUpdate};
 
 use super::subagent::{SubagentAttemptKey, SubagentLifecycleState};
 

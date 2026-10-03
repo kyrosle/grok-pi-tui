@@ -1,9 +1,9 @@
 use anyhow::Result;
 use clap::Subcommand;
+use xai_grok_config::grok_home;
 use xai_grok_login::{AuthManager, try_ensure_fresh_auth};
 use xai_grok_shell::agent::config::Config as AgentConfig;
 use xai_grok_shell::session::merge::MergedSession;
-use xai_grok_shell::util::grok_home::grok_home;
 #[derive(Debug, clap::Args, Clone)]
 pub struct SessionsArgs {
     #[command(subcommand)]

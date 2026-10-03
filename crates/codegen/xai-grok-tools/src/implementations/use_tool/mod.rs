@@ -10,7 +10,7 @@ use crate::util::mcp_truncate::{McpTruncateContext, truncate_tool_output};
 /// Wire name of the MCP dispatch tool. UIs special-case it: while its
 /// arguments stream, the target tool's name is still inside them, so the
 /// raw name is all a renderer has.
-pub const USE_TOOL_NAME: &str = "use_tool";
+pub use xai_tool_types::tool_names::USE_TOOL_NAME;
 
 /// Input for the `use_tool` meta-dispatch tool.
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]

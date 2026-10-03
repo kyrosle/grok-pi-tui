@@ -69,3 +69,5 @@ impl AuthMethodKind {
         matches!(self, Self::GrokCom | Self::Oidc)
     }
 }
+
+pub const PREFERRED_API_KEY_UNAVAILABLE: &str = "preferred_method=api_key but no API key is configured (set XAI_API_KEY or model api_key/env_key in config.toml).";

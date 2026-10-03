@@ -69,16 +69,7 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct SchedulerCreateOutput {
-    pub id: String,
-    pub human_schedule: String,
-    #[serde(default)]
-    pub updated: bool,
-}
-
-impl xai_tool_runtime::ToolOutput for SchedulerCreateOutput {}
+pub use xai_tool_types::output_dependencies::SchedulerCreateOutput;
 
 #[derive(Debug, Default)]
 pub struct SchedulerCreateTool;

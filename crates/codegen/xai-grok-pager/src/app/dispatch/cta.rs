@@ -55,11 +55,11 @@ pub(super) fn plugin_cta_candidates(
         None => sources
             .iter()
             .position(|s| {
-                xai_grok_plugin_marketplace::is_official_source_url(&s.source_url_or_path)
+                xai_hooks_plugins_types::marketplace::is_official_source_url(&s.source_url_or_path)
             })
             .or_else(|| {
                 sources.iter().position(|s| {
-                    s.source_name == xai_grok_plugin_marketplace::OFFICIAL_SOURCE_NAME
+                    s.source_name == xai_hooks_plugins_types::marketplace::OFFICIAL_SOURCE_NAME
                 })
             }),
     };
@@ -117,7 +117,7 @@ pub(super) fn plugin_cta_phase_for(
     is_dismissed: impl Fn(&str) -> bool,
 ) -> crate::app::agent_view::CtaPhase {
     use crate::app::agent_view::CtaPhase;
-    use xai_grok_plugin_marketplace::matcher::{KeywordCandidate, match_plugin_keyword};
+    use xai_hooks_plugins_types::marketplace_matcher::{KeywordCandidate, match_plugin_keyword};
 
     if !(enabled && cta_source_present) {
         return CtaPhase::Hidden;
@@ -352,7 +352,10 @@ pub(super) fn handle_plugin_cta_mcps_loaded(
                     &name,
                 );
                 modal.mcps_data = TabDataState::Loaded(servers);
-                agent.agents_modal = None;
+                #[cfg(feature = "stock-runtime")]
+                {
+                    agent.agents_modal = None;
+                }
                 agent.extensions_modal = Some(modal);
                 log_event(xai_grok_telemetry::events::ExtensionsModalOpened {
                     trigger: xai_grok_telemetry::events::ExtensionsModalTrigger::AuthHandoff,
@@ -431,7 +434,7 @@ pub(super) fn handle_plugin_cta_catalog_loaded(
                 // Cache the dismissed set once here so recomputing after the debounce never reads config.toml from the UI thread
                 // Only needed when enabled (the matcher short-circuits to Hidden before consulting it otherwise)
                 if enabled {
-                    agent.plugin_cta.dismissed = xai_grok_shell::config::dismissed_plugin_ctas();
+                    agent.plugin_cta.dismissed = xai_grok_shared::config::dismissed_plugin_ctas();
                 }
                 // Recompute the matcher-driven phase now that the catalog landed
                 // Typing and pausing before the async catalog arrived (common at startup) should show the CTA without another keystroke

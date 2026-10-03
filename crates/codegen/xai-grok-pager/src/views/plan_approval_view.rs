@@ -1,9 +1,7 @@
 use agent_client_protocol as acp;
 use xai_acp_lib::AcpResult;
 
-pub use xai_grok_tools::implementations::grok_build::exit_plan_mode::{
-    ExitPlanModeExtRequest, ExitPlanModeExtResponse,
-};
+pub use xai_tool_types::plan::{ExitPlanModeExtRequest, ExitPlanModeExtResponse};
 
 use crate::views::prompt_widget::StashedPrompt;
 

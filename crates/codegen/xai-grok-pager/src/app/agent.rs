@@ -13,8 +13,8 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
 use xai_acp_lib::AcpAgentTx;
-use xai_grok_shell::extensions::notification::GoalClassifierVerdict;
-use xai_grok_shell::sampling::types::ReasoningEffort;
+use xai_grok_sampling_types::types::ReasoningEffort;
+use xai_grok_shared::session::notification::GoalClassifierVerdict;
 /// Unique local identifier for an agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AgentId(pub usize);
@@ -244,14 +244,14 @@ impl BgTaskState {
     /// Its `TaskBackgrounded` hasn't arrived yet: short bg shells can exit on the terminal's first poll.
     /// Keeps the late `TaskBackgrounded` from inserting a fresh Running entry that nothing would ever complete.
     pub fn tombstone_from_snapshot(
-        snapshot: &xai_grok_tools::types::TaskSnapshot,
+        snapshot: &xai_tool_types::task_snapshot::TaskSnapshot,
         status: BgTaskStatus,
         description: Option<String>,
         restored_from_replay: bool,
     ) -> Self {
         let is_monitor = matches!(
             snapshot.kind,
-            xai_grok_tools::computer::types::TaskKind::Monitor
+            xai_tool_types::task_snapshot::TaskKind::Monitor
         ) || snapshot
             .display_command
             .as_deref()
@@ -679,7 +679,7 @@ pub struct AgentSession {
     /// Last `--restore-code` outcome's `degree`, parsed from `_meta.codeRestore.degree` (non-worktree path) or `restoreDegree` (worktree path).
     /// Both dispatch handlers set the field but no rendering path consumes it yet.
     /// The wire shape's type-safety anchor is [`crate::app::effects`]'s parser tests and the deserialise tests in `ResumeSessionInWorktreeResponse`.
-    pub restore_degree: Option<xai_grok_workspace::session::git::RestoreDegree>,
+    pub restore_degree: Option<xai_grok_workspace_types::rpc::git::RestoreDegree>,
     /// Set when a rate-limit `RetryState::Exhausted` fires, so the subsequent `TurnFailed` from the RPC error path can be suppressed.
     /// The retry handler already displayed a user-friendly message. Cleared on `finish_turn`.
     pub rate_limited: bool,
@@ -800,11 +800,11 @@ impl AgentSession {
     /// The shell's own session directory derivation from the bound session id and this session's cwd.
     /// `None` until a session id is bound; never touches the filesystem or scans other sessions.
     pub fn local_session_dir(&self) -> Option<PathBuf> {
-        let info = xai_grok_shell::session::info::Info {
+        let info = xai_grok_shared::session::Info {
             id: self.session_id.clone()?,
             cwd: self.cwd.to_string_lossy().to_string(),
         };
-        Some(xai_grok_shell::session::persistence::session_dir(&info))
+        Some(xai_grok_shared::session::session_dir(&info))
     }
     /// Process an ACP session update. Returns true if scrollback was modified.
     pub fn handle_update(
@@ -1784,7 +1784,7 @@ mod tests {
     /// That includes a blank command (gateway-bridge completions synthesize one).
     #[test]
     fn absorb_late_backgrounded_backfills_without_resurrecting() {
-        let snapshot = xai_grok_tools::types::TaskSnapshot {
+        let snapshot = xai_tool_types::task_snapshot::TaskSnapshot {
             task_id: "t1".into(),
             command: String::new(),
             display_command: None,

@@ -74,10 +74,10 @@ pub mod user_message_chunk_meta {
     /// Prompt index for rewind / attribution.
     pub const PROMPT_INDEX: &str = "promptIndex";
     /// When true, the chunk must not become a scrollback user prompt.
-    /// See [`xai_grok_shell::session::PromptOrigin::hide_user_echo_from_scrollback`].
+    /// See [`xai_grok_shared::session::prompt_origin::PromptOrigin::hide_user_echo_from_scrollback`].
     pub const HIDE_FROM_SCROLLBACK: &str = "hideFromScrollback";
     /// When true, the chunk is a persisted mid-turn interjection; replay renders its `displayText` as an interjection block.
-    pub const INTERJECTION: &str = xai_grok_shell::session::storage::INTERJECTION_META_KEY;
+    pub const INTERJECTION: &str = xai_grok_shared::session::chunk_meta::INTERJECTION_META_KEY;
 }
 
 /// Extract the numeric counter from an `eventId` (`"{sessionId}-{counter}"`).

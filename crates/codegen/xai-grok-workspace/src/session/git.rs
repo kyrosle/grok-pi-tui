@@ -980,17 +980,7 @@ fn collect_diff_stats(
     }
     DiffStatsResult { stats, paths }
 }
-/// Payload for the `x.ai/git_head_changed` ACP extension notification.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitHeadChanged {
-    pub session_id: String,
-    pub branch: Option<String>,
-    #[serde(default)]
-    pub is_worktree: bool,
-    #[serde(default)]
-    pub main_repo: Option<String>,
-}
+pub use xai_grok_workspace_types::rpc::git::GitHeadChanged;
 /// Discover the git root, current branch, and remote URLs.
 /// Uses `git2` (no subprocess).
 pub async fn git_info(cwd: &Path) -> Result<GitInfoData> {
@@ -3565,17 +3555,7 @@ pub fn short_sha(sha: &str) -> &str {
         &sha[..sha.len().min(8)]
     }
 }
-/// Depth of a `--restore-code` restoration.
-///
-/// Serialised to `"full"` / `"head_only"` on the wire (camelCase / snake_case agnostic; the variants are themselves snake_case-style).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RestoreDegree {
-    /// HEAD checkout plus staged/unstaged/untracked applied from GCS archive.
-    Full,
-    /// HEAD checkout only; no archive applied.
-    HeadOnly,
-}
+pub use xai_grok_workspace_types::rpc::git::RestoreDegree;
 /// Why a restore decision is being made; drives the summary string and degree.
 /// Shared by the non-worktree (`mvp_agent.rs`) and worktree (`session/worktree.rs`) call sites.
 #[derive(Debug, Clone, PartialEq, Eq)]

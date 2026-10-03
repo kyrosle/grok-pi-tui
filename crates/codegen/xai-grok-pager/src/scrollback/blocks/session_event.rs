@@ -258,7 +258,7 @@ impl SessionEvent {
                     .to_string()
             }
             SessionEvent::DiskFull => {
-                xai_grok_shell::extensions::notification::DISK_FULL_USER_MESSAGE.to_string()
+                xai_grok_shared::session::notification::DISK_FULL_USER_MESSAGE.to_string()
             }
             // No "Context N% full." prefix; that phrasing is the auto marker's
             SessionEvent::CompactStarted => "Compacting conversation…".to_string(),

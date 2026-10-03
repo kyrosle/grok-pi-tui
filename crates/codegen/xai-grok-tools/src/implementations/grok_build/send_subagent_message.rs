@@ -7,71 +7,11 @@ use crate::implementations::grok_build::task::types::{
 };
 use crate::types::tool::{ToolKind, ToolNamespace};
 
-pub const SEND_SUBAGENT_MESSAGE_TOOL_NAME: &str = "send_subagent_message";
+pub use xai_tool_types::tool_names::SEND_SUBAGENT_MESSAGE_TOOL_NAME;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub struct SendSubagentMessageInput {
-    /// ID of the owned subagent that should receive the message.
-    pub subagent_id: String,
-    /// Text to send to the subagent.
-    pub text: String,
-    /// Queue for a later turn instead of steering the active turn.
-    #[serde(default)]
-    #[schemars(default)]
-    pub queue: bool,
-}
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[non_exhaustive]
-#[serde(tag = "outcome", rename_all = "snake_case")]
-pub enum SendSubagentMessageOutput {
-    Accepted {
-        message_id: String,
-    },
-    NotFoundOrNotOwned,
-    NotActiveOrFinalizing,
-    Saturated {
-        max_in_flight: usize,
-    },
-    AdmissionUncertain,
-    NotAcceptedBeforeDeadline,
-    Unsupported,
-    Limit {
-        max_bytes: usize,
-        observed_bytes: usize,
-    },
-    ChannelClosed,
-}
-
-/// Delivery classification shared by tool hosts and presentations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SendSubagentMessageDisposition {
-    /// Admission was confirmed.
-    Accepted,
-    /// Admission was definitely rejected.
-    Rejected,
-    /// Admission or delivery could not be confirmed.
-    Unconfirmed,
-}
-
-impl SendSubagentMessageOutput {
-    /// Classify this output without collapsing uncertainty into failure.
-    pub fn disposition(&self) -> SendSubagentMessageDisposition {
-        match self {
-            Self::Accepted { .. } => SendSubagentMessageDisposition::Accepted,
-            Self::AdmissionUncertain => SendSubagentMessageDisposition::Unconfirmed,
-            Self::NotFoundOrNotOwned
-            | Self::NotActiveOrFinalizing
-            | Self::Saturated { .. }
-            | Self::NotAcceptedBeforeDeadline
-            | Self::Unsupported
-            | Self::Limit { .. }
-            | Self::ChannelClosed => SendSubagentMessageDisposition::Rejected,
-        }
-    }
-}
+pub use xai_tool_types::output_dependencies::{
+    SendSubagentMessageDisposition, SendSubagentMessageInput, SendSubagentMessageOutput,
+};
 
 impl From<ActiveAgentMessageOutcome> for SendSubagentMessageOutput {
     fn from(outcome: ActiveAgentMessageOutcome) -> Self {
@@ -96,45 +36,6 @@ impl From<ActiveAgentMessageOutcome> for SendSubagentMessageOutput {
         }
     }
 }
-
-impl std::fmt::Display for SendSubagentMessageOutput {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Accepted { message_id } => {
-                write!(f, "Message accepted (message_id: {message_id}).")
-            }
-            Self::NotFoundOrNotOwned => {
-                f.write_str("Subagent not found or not owned by this session.")
-            }
-            Self::NotActiveOrFinalizing => f.write_str("Subagent is not active or is finalizing."),
-            Self::Saturated { max_in_flight } => write!(
-                f,
-                "Message admission is saturated (maximum {max_in_flight} in flight)."
-            ),
-            Self::AdmissionUncertain => f.write_str(
-                "Message admission could not be confirmed; the message may or may not have been accepted.",
-            ),
-            Self::NotAcceptedBeforeDeadline => {
-                f.write_str("Message was not accepted before the delivery deadline.")
-            }
-            Self::Unsupported => {
-                f.write_str("Active agent messages are unsupported in this context.")
-            }
-            Self::Limit {
-                max_bytes,
-                observed_bytes,
-            } => write!(
-                f,
-                "Message size is invalid: observed {observed_bytes} bytes; maximum is {max_bytes} bytes."
-            ),
-            Self::ChannelClosed => {
-                f.write_str("Message was not accepted because the subagent channel closed.")
-            }
-        }
-    }
-}
-
-impl xai_tool_runtime::ToolOutput for SendSubagentMessageOutput {}
 
 #[derive(Debug, Default)]
 pub struct SendSubagentMessageTool;

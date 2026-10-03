@@ -4,7 +4,7 @@
 
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use xai_grok_shell::session::{AssistantUsageMetric, CacheSessionMetrics, CacheUsageTotals};
+use xai_grok_shared::session::{AssistantUsageMetric, CacheSessionMetrics, CacheUsageTotals};
 
 use crate::theme::Theme;
 

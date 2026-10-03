@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use xai_file_utils::workspace_classifier::is_project_dir;
+#[cfg(feature = "stock-runtime")]
 use xai_grok_shell::session::persistence::list_recent_summaries;
 
+#[cfg(feature = "stock-runtime")]
 pub async fn collect_recent_dirs(limit: usize) -> Vec<(PathBuf, DateTime<Utc>)> {
     let summaries = match list_recent_summaries(500).await {
         Ok(s) => s,
@@ -47,4 +49,24 @@ pub fn display_path(path: &Path) -> String {
         return format!("~/{}", rel.display());
     }
     path.display().to_string()
+}
+
+/// Real already-loaded Pi catalogue rows, without scanning another product's session store.
+pub fn collect_catalog_dirs(
+    entries: impl IntoIterator<Item = (PathBuf, DateTime<Utc>)>,
+    limit: usize,
+) -> Vec<(PathBuf, DateTime<Utc>)> {
+    let mut latest = std::collections::HashMap::<PathBuf, DateTime<Utc>>::new();
+    for (path, at) in entries {
+        if path.is_dir() && is_project_dir(&path) {
+            latest
+                .entry(path)
+                .and_modify(|old| *old = (*old).max(at))
+                .or_insert(at);
+        }
+    }
+    let mut projects: Vec<_> = latest.into_iter().collect();
+    projects.sort_by(|a, b| b.1.cmp(&a.1));
+    projects.truncate(limit);
+    projects
 }

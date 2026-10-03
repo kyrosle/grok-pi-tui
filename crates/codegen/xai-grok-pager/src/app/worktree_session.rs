@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use agent_client_protocol as acp;
 use serde::Serialize;
 use xai_acp_lib::{AcpAgentTx, acp_send};
-use xai_grok_workspace::session::git::RestoreDegree;
+use xai_grok_workspace_types::rpc::git::RestoreDegree;
 
 use super::effects::{
     acp_send_bounded, parse_worktree_restore_payload, parse_worktree_strategy_summary,
@@ -125,7 +125,7 @@ pub(crate) fn resume_worktree_params(
         "sessionId": session_id,
         "sourceCwd": source_cwd.to_string_lossy(),
         "copyMode": spec.copy_mode(),
-        "worktreeType": xai_grok_shell::util::config::worktree_type(),
+        "worktreeType": crate::settings_config::worktree_type(),
     });
     // Omitted when unset so the agent-side default applies.
     if let Some(rc) = restore_code {

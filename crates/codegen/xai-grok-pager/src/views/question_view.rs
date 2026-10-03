@@ -18,9 +18,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use xai_acp_lib::AcpResult;
 use xai_grok_markdown::StreamingMarkdownRenderer;
-pub use xai_grok_tools::implementations::grok_build::ask_user_question::{
-    AskUserQuestionMode, Question, QuestionOption,
-};
+pub use xai_tool_types::questions::{AskUserQuestionMode, Question, QuestionOption};
 
 use unicode_width::UnicodeWidthStr;
 
@@ -114,7 +112,7 @@ pub enum LocalQuestionKind {
     /// Carries the target model and effort so the answer handler can create a new session with it.
     AgentTypeMismatch {
         model_id: agent_client_protocol::ModelId,
-        effort: Option<xai_grok_shell::sampling::types::ReasoningEffort>,
+        effort: Option<xai_grok_sampling_types::types::ReasoningEffort>,
     },
     DoctorFix {
         target: crate::app::actions::DoctorFixTarget,
@@ -804,15 +802,10 @@ impl QuestionViewState {
     /// Only answered questions appear in `answers` (unanswered omitted). Freeform-only (no option, only
     /// typed text): the label is `"Other"` and the typed text goes in `annotations[q].notes`. Preview
     /// included for single-select only, verbatim from the option.
-    pub fn build_accepted_response(
-        &self,
-    ) -> xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionExtResponse
-    {
+    pub fn build_accepted_response(&self) -> xai_tool_types::questions::AskUserQuestionExtResponse {
         use indexmap::IndexMap;
         use std::collections::HashMap;
-        use xai_grok_tools::implementations::grok_build::ask_user_question::{
-            AskUserQuestionExtResponse, QuestionAnnotation,
-        };
+        use xai_tool_types::questions::{AskUserQuestionExtResponse, QuestionAnnotation};
 
         let mut answers = IndexMap::new();
         let mut annotations: HashMap<String, QuestionAnnotation> = HashMap::new();
@@ -888,7 +881,7 @@ impl QuestionViewState {
     /// After sending, `response_tx` is consumed (set to `None`) to prevent double-send.
     pub fn send_ext_response(
         &mut self,
-        response: xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionExtResponse,
+        response: xai_tool_types::questions::AskUserQuestionExtResponse,
     ) -> bool {
         let Some(tx) = self.response_tx.take() else {
             return false;

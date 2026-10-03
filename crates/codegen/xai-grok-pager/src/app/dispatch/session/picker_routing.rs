@@ -11,7 +11,7 @@ use crate::views::session_picker::{
 };
 use crate::views::session_picker_surface::SessionPickerHost;
 
-type SearchHit = xai_grok_shell::extensions::session_search::SearchSessionHit;
+type SearchHit = xai_grok_shared::session::catalog::SearchSessionHit;
 
 /// A picker fetch carries this and its result echoes it back.
 /// It names the requesting host and snapshots the generation and per-kind seq the host's picker had when the fetch dispatched.

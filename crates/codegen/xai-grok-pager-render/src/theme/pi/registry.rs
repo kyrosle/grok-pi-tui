@@ -548,21 +548,26 @@ mod tests {
         std::fs::create_dir_all(&themes).unwrap();
         let path = themes.join("reload-refresh.json");
 
-        let mut initial = include_str!("../../../assets/pi-themes/dark.json").to_string();
-        initial = initial.replacen("\"dark\"", "\"reload-refresh\"", 1);
-        std::fs::write(&path, initial).unwrap();
+        let mut initial: serde_json::Value =
+            serde_json::from_str(include_str!("../../../assets/pi-themes/dark.json")).unwrap();
+        initial["name"] = serde_json::json!("reload-refresh");
+        initial["colors"]["text"] = serde_json::json!("#112233");
+        std::fs::write(&path, serde_json::to_string(&initial).unwrap()).unwrap();
         let report = init_discovery(dir.path());
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         let (_, before) = load_palette("pi:reload-refresh").unwrap();
+        assert_eq!(
+            before.text_primary,
+            ratatui::style::Color::Rgb(0x11, 0x22, 0x33)
+        );
 
-        let mut edited = include_str!("../../../assets/pi-themes/dark.json").to_string();
-        edited = edited.replacen("\"dark\"", "\"reload-refresh\"", 1);
-        edited = edited.replacen("\"#d4d4d4\"", "\"#010203\"", 1);
-        std::fs::write(&path, edited).unwrap();
+        let mut edited = initial;
+        edited["colors"]["text"] = serde_json::json!("#010203");
+        std::fs::write(&path, serde_json::to_string(&edited).unwrap()).unwrap();
         let report = rediscover(dir.path());
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         let (_, after) = load_palette("pi:reload-refresh").unwrap();
-        assert_ne!(before.text_primary, after.text_primary);
+        assert_eq!(after.text_primary, ratatui::style::Color::Rgb(1, 2, 3));
 
         std::fs::remove_file(&path).unwrap();
         let report = rediscover(dir.path());

@@ -52,7 +52,7 @@ pub(crate) struct TimedInputEvent {
 }
 
 impl TimedInputEvent {
-    fn now(event: Event) -> Self {
+    pub(super) fn now(event: Event) -> Self {
         Self {
             event,
             arrived_at: std::time::Instant::now(),
@@ -286,7 +286,7 @@ struct AgentLoadOutcome {
     /// Adopted at finalize (mirrors the `SessionLoaded` adoption in `dispatch.rs`).
     running_prompt_id: Option<String>,
     /// Persistent-memory implementation pinned by the re-spawned actor.
-    memory_mode: Option<xai_grok_shell::config::MemoryMode>,
+    memory_mode: Option<xai_grok_config_types::MemoryMode>,
 }
 
 /// Fields of the reconnect `session/load`, derived from the agent being reloaded.
@@ -348,7 +348,7 @@ fn reconnect_restore_outcome(
         (
             bool,
             Option<String>,
-            Option<xai_grok_shell::config::MemoryMode>,
+            Option<xai_grok_config_types::MemoryMode>,
         ),
     >,
     active_agent_id: Option<super::agent::AgentId>,
@@ -364,10 +364,8 @@ fn reconnect_restore_outcome(
 /// Compute the folder-trust verdict for the session cwd and seed [`AppView::trust_state`].
 /// Pager-side mirror of the agent's resolve.
 /// Reads the local store, scans for repo-local code-exec config, and runs the pure [`decide`](xai_grok_workspace::folder_trust::decide) precedence.
-fn seed_trust_state(
-    app: &mut AppView,
-    remote: Option<&xai_grok_shell::util::config::RemoteSettings>,
-) {
+#[cfg(feature = "stock-runtime")]
+fn seed_trust_state(app: &mut AppView, remote: Option<&xai_grok_config_types::RemoteSettings>) {
     use std::io::IsTerminal;
     use xai_grok_workspace::folder_trust::{
         TrustOutcome, decide, decide_inputs_with_interactive, feature_enabled,
@@ -396,12 +394,12 @@ fn seed_trust_state(
 /// Must run before the first render, or the startup-intent block opens a session behind the gate and the first frame shows the normal welcome.
 pub(crate) fn seed_consent_state_from_gate(
     app: &mut AppView,
-    gate: Option<&xai_grok_shell::util::config::ConsentGate>,
+    gate: Option<&xai_grok_config_types::ConsentGate>,
 ) {
     use crate::app::consent::{ConsentInputs, consent_verdict};
-    let stored = xai_grok_shell::config::load_from_disk()
+    let stored = xai_grok_config::load_from_disk()
         .ok()
-        .map(|root| xai_grok_shell::util::config::load_config_from_toml(&root).consent)
+        .map(|root| crate::settings_config::load_config_from_toml(&root).consent)
         .unwrap_or_default();
     app.consent_state = consent_verdict(&ConsentInputs {
         gate,
@@ -479,7 +477,7 @@ fn suspend_for_child(
     // The child's own alt-screen exit may land back on the primary screen, so the return path re-enters without probing and the caller repaints
     let kitty_pushed = crate::app::kitty_flags_pushed();
     let mouse_captured = crate::app::MOUSE_CAPTURE_ENABLED.load(Ordering::Acquire);
-    xai_grok_shell::util::with_locked_stderr(|stderr| {
+    xai_grok_shared::stderr::with_locked_stderr(|stderr| {
         if kitty_pushed {
             let _ = crossterm::execute!(stderr, crossterm::event::PopKeyboardEnhancementFlags);
         }
@@ -496,13 +494,13 @@ fn suspend_for_child(
     run_child();
     let _ = crossterm::terminal::enable_raw_mode();
     if screen_mode.is_fullscreen() {
-        xai_grok_shell::util::with_locked_stderr(|stderr| {
+        xai_grok_shared::stderr::with_locked_stderr(|stderr| {
             let _ = crossterm::execute!(stderr, crossterm::terminal::EnterAlternateScreen);
         });
     }
     // Re-arm everything quiesced above, plus whatever the child reset on its own exit (vim disables mouse, focus and bracketed paste)
     // Losing bracketed paste turns the next paste into raw keystrokes
-    xai_grok_shell::util::with_locked_stderr(|stderr| {
+    xai_grok_shared::stderr::with_locked_stderr(|stderr| {
         if kitty_pushed {
             let _ = crossterm::execute!(
                 stderr,
@@ -702,6 +700,9 @@ impl Presenter {
                     // inline pixels; drop overlay ownership so the next
                     // preview frame re-emits instead of taking the keep path.
                     crate::terminal::overlay::reset_owner();
+                    for agent in app.agents.values_mut() {
+                        agent.forget_transmitted_inline_media();
+                    }
                 }
                 app.draw(terminal);
             },
@@ -1161,13 +1162,14 @@ pub(crate) async fn run(
     config_watcher: &mut ConfigWatcher,
     args: &PagerArgs,
     session_cwd: Option<std::path::PathBuf>,
-    remote_settings: Option<xai_grok_shell::util::config::RemoteSettings>,
+    remote_settings: Option<xai_grok_config_types::RemoteSettings>,
     mut term_state: TerminalState,
     materialized: crate::app::session_startup::MaterializedStartup,
     bg_update_rx: Option<
-        tokio::sync::oneshot::Receiver<Option<xai_grok_update::auto_update::UpdateAvailable>>,
+        tokio::sync::oneshot::Receiver<Option<xai_grok_update::UpdateAvailable>>,
     >,
     mut writer_event_rx: tokio::sync::mpsc::UnboundedReceiver<WriterEvent>,
+    reader_thread: &mut crate::app::reader_thread::ReaderThread,
 ) -> anyhow::Result<RunResult> {
     crate::unified_log::init(connection.tx.clone());
     crate::unified_log::info("pager started", None, None);
@@ -1271,18 +1273,18 @@ pub(crate) async fn run(
     let remote_permission_mode = remote_settings
         .as_ref()
         .and_then(|s| s.permission_mode.as_deref());
-    let launch_yolo = xai_grok_shell::util::config::effective_yolo_for_launch(
+    let launch_yolo = crate::settings_config::effective_yolo_for_launch(
         args.yolo,
         args.permission_mode_flag.as_deref(),
         remote_permission_mode,
     );
     app.default_yolo = launch_yolo.yolo;
     // Hoisted so it can be re-applied after `load_initial_ui_config()` replaces `current_ui` below
-    let launch_auto = xai_grok_shell::util::config::effective_auto_for_launch(
+    let launch_auto = crate::settings_config::effective_auto_for_launch(
         args.yolo,
         args.permission_mode_flag.as_deref(),
         remote_permission_mode,
-        xai_grok_shell::util::config::default_interactive_permission_mode(),
+        crate::settings_config::default_interactive_permission_mode(),
     );
     if launch_auto {
         app.current_ui.permission_mode = Some("auto".into());
@@ -1291,7 +1293,7 @@ pub(crate) async fn run(
     // The launch resolvers above keep their own internal read
     let launch_effective_config = {
         let _t = xai_grok_telemetry::instrumentation::timer("startup.app_init.launch_config");
-        xai_grok_shell::config::load_effective_config().ok()
+        crate::load_effective_config().ok()
     };
     let launch_effective_ui = launch_effective_config
         .as_ref()
@@ -1300,7 +1302,7 @@ pub(crate) async fn run(
     let cli_owns_mode = args.yolo || args.permission_mode_flag.is_some();
     let toml_owns_mode = launch_effective_ui
         .as_ref()
-        .and_then(xai_grok_shell::util::config::permission_mode_from_ui_if_set)
+        .and_then(crate::settings_config::permission_mode_from_ui_if_set)
         .is_some();
     app.permission_mode_from_soft_default = !cli_owns_mode && !toml_owns_mode;
     // Cached pin snapshot gating dispatch's runtime always-approve toggles
@@ -1315,7 +1317,7 @@ pub(crate) async fn run(
     app.require_plan_approval = if external_agent {
         false
     } else {
-        xai_grok_shell::util::config::load_require_plan_approval()
+        crate::settings_config::load_require_plan_approval()
     };
     app.plan_mode = !external_agent && !args.no_plan;
     app.subagents = !external_agent && !args.no_subagents;
@@ -1334,6 +1336,7 @@ pub(crate) async fn run(
         }
     }
     app.restore_code = args.restore_code.then_some(true);
+    #[cfg(feature = "stock-runtime")]
     if let Some(ref agent) = args.agent {
         match crate::headless::resolve_agent_arg(agent) {
             crate::headless::ResolvedAgent::FilePath(path) => {
@@ -1399,13 +1402,11 @@ pub(crate) async fn run(
                 .and_then(|s| s.privacy_banner_reshow_days)
         });
     // Local dismiss timestamp for the coding-data privacy banner.
-    app.privacy_banner_acked = xai_grok_shell::config::load_from_disk()
-        .ok()
-        .and_then(|root| {
-            xai_grok_shell::util::config::load_config_from_toml(&root)
-                .privacy
-                .privacy_banner_acked
-        });
+    app.privacy_banner_acked = xai_grok_config::load_from_disk().ok().and_then(|root| {
+        crate::settings_config::load_config_from_toml(&root)
+            .privacy
+            .privacy_banner_acked
+    });
     // Voice dictation stays Pager-owned: it only writes a transcript into the
     // native prompt. External hosts opt in explicitly and still use their ACP
     // backend for prompt submission, sessions, and model selection.
@@ -1434,7 +1435,7 @@ pub(crate) async fn run(
             _ => None,
         })
         .or_else(|| {
-            xai_grok_shell::config::load_effective_config()
+            crate::load_effective_config()
                 .ok()
                 .and_then(|cfg| cfg.get("cli")?.get("session_picker_grouped")?.as_bool())
         })
@@ -1511,7 +1512,7 @@ pub(crate) async fn run(
             // preferred_method pin unavailable: no advertised method to start
             app.auth_state = super::app_view::AuthState::Pending {
                 error: Some(
-                    xai_grok_shell::agent::auth_method::PREFERRED_API_KEY_UNAVAILABLE.to_string(),
+                    xai_grok_login::auth_method::PREFERRED_API_KEY_UNAVAILABLE.to_string(),
                 ),
             };
             vec![]
@@ -1533,7 +1534,7 @@ pub(crate) async fn run(
     } else {
         // No cached session: check if the API key is the active credential
         app.is_api_key_auth = app.auth_methods.iter().any(|m| {
-            m.id().0.as_ref() == xai_grok_shell::agent::auth_method::XAI_API_KEY_METHOD_ID
+            m.id().0.as_ref() == xai_grok_login::auth_method::XAI_API_KEY_METHOD_ID
         });
         // No AuthMeta on this path: API keys / external auth have no consumer billing surface
         // External auth also hides `/usage`
@@ -1578,14 +1579,14 @@ pub(crate) async fn run(
     app.hidden_announcement_ids = xai_grok_announcements::read_hidden_announcement_ids().await;
 
     // Load config layers once, resolve announcements, tips, and feature flags.
-    let requirements = xai_grok_shell::config::load_merged_requirements();
-    let user_config = xai_grok_shell::config::load_from_disk().ok();
-    let managed_config = xai_grok_shell::config::load_managed_config().ok();
+    let requirements = xai_grok_config::load_merged_requirements();
+    let user_config = xai_grok_config::load_from_disk().ok();
+    let managed_config = xai_grok_config::load_managed_config().ok();
 
     // Full merge when every layer parses; partial merge below if any layer fails.
     let effective_config = {
         let _t = xai_grok_telemetry::instrumentation::timer("startup.app_init.effective_config");
-        match xai_grok_shell::config::load_effective_config() {
+        match crate::load_effective_config() {
             Ok(raw) => Some(raw),
             Err(e) => {
                 tracing::debug!(error = %e, "failed to load effective config, using partial layers");
@@ -1593,7 +1594,7 @@ pub(crate) async fn run(
             }
         }
     };
-    let compat = xai_grok_shell::agent::config::resolve_compat_sessions_from_raw(
+    let compat = xai_grok_config_types::resolve_compat_sessions_from_raw(
         effective_config.as_ref().ok_or(()),
         remote_settings.as_ref(),
     );
@@ -1616,11 +1617,17 @@ pub(crate) async fn run(
 
         if let Some(table) = raw.as_table() {
             // Voice inherits the same resolved endpoints base as chat (config > GROK_XAI_API_BASE_URL env > default)
-            let endpoints_base =
+            #[cfg(feature = "stock-runtime")]
+            let endpoints_base = Some(
                 xai_grok_shell::agent::config::EndpointsConfig::from_config_value(raw)
-                    .xai_api_base_url;
-            app.voice_config =
-                xai_grok_voice::VoiceConfig::from_config_table(table, Some(&endpoints_base));
+                    .xai_api_base_url,
+            );
+            #[cfg(not(feature = "stock-runtime"))]
+            let endpoints_base = std::env::var("GROK_XAI_API_BASE_URL").ok();
+            app.voice_config = xai_grok_voice::VoiceConfig::from_config_table(
+                table,
+                endpoints_base.as_deref(),
+            );
         }
     }
     // Stamp request-identity headers so the STT handshake attributes voice usage to grok-cli server-side (mirrors sampler / imagine)
@@ -1629,7 +1636,7 @@ pub(crate) async fn run(
     app.voice_config.client_identifier = crate::client_identity::HEADLESS_CLIENT_TYPE.to_string();
     app.voice_config.user_agent = crate::client_identity::client_user_agent();
 
-    app.zdr_access_enabled = xai_grok_shell::util::config::resolve_zdr_access_enabled(
+    app.zdr_access_enabled = crate::settings_config::resolve_zdr_access_enabled(
         requirements.as_ref(),
         user_config.as_ref(),
         managed_config.as_ref(),
@@ -1642,7 +1649,7 @@ pub(crate) async fn run(
 
     // Full layered resolve (env/requirements/remote may beat plain `[ui]`).
     crate::appearance::cache::set_show_thinking_blocks(
-        xai_grok_shell::util::config::resolve_show_thinking_blocks(
+        crate::settings_config::resolve_show_thinking_blocks(
             requirements.as_ref(),
             user_config.as_ref(),
             managed_config.as_ref(),
@@ -1651,7 +1658,7 @@ pub(crate) async fn run(
         .value,
     );
     crate::appearance::cache::set_group_tool_verbs(
-        xai_grok_shell::util::config::resolve_group_tool_verbs(
+        crate::settings_config::resolve_group_tool_verbs(
             requirements.as_ref(),
             user_config.as_ref(),
             managed_config.as_ref(),
@@ -1660,7 +1667,7 @@ pub(crate) async fn run(
         .value,
     );
     crate::appearance::cache::set_collapsed_edit_blocks(
-        xai_grok_shell::util::config::resolve_collapsed_edit_blocks(
+        crate::settings_config::resolve_collapsed_edit_blocks(
             requirements.as_ref(),
             user_config.as_ref(),
             managed_config.as_ref(),
@@ -1678,7 +1685,7 @@ pub(crate) async fn run(
     }
 
     if !external_agent {
-        use xai_grok_shell::util::config::{
+        use crate::settings_config::{
             resolve_announcements, resolve_slash_command_tags, resolve_tips,
         };
 
@@ -1708,8 +1715,8 @@ pub(crate) async fn run(
         );
 
         if !app.tips.is_empty() {
-            let grok_home = xai_grok_tools::util::grok_home::grok_home();
-            app.tip = xai_grok_shell::util::tips::pick_and_advance(&app.tips, &grok_home);
+            let grok_home = xai_grok_config::grok_home();
+            app.tip = xai_grok_shell_base::util::tips::pick_and_advance(&app.tips, &grok_home);
         }
 
         // Slash tags are Grok-owned UI metadata, so keep them behind the same
@@ -1729,7 +1736,7 @@ pub(crate) async fn run(
         app.tip = None;
     }
 
-    let hints = xai_grok_shell::util::config::resolve_hints(
+    let hints = crate::settings_config::resolve_hints(
         effective_config.as_ref(),
         requirements.as_ref(),
         user_config.as_ref(),
@@ -1858,11 +1865,11 @@ pub(crate) async fn run(
         "always-approve"
     } else if let Some(cli) = args.permission_mode_flag.as_deref() {
         // CLI always-approve/auto that did not become launch_yolo/launch_auto (policy pin / gate) display as Ask
-        xai_grok_shell::util::config::clamped_display_permission_mode(
-            xai_grok_shell::util::config::parse_permission_mode_canonical(cli),
+        crate::settings_config::clamped_display_permission_mode(
+            crate::settings_config::parse_permission_mode_canonical(cli),
         )
     } else {
-        xai_grok_shell::util::config::resolved_display_permission_mode(
+        crate::settings_config::resolved_display_permission_mode(
             launch_effective_ui.as_ref(),
             remote_permission_mode,
         )
@@ -1894,7 +1901,7 @@ pub(crate) async fn run(
     // propagate the prompt-relevant tips to any agents built at startup. New
     // agents adopt the gates at creation; settings toggles re-apply at runtime.
 
-    let resolved_hints = xai_grok_shell::util::config::resolve_contextual_hints(
+    let resolved_hints = crate::settings_config::resolve_contextual_hints(
         &app.current_ui.contextual_hints,
         app.remote_contextual_hints.as_ref(),
     );
@@ -1903,7 +1910,7 @@ pub(crate) async fn run(
     // Opt-in mouse-reporting toggle shortcut (Ctrl+R on scrollback)
     // Off unless explicitly enabled
     // A partial `UiConfig` deserialize failure thus cannot silently drop it
-    let mouse_toggle = xai_grok_shell::util::config::resolve_mouse_reporting_toggle(
+    let mouse_toggle = crate::settings_config::resolve_mouse_reporting_toggle(
         effective_config.as_ref(),
         &app.current_ui,
     );
@@ -1980,6 +1987,7 @@ pub(crate) async fn run(
     if external_agent {
         app.trust_state = TrustState::Done;
     } else {
+        #[cfg(feature = "stock-runtime")]
         seed_trust_state(&mut app, remote_settings.as_ref());
         seed_consent_state_from_gate(
             &mut app,
@@ -2011,67 +2019,14 @@ pub(crate) async fn run(
     // The reader thread owns the sole strong sender
     // When it dies (e.g. a terminal spewing bytes crossterm cannot parse) or on shutdown (`input_rx` dropped), the channel closes.
     // `input_rx.recv()` then returns `None`, exiting the loop
-    let reader_input_tx = input_tx;
-    // Set true around tty handoffs (e.g. $EDITOR) so the reader stops touching stdin and the inheriting child process keeps every keystroke.
-    // The handoff does not proceed until `reader_parked` acknowledges this pause
+    // Set around tty handoffs so the child is the sole input consumer.
     let input_paused = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let reader_paused = input_paused.clone();
-    // Set by the reader once it has parked (stopped calling crossterm) so the $EDITOR handoff can wait for it
-    // poll/read share one global lock, so the main-thread drain must be the sole crossterm caller
     let reader_parked = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let reader_parked_thread = reader_parked.clone();
-    std::thread::spawn(move || {
-        use std::sync::atomic::Ordering;
-        // Bounds how long a tty handoff (external editor / pager) waits for this thread to park
-        // The pause flag is only observed between `poll()` calls, so the timeout is the handoff latency
-        // A `poll()` timeout does NOT wake the main loop (only a successful `send` does), so the idle loop still parks (no metronome tick)
-        const POLL_TIMEOUT: Duration = Duration::from_millis(20);
-        let mut consecutive_event_errors: u32 = 0;
-        loop {
-            // Shutdown observed within one poll cycle in every state (idle or paused); the send() break below covers close-while-sending
-            if reader_input_tx.is_closed() {
-                break;
-            }
-            // While a tty handoff owns stdin, do not read(): the child (e.g. the editor) must keep its bytes.
-            // Re-check soon without touching stdin
-            if reader_paused.load(Ordering::Acquire) {
-                // Signal the handoff that the reader is no longer in crossterm.
-                reader_parked_thread.store(true, Ordering::Release);
-                std::thread::sleep(POLL_TIMEOUT);
-                continue;
-            }
-            // Active path: this thread owns crossterm again this iteration.
-            reader_parked_thread.store(false, Ordering::Release);
-            // poll() then read() (not a bare blocking read) so the pause flag and a dropped receiver are observed within POLL_TIMEOUT
-            let event = match crossterm::event::poll(POLL_TIMEOUT) {
-                Ok(true) => crossterm::event::read(),
-                Ok(false) => continue,
-                Err(e) => Err(e),
-            };
-            match event {
-                Ok(ev) => {
-                    consecutive_event_errors = 0;
-                    let timed = TimedInputEvent::now(ev);
-                    if reader_input_tx.send(timed).is_err() {
-                        break; // event loop has shut down
-                    }
-                }
-                Err(e) => {
-                    // VTE terminals / SSH PTYs can emit garbage that crossterm's parser rejects
-                    // Skip transient errors rather than kill the TUI (ratatui#1275), bailing only if they never stop
-                    consecutive_event_errors += 1;
-                    if consecutive_event_errors >= 50 {
-                        tracing::error!(
-                            "crossterm read returned {consecutive_event_errors} \
-                             consecutive errors, exiting reader: {e}"
-                        );
-                        break;
-                    }
-                    tracing::warn!("crossterm read error (skipping): {e}");
-                }
-            }
-        }
-    });
+    *reader_thread = crate::app::reader_thread::ReaderThread::spawn(
+        input_tx,
+        input_paused.clone(),
+        reader_parked.clone(),
+    );
     let mut acp_rx = connection.rx;
     let connection_cancel = connection.cancel;
     let mut leader_status_rx = connection.leader_status_rx;
@@ -3086,12 +3041,15 @@ pub(crate) async fn run(
 
             _ = gate_poll => {
                 gate_poll_at = None;
+                #[cfg(feature = "stock-runtime")]
+                {
                 let effs = vec![Effect::RefreshGate];
                 if process_effects(effs, &mut tasks, &mut app, &progress_tx) {
                     break;
                 }
                 if !app.has_access() {
                     gate_poll_at = Some(Instant::now() + GATE_POLL_INTERVAL);
+                }
                 }
             }
 
@@ -3223,7 +3181,7 @@ pub(crate) async fn run(
                     None => std::future::pending::<Result<(), ()>>().await,
                 }
             } => {
-                use crate::acp::leader_bridge::ConnectionStatus;
+                use xai_acp_lib::ConnectionStatus;
 
                 let Some(rx) = leader_status_rx.as_mut() else {
                     // Guard: the async block above pends when None, but defensive code should never .unwrap() in production
@@ -3343,7 +3301,7 @@ pub(crate) async fn run(
                             let ok = tokio::time::timeout(timeout, async {
                                 let mut echo_meta = serde_json::Map::new();
                                 echo_meta.insert(
-                                    xai_grok_shell::session::USER_MESSAGE_ECHO_CAPABILITY.to_owned(),
+                                    xai_grok_shared::session::user_echo::USER_MESSAGE_ECHO_CAPABILITY.to_owned(),
                                     serde_json::Value::Bool(true),
                                 );
                                 let init_req = acp::InitializeRequest::new(acp::ProtocolVersion::V1).client_capabilities(
@@ -3367,7 +3325,7 @@ pub(crate) async fn run(
 
                                 let mut loads = Vec::with_capacity(load_plans.len());
                                 for (agent_id, plan) in load_plans {
-                                    let mcp_servers = effects::discover_mcp_servers(plan.cwd.clone()).await;
+                                    let mcp_servers = effects::discover_mcp_servers(plan.cwd.clone(), false).await;
                                     let load_req = acp::LoadSessionRequest::new(plan.session_id, plan.cwd).mcp_servers(mcp_servers).meta(plan.meta.as_object().cloned());
                                     match acp_send(load_req, &acp_tx).await {
                                         Ok(resp) => {
@@ -3592,13 +3550,13 @@ pub(crate) async fn run(
 /// `[ui]` as it was on disk at startup, or the default if it could not be read.
 /// Read once for the process: the status line capability is advertised from this at connect and the row is rendered from it later.
 /// A second read could answer the two differently.
-pub(crate) fn load_initial_ui_config() -> xai_grok_shell::agent::config::UiConfig {
-    use xai_grok_shell::agent::config::UiConfig;
+pub(crate) fn load_initial_ui_config() -> xai_grok_shared::ui_config::UiConfig {
+    use xai_grok_shared::ui_config::UiConfig;
     static INITIAL_UI: std::sync::OnceLock<UiConfig> = std::sync::OnceLock::new();
 
     INITIAL_UI
         .get_or_init(|| {
-            let Ok(root) = xai_grok_shell::config::load_effective_config() else {
+            let Ok(root) = crate::load_effective_config() else {
                 return UiConfig::default();
             };
             let Some(ui_value) = root.get("ui").cloned() else {
@@ -3619,7 +3577,7 @@ struct InitialConfigSessionBools {
 }
 
 fn load_initial_config_session_bools() -> InitialConfigSessionBools {
-    let Ok(root) = xai_grok_shell::config::load_effective_config() else {
+    let Ok(root) = crate::load_effective_config() else {
         return InitialConfigSessionBools::default();
     };
     let cli_bool = |key: &str| -> Option<bool> { root.get("cli")?.get(key)?.as_bool() };
@@ -4637,6 +4595,7 @@ pub(crate) fn session_flags_for_effects(
     effs: &[super::actions::Effect],
 ) -> effects::SessionFlags {
     effects::SessionFlags {
+        external_agent: app.external_agent,
         plan_mode: app.plan_mode,
         subagents: app.subagents,
         ask_user: app.ask_user,

@@ -3296,8 +3296,8 @@
     // ── File search Right Arrow (drill-down) ────────────────────────────
 
     /// Build a `FuzzyMatchResult` for use in test fixtures.
-    fn fuzzy_result(path: &str, is_dir: bool) -> xai_grok_workspace::file_system::FuzzyMatchResult {
-        xai_grok_workspace::file_system::FuzzyMatchResult {
+    fn fuzzy_result(path: &str, is_dir: bool) -> xai_fuzzy_file_search::FuzzyMatchResult {
+        xai_fuzzy_file_search::FuzzyMatchResult {
             path: nucleo::Utf32String::from(path),
             score: 100,
             indices: Vec::new(),
@@ -4876,15 +4876,17 @@
         assert_eq!(pw.textarea.selection_range(), None);
     }
 
-    /// Shift/Alt+Enter replaces the selection like typing does.
+    /// Modified Enter replaces the selection like typing does, including Kitty SUPER.
     #[test]
     fn mod_enter_replaces_selection_with_newline() {
-        let mut pw = PromptWidget::new();
-        pw.textarea.insert_str("alpha beta");
-        pw.textarea.set_selection(0, 5);
-        pw.textarea.set_cursor(5);
-        let event = pw.handle_key(&KeyEvent::new(KeyCode::Enter, KeyModifiers::SHIFT));
-        assert_eq!(event, PromptEvent::Edited);
-        assert_eq!(pw.textarea.text(), "\n beta");
-        assert_eq!(pw.textarea.selection_range(), None);
+        for modifier in [KeyModifiers::SHIFT, KeyModifiers::ALT, KeyModifiers::SUPER] {
+            let mut pw = PromptWidget::new();
+            pw.textarea.insert_str("alpha beta");
+            pw.textarea.set_selection(0, 5);
+            pw.textarea.set_cursor(5);
+            let event = pw.handle_key(&KeyEvent::new(KeyCode::Enter, modifier));
+            assert_eq!(event, PromptEvent::Edited);
+            assert_eq!(pw.textarea.text(), "\n beta");
+            assert_eq!(pw.textarea.selection_range(), None);
+        }
     }

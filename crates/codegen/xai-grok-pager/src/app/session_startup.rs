@@ -2,6 +2,8 @@
 //!
 //! Built once from CLI flags and consumed by interactive resolve, the event loop, and headless mode.
 //! Resume, new-with-id, and fork are thus not re-derived in three places.
+#[cfg(feature = "stock-runtime")]
+use xai_grok_shell::session::persistence::RecentSessionSelectionExt;
 use super::cli::PagerArgs;
 use std::path::{Path, PathBuf};
 pub(crate) fn stamp_phase_traceparent(meta: &mut Option<agent_client_protocol::Meta>) {
@@ -82,8 +84,11 @@ pub fn fork_session_params(
     parent_is_worktree: bool,
 ) -> serde_json::Value {
     let parent_cwd_str = parent_cwd.to_string_lossy().into_owned();
+    #[cfg(feature = "stock-runtime")]
     let source_cwd = xai_grok_shell::session::resolve_local_session_any_cwd(parent_session_id)
         .unwrap_or_else(|| parent_cwd_str.clone());
+    #[cfg(not(feature = "stock-runtime"))]
+    let source_cwd = parent_cwd_str.clone();
     let mut payload = serde_json::json!({
         "sourceSessionId": parent_session_id,
         "sourceCwd": source_cwd,
@@ -101,9 +106,11 @@ pub fn fork_session_params(
 /// Whether a persisted session (or its cwd) is worktree-backed.
 /// Mirrors in-session `/fork` reading `agent.session.is_worktree`.
 pub fn parent_session_is_worktree(session_id: &str, cwd: &Path) -> bool {
+    #[cfg(feature = "stock-runtime")]
+    {
     let cwd_str = cwd.to_string_lossy();
-    let sessions_root = xai_grok_shell::util::grok_home::grok_home().join("sessions");
-    let encoded = xai_grok_shell::util::grok_home::encode_cwd_dirname(&cwd_str);
+    let sessions_root = xai_grok_config::grok_home().join("sessions");
+    let encoded = xai_grok_config::encode_cwd_dirname(&cwd_str);
     let summary_path = sessions_root
         .join(encoded)
         .join(session_id)
@@ -126,6 +133,7 @@ pub fn parent_session_is_worktree(session_id: &str, cwd: &Path) -> bool {
         {
             return true;
         }
+    }
     }
     if let Some(info) = crate::git_info::compute_cwd_git_info(cwd) {
         return info.is_worktree;
@@ -638,6 +646,7 @@ pub fn valid_conversation_id_shape(id: &str) -> bool {
 /// True when `session_id` resolves under the **cwd-scoped** local Build sessions tree.
 /// Deliberately does **not** use `resolve_local_session_any_cwd`.
 /// A gateway conversation id colliding with a Build session under another cwd must not false-refuse CLI resume or non-entry loads under `--chat`.
+#[cfg(feature = "stock-runtime")]
 pub fn local_build_session_on_disk(session_id: &str, cwd: &Path) -> bool {
     let cwd_str = cwd.to_string_lossy();
     xai_grok_shell::session::resolve_local_session(session_id, &cwd_str).is_some()
@@ -654,6 +663,7 @@ pub fn chat_mode_refuses_local_build(
 /// Process-wide `--chat` must not load (or coerce) local Build disk rows.
 /// `conversation_entry` is true only for picker or list rows with `source == "conversation"` (or a restore that preserved that bit).
 /// It is **not** set merely because sticky `--chat` or `chat_mode` is on.
+#[cfg(feature = "stock-runtime")]
 pub fn chat_mode_refuses_local_build_load(
     chat_mode: bool,
     conversation_entry: bool,
@@ -775,8 +785,9 @@ pub fn effective_fork_new_cwd(process_cwd: &str, parent_cwd: Option<&Path>) -> S
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| process_cwd.to_string())
 }
-pub use xai_grok_shell::session::persistence::RecentSessionSelection;
+pub use xai_grok_shared::session::catalog::RecentSessionSelection;
 /// Resolve most-recent session id for cwd, or error.
+#[cfg(feature = "stock-runtime")]
 async fn most_recent_session_id(
     cwd: &str,
     selection: RecentSessionSelection,
@@ -796,11 +807,12 @@ async fn most_recent_session_id(
 /// `AuthManager` for direct grok.com calls made outside the agent (pre-ACP `--continue` conversation listing, the GCS restore effect).
 /// Wires the auth-provider refresher before the first `auth()`.
 /// Without it, environments that mint credentials via `auth_provider_command` report `NoOauth`.
+#[cfg(feature = "stock-runtime")]
 pub(crate) fn pre_acp_auth_manager(
     agent_config: &xai_grok_shell::agent::config::Config,
 ) -> std::sync::Arc<xai_grok_login::AuthManager> {
     let auth = std::sync::Arc::new(xai_grok_login::AuthManager::new_with_proxy_base_url(
-        &xai_grok_shell::util::grok_home::grok_home(),
+        &xai_grok_config::grok_home(),
         agent_config.grok_com_config.clone(),
         agent_config.endpoints.proxy_url(),
     ));
@@ -821,6 +833,7 @@ pub(crate) const WORKTREE_NO_RESTORE_CODE_NOTICE: &str =
     "Snapshot code will not be restored into the worktree; pass --restore-code to restore it.";
 /// Preflight: preferred id must be a UUID and not a persisted session under `cwd`.
 /// Agent `session/new` rejects non-UUID `_meta.sessionId`; fail fast here so CLI users get a clear error before ACP.
+#[cfg(feature = "stock-runtime")]
 pub fn ensure_session_id_available(session_id: &str, cwd: &str) -> anyhow::Result<()> {
     if uuid::Uuid::try_parse(session_id).is_err() {
         anyhow::bail!("Error: --session-id must be a valid UUID (got '{session_id}').");
@@ -831,6 +844,7 @@ pub fn ensure_session_id_available(session_id: &str, cwd: &str) -> anyhow::Resul
     Ok(())
 }
 /// Materialize CLI intent into a concrete startup plan (I/O + remote restore).
+#[cfg(feature = "stock-runtime")]
 pub async fn materialize_startup(
     ctx: MaterializeCtx,
     intent: SessionStartupIntent,
@@ -842,6 +856,7 @@ pub async fn materialize_startup(
     materialize_startup_for_cwd(ctx, intent, &cwd).await
 }
 /// Same as [`materialize_startup`] but with an explicit process cwd (tests, headless).
+#[cfg(feature = "stock-runtime")]
 pub async fn materialize_startup_for_cwd(
     ctx: MaterializeCtx,
     intent: SessionStartupIntent,
@@ -964,6 +979,7 @@ struct ResolvedExisting {
     suppress_code_restore: bool,
 }
 /// Resolve an existing session for strict resume (local, any-cwd, remote, or worktree defer).
+#[cfg(feature = "stock-runtime")]
 async fn resolve_existing_session(
     ctx: MaterializeCtx,
     session_id: &str,
@@ -1116,15 +1132,16 @@ pub(crate) fn plan_remote_miss(ctx: MaterializeCtx, arg_is_uuid: bool) -> Remote
 /// Remote-restore tail of [`resolve_existing_session`], split out so non-id targets can wrap every failure with the title-miss hint.
 /// Always restores session state and memory only.
 /// Codebase checkout is refused in-place ([`RemoteMissPlan::RejectInPlaceCodeRestore`]) or deferred to the worktree handler.
+#[cfg(feature = "stock-runtime")]
 async fn restore_session_from_remote(
     session_id: &str,
     cwd: &str,
     progress_on_stdout: bool,
 ) -> anyhow::Result<ResolvedExisting> {
-    let raw_config = xai_grok_shell::config::load_effective_config()
+    let raw_config = crate::load_effective_config()
         .map_err(|e| anyhow::anyhow!("Failed to load config: {}", e))?;
     if let Some((false, source)) =
-        xai_grok_shell::util::config::session_registry_local_override_sourced(Some(&raw_config))
+        crate::settings_config::session_registry_local_override_sourced(Some(&raw_config))
     {
         anyhow::bail!(
             "Session does not exist locally (session registry is disabled by {})",
@@ -1140,10 +1157,10 @@ async fn restore_session_from_remote(
     );
     let agent_config = xai_grok_shell::agent::config::Config::new_from_toml_cfg(&raw_config)
         .map_err(|e| anyhow::anyhow!("Failed to create agent config: {}", e))?;
+    use xai_grok_config::grok_home;
     use xai_grok_login::{AuthManager, ensure_authenticated_or_noninteractive};
     use xai_grok_shell::agent::session_registry_client::SessionRegistryClient;
     use xai_grok_shell::session::restore::{RestoreSessionOpts, restore_session_with_storage};
-    use xai_grok_shell::util::grok_home::grok_home;
     let deployment_key = agent_config.endpoints.deployment_key.clone();
     ensure_authenticated_or_noninteractive(
         &agent_config.grok_com_config,
@@ -1297,6 +1314,7 @@ pub(crate) fn classify_remote_restore(
 /// Resolve a non-id resume arg as a session title among local sessions for `cwd`.
 /// Matching and disambiguation rules live in [`super::session_title_resolve`] (shared with the pre-sandbox saved-profile peek).
 /// The arg is matched in memory and never used as a filesystem path.
+#[cfg(feature = "stock-runtime")]
 async fn resolve_session_by_title(
     arg: &str,
     cwd: &str,
@@ -1321,7 +1339,7 @@ async fn resolve_session_by_title(
         suppress_code_restore: false,
     }))
 }
-#[cfg(test)]
+#[cfg(all(test, feature = "stock-runtime"))]
 mod tests {
     use super::*;
     use clap::Parser;
@@ -2224,10 +2242,8 @@ mod tests {
         let cwd = tempfile::tempdir().expect("cwd tempdir");
         let cwd_str = cwd.path().to_string_lossy().to_string();
         let id = "aaaaaaaa-1111-2222-3333-444444444444";
-        let encoded = xai_grok_shell::util::grok_home::encode_cwd_dirname(&cwd_str);
-        let sessions_cwd_dir = xai_grok_shell::util::grok_home::grok_home()
-            .join("sessions")
-            .join(&encoded);
+        let encoded = xai_grok_config::encode_cwd_dirname(&cwd_str);
+        let sessions_cwd_dir = xai_grok_config::grok_home().join("sessions").join(&encoded);
         struct RmDirOnDrop(std::path::PathBuf);
         impl Drop for RmDirOnDrop {
             fn drop(&mut self) {

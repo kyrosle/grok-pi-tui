@@ -1248,6 +1248,7 @@ impl AgentView {
                                 self.active_modal = None;
                                 InputOutcome::Action(Action::OpenPiSettings)
                             }
+                            #[cfg(feature = "stock-runtime")]
                             PaletteCommand::OpenAgentsModal => {
                                 self.active_modal = None;
                                 InputOutcome::Action(Action::OpenConfigAgentsModal(None))
@@ -4823,7 +4824,7 @@ fn selected_model_detail_lines(
 fn render_search_result_hits(
     buf: &mut Buffer,
     area: Rect,
-    hits: &[xai_grok_shell::extensions::session_search::SearchSessionHit],
+    hits: &[xai_grok_shared::session::catalog::SearchSessionHit],
     selected: usize,
     scroll_offset: &mut Option<usize>,
     content_loading: bool,
@@ -6284,7 +6285,7 @@ mod settings_memory_paste_routing_tests {
     use crate::views::modal::ActiveModal;
     use crate::views::settings_modal::SettingsModalState;
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-    use xai_grok_shell::agent::config::UiConfig;
+    use xai_grok_shared::ui_config::UiConfig;
 
     fn left() -> Event {
         Event::Key(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE))

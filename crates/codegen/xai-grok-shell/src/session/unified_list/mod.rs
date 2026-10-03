@@ -113,23 +113,8 @@ pub struct ListReq {
 }
 /// Directory scope the returned sessions were drawn from.
 /// Wire form is the `as_str` value (`x.ai/listScope`), so no serde derive is needed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::AsRefStr, strum::IntoStaticStr)]
-#[strum(serialize_all = "snake_case")]
-pub enum ListScope {
-    /// Scoped to the request cwd.
-    #[default]
-    Cwd,
-    /// Relaxed to the cwd's repo when the cwd itself had no sessions.
-    Repo,
-    /// Relaxed to all directories when the cwd is not a git repo.
-    All,
-}
-impl ListScope {
-    /// True when the scope relaxed past the cwd, to the repo or to all directories.
-    pub const fn is_relaxed(self) -> bool {
-        !matches!(self, Self::Cwd)
-    }
-}
+pub use xai_grok_shared::session::catalog::ListScope;
+
 pub struct UnifiedListResult {
     pub rows: Vec<UnifiedRow>,
     pub next_cursor: Option<String>,

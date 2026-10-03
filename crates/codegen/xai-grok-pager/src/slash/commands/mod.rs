@@ -11,6 +11,7 @@ pub mod cd;
 pub mod clone_cmd;
 pub mod compact;
 pub mod compact_mode;
+#[cfg(feature = "stock-runtime")]
 pub mod config_agents;
 pub mod context;
 pub mod copy;
@@ -35,18 +36,23 @@ pub mod help;
 pub mod history;
 pub mod home;
 pub mod hotkeys;
+#[cfg(feature = "stock-runtime")]
 pub mod imagine;
+#[cfg(feature = "stock-runtime")]
 pub mod imagine_video;
+#[cfg(feature = "stock-runtime")]
 pub mod import_claude;
 pub mod jump;
 pub mod login;
 pub mod logout;
+#[cfg(feature = "stock-runtime")]
 pub mod loop_cmd;
 pub mod mcps;
 pub mod model;
 pub mod multiline;
 pub mod new;
 pub mod notify;
+#[cfg(feature = "stock-runtime")]
 pub mod personas;
 pub mod pi_config;
 pub mod pi_models;
@@ -109,6 +115,7 @@ pub fn builtin_commands() -> Vec<Arc<dyn SlashCommand>> {
         Arc::new(fork::ForkCommand),
         Arc::new(resume::ResumeCommand),
         // Steering the work in front of you.
+        #[cfg(feature = "stock-runtime")]
         Arc::new(loop_cmd::LoopCommand),
         Arc::new(plan::PlanCommand),
         Arc::new(view_plan::ViewPlanCommand),
@@ -136,7 +143,9 @@ pub fn builtin_commands() -> Vec<Arc<dyn SlashCommand>> {
         Arc::new(plugin::HooksCommand),
         Arc::new(plugin::MarketplaceCommand),
         Arc::new(workflow::WorkflowCommand),
+        #[cfg(feature = "stock-runtime")]
         Arc::new(personas::PersonasCommand),
+        #[cfg(feature = "stock-runtime")]
         Arc::new(config_agents::ConfigAgentsCommand),
         // Settings and display.
         Arc::new(theme::ThemeCommand),
@@ -153,7 +162,9 @@ pub fn builtin_commands() -> Vec<Arc<dyn SlashCommand>> {
         // Reached for occasionally.
         Arc::new(timeline::TimelineCommand),
         Arc::new(cd::CdCommand),
+        #[cfg(feature = "stock-runtime")]
         Arc::new(imagine::ImagineCommand),
+        #[cfg(feature = "stock-runtime")]
         Arc::new(imagine_video::ImagineVideoCommand),
         // Docs, account and one-off maintenance.
         Arc::new(docs::DocsCommand),
@@ -162,6 +173,7 @@ pub fn builtin_commands() -> Vec<Arc<dyn SlashCommand>> {
         Arc::new(feedback::FeedbackCommand),
         Arc::new(privacy::PrivacyCommand),
         Arc::new(doctor::DoctorCommand),
+        #[cfg(feature = "stock-runtime")]
         Arc::new(import_claude::ImportClaudeCommand),
         // grok-pi profile commands retained across upstream menu reordering.
         Arc::new(hotkeys::HotkeysCommand),

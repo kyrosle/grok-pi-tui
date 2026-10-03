@@ -15,7 +15,7 @@ use xai_grok_telemetry::events::CancellationScope;
 /// `None` means prompt.
 fn effective_cancel_subagents_preference(
     agent_pref: Option<bool>,
-    ui: &xai_grok_shell::agent::config::UiConfig,
+    ui: &xai_grok_shared::ui_config::UiConfig,
 ) -> Option<bool> {
     agent_pref.or(match ui.cancel_subagents_on_turn_cancel.as_deref() {
         Some("always_stop") => Some(true),
@@ -33,7 +33,7 @@ fn cancel_subagents_pref_canonical(stop: bool) -> &'static str {
 }
 
 fn cancel_subagents_pref_canonical_from_ui(
-    ui: &xai_grok_shell::agent::config::UiConfig,
+    ui: &xai_grok_shared::ui_config::UiConfig,
 ) -> &'static str {
     match ui.cancel_subagents_on_turn_cancel.as_deref() {
         Some("always_stop") => "always_stop",
@@ -353,9 +353,7 @@ fn cancel_agent_turn(
     // path sends — and hand the stashed composer back.
     if let Some(mut qv) = agent.question_view.take() {
         agent.record_question_pause(&qv);
-        qv.send_ext_response(
-            xai_grok_tools::implementations::grok_build::ask_user_question::AskUserQuestionExtResponse::Cancelled,
-        );
+        qv.send_ext_response(xai_tool_types::questions::AskUserQuestionExtResponse::Cancelled);
         agent.restore_card_prompt(qv.stashed_prompt);
     }
 
@@ -741,7 +739,7 @@ pub(super) fn dispatch_kill_bg_task(app: &mut AppView, task_id: String) -> Vec<E
     vec![Effect::KillBgTask {
         session_id,
         task_id,
-        source: xai_grok_shell::extensions::task::TaskKillSource::ClientUi,
+        source: xai_tool_types::task_wire::TaskKillSource::ClientUi,
     }]
 }
 
@@ -817,9 +815,9 @@ pub(super) fn handle_bg_task_killed(
     app: &mut AppView,
     session_id: String,
     task_id: String,
-    outcome: Option<xai_grok_tools::types::KillOutcome>,
+    outcome: Option<xai_tool_types::task_snapshot::KillOutcome>,
 ) -> Vec<Effect> {
-    use xai_grok_tools::types::KillOutcome;
+    use xai_tool_types::task_snapshot::KillOutcome;
     if let Some(agent) = find_agent_by_session_id(&mut app.agents, &session_id) {
         match outcome {
             Some(KillOutcome::Killed) => {

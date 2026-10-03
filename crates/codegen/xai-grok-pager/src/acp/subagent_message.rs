@@ -4,13 +4,13 @@
 //! A rejected send therefore still shows the exact destination and text that was attempted.
 
 use agent_client_protocol as acp;
-use xai_grok_tools::implementations::grok_build::send_subagent_message::{
+use xai_tool_types::classification::ToolKind;
+use xai_tool_types::output::ToolOutput;
+use xai_tool_types::output_dependencies::{
     SEND_SUBAGENT_MESSAGE_TOOL_NAME, SendSubagentMessageDisposition, SendSubagentMessageInput,
     SendSubagentMessageOutput,
 };
-use xai_grok_tools::tool_taxonomy::{CanonicalToolMeta, TOOL_META_KEY, TOOL_META_VERSION};
-use xai_grok_tools::types::output::ToolOutput;
-use xai_grok_tools::types::tool::ToolKind;
+use xai_tool_types::taxonomy::{CanonicalToolMeta, TOOL_META_KEY, TOOL_META_VERSION};
 
 use crate::scrollback::block::RenderBlock;
 use crate::scrollback::blocks::tool::{
@@ -31,16 +31,10 @@ pub(super) fn is_tool(tool_call: &acp::ToolCall) -> bool {
 }
 
 pub(super) fn to_block(tool_call: &acp::ToolCall) -> RenderBlock {
-    let input = tool_call.raw_input.clone().and_then(|input| {
-        serde_json::from_value::<SendSubagentMessageInput>(input.clone())
-            .ok()
-            .or_else(|| {
-                match serde_json::from_value::<xai_grok_tools::types::ToolInput>(input).ok()? {
-                    xai_grok_tools::types::ToolInput::SendSubagentMessage(input) => Some(input),
-                    _ => None,
-                }
-            })
-    });
+    let input = tool_call
+        .raw_input
+        .clone()
+        .and_then(|input| serde_json::from_value::<SendSubagentMessageInput>(input).ok());
     let output =
         tool_call
             .raw_output

@@ -1,6 +1,6 @@
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span, Text};
-use xai_grok_workspace::permission::mcp_titleize_segment;
+use xai_grok_shared::permissions::mcp_titleize_segment;
 
 use super::TOOL_HEADER_RANGE;
 use crate::appearance::AppearanceConfig;

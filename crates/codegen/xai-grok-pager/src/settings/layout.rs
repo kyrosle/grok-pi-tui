@@ -41,7 +41,7 @@ pub fn sections_for(category: SettingCategory) -> &'static [&'static str] {
 
 /// The sidebar section a setting belongs to, within its category's tab.
 pub fn section_for(key: SettingKey) -> &'static str {
-    if let Some(spec) = xai_grok_shell::host_features::feature_spec_by_setting_key(key) {
+    if let Some(spec) = xai_grok_shared::host_features::feature_spec_by_setting_key(key) {
         return spec.section;
     }
     match key {

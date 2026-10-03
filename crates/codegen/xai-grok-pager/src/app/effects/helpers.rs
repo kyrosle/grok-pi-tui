@@ -3,16 +3,17 @@ use std::path::Path;
 use agent_client_protocol as acp;
 use tokio::task::JoinSet;
 use xai_acp_lib::{AcpAgentTx, acp_send};
-use super::actions::{PermissionModePersist, SubagentKillOutcome, TaskResult};
+use super::actions::{PermissionModePersist, ProbedAttachment, SubagentKillOutcome, TaskResult};
+use crate::clipboard::ClipboardProbeDropReason;
 use super::agent::AgentId;
 use crate::unified_log as ulog;
-use xai_grok_shell::sampling::error::{
+use xai_grok_shared::session::sampling_error::{
     RATE_LIMITED_ERROR_CODE, error_detail_from_data, error_kind_str_from_error,
     format_rate_limited_user_message, http_status_from_error,
 };
-use xai_grok_shell::session::ExtMethodResult;
-use xai_grok_shell::session::unified_list::ListScope;
-use xai_grok_shell::session::helpers::session_compact::{
+use xai_grok_shared::session::result::ExtMethodResult;
+use xai_grok_shared::session::catalog::ListScope;
+use xai_grok_shared::session::compact::{
     COMPACT_CANCELLED_MSG, CompactErrorKind, compact_error_kind,
 };
 /// Floor for the session create/load RPCs.
@@ -22,7 +23,7 @@ const SESSION_RPC_SLACK: std::time::Duration = std::time::Duration::from_secs(50
 /// Always covers the agent-side `.envrc` budget so the backstop cannot fire before the agent's own deadline.
 /// Reads `GROK_ENVRC_TIMEOUT_SECS` in this process; the agent inherits the same environment.
 pub(super) fn session_rpc_timeout() -> std::time::Duration {
-    SESSION_RPC_FLOOR.max(xai_grok_workspace::envrc::loader_budget() + SESSION_RPC_SLACK)
+    SESSION_RPC_FLOOR.max(xai_grok_shared::envrc_budget::loader_budget() + SESSION_RPC_SLACK)
 }
 /// `acp_send` bounded by [`session_rpc_timeout`]; on expiry, an error naming `action` instead of an eternal spinner.
 pub(crate) async fn acp_send_bounded<R, T>(
@@ -80,6 +81,107 @@ pub(super) const CTA_INSTALLED_DISMISS_MS: u64 = 4000;
 /// Upper bound on the off-thread clipboard-attachment probe.
 /// A wedged osascript read must not pin `paste_probe_in_flight` and silently stash every later send.
 pub(super) const CLIPBOARD_PROBE_TIMEOUT_SECS: u64 = 10;
+const _: () = assert!(
+    CLIPBOARD_PROBE_TIMEOUT_SECS > crate::clipboard::OSASCRIPT_WAIT.as_secs()
+);
+pub(super) type ClipboardProbeStage = Result<
+    (ProbedAttachment, Option<String>),
+    crate::clipboard::ProbeDrop,
+>;
+/// The blocking half of one probe: guarded pasteboard read, decode, session persist. Never runs on the render thread.
+pub(super) fn probe_clipboard_attachment_blocking(
+    change_count: Option<u64>,
+    probe_text: Option<String>,
+    probe_bracketed: bool,
+    images_dir: Option<std::path::PathBuf>,
+) -> ClipboardProbeStage {
+    let (image, file_urls) = crate::clipboard::guarded_pasteboard_read(
+        change_count,
+        crate::clipboard::clipboard_change_count,
+        || {
+            if probe_bracketed {
+                match crate::clipboard::bracketed_payload_came_from_clipboard_result(
+                    probe_text.as_deref().unwrap_or(""),
+                ) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        return Err(ClipboardProbeDropReason::BracketedPayloadMismatch);
+                    }
+                    Err(_) => {
+                        return Err(ClipboardProbeDropReason::BracketedOriginReadFailed);
+                    }
+                }
+            }
+            crate::clipboard::system_clipboard_probe_attachments(probe_text.as_deref())
+        },
+    )?;
+    let Some(data) = image else {
+        return Ok((ProbedAttachment::NoRaster, file_urls));
+    };
+    let mut pasted = crate::prompt_images::from_clipboard_data(&data);
+    pasted.prepare_preview_blocking();
+    if let Some(dir) = images_dir
+        && let Err(error) = crate::prompt_images::persist_to_session(&mut pasted, &dir)
+    {
+        tracing::warn!(error = %error, "pasted image could not be persisted into the session");
+        return Err(crate::clipboard::ProbeDrop {
+            reason: ClipboardProbeDropReason::PersistFailed,
+            image: Some(data),
+            message: Some(error.to_string()),
+        });
+    }
+    Ok((ProbedAttachment::Image(pasted), file_urls))
+}
+/// The stage on the blocking pool under one deadline; `spawn_blocking` cannot be cancelled, so an expired deadline only stops waiting.
+pub(super) async fn clipboard_probe_stage(
+    deadline: std::time::Duration,
+    work: impl FnOnce() -> ClipboardProbeStage + Send + 'static,
+) -> ClipboardProbeStage {
+    let dropped = |reason| crate::clipboard::ProbeDrop {
+        reason,
+        image: None,
+        message: None,
+    };
+    match tokio::time::timeout(deadline, tokio::task::spawn_blocking(work)).await {
+        Ok(Ok(stage)) => stage,
+        Ok(Err(join_error)) => {
+            tracing::warn!(error = %join_error, "clipboard attachment probe task failed");
+            Err(dropped(ClipboardProbeDropReason::Panicked))
+        }
+        Err(_elapsed) => {
+            tracing::warn!("clipboard attachment probe timed out");
+            Err(dropped(ClipboardProbeDropReason::Timeout))
+        }
+    }
+}
+/// One deadline over the whole stage so a stall anywhere still completes and cannot strand a send parked behind
+/// `paste_probe_in_flight`. The completion owns drop reporting so a late worker never reports twice.
+pub(super) async fn bounded_clipboard_probe(
+    deadline: std::time::Duration,
+    work: impl FnOnce() -> ClipboardProbeStage + Send + 'static,
+) -> (ProbedAttachment, Option<String>) {
+    match clipboard_probe_stage(deadline, work).await {
+        Ok(outcome) => outcome,
+        Err(dropped) => {
+            tracing::debug!(reason = ?dropped.reason, "clipboard attachment probe dropped");
+            let attachment = match dropped.reason {
+                ClipboardProbeDropReason::ReadFailed
+                | ClipboardProbeDropReason::Timeout
+                | ClipboardProbeDropReason::Panicked => ProbedAttachment::ProbeFailed,
+                ClipboardProbeDropReason::PersistFailed => {
+                    ProbedAttachment::PersistFailed(dropped.message.unwrap_or_default())
+                }
+                ClipboardProbeDropReason::PasteboardChangedBeforeRead
+                | ClipboardProbeDropReason::PasteboardChangedAfterRead
+                | ClipboardProbeDropReason::BracketedPayloadMismatch
+                | ClipboardProbeDropReason::BracketedOriginReadFailed => {
+                    ProbedAttachment::ProbeDropped
+                }
+            };
+            (attachment, None)
+        }
+    }
+}
 /// Picker search debounce ([`Effect::DebounceSessionSearch`]): long enough to coalesce a typing burst, short enough to feel live.
 pub(super) const SESSION_SEARCH_DEBOUNCE_MS: u64 = 250;
 /// Run the `x.ai/mcp/list` read after a CTA install and map it into a `TaskResult::PluginCtaMcpsLoaded`.
@@ -194,7 +296,7 @@ pub(super) fn format_restore_elapsed(d: std::time::Duration) -> String {
 /// Any other code consuming the `codeRestored` / `restoreSummary` / `restoreDegree` shape MUST go through this function; do not re-implement.
 pub(crate) fn parse_worktree_restore_payload(
     result_obj: &serde_json::Value,
-) -> (bool, Option<String>, Option<xai_grok_workspace::session::git::RestoreDegree>) {
+) -> (bool, Option<String>, Option<xai_grok_workspace_types::rpc::git::RestoreDegree>) {
     let code_restored = result_obj
         .get("codeRestored")
         .and_then(|v| v.as_bool())
@@ -214,13 +316,13 @@ pub(crate) fn parse_worktree_strategy_summary(
 ) -> Option<String> {
     use serde::Deserialize;
     let strategy = result_obj.get("strategy")?;
-    xai_grok_workspace::worktree::StrategyReport::deserialize(strategy).ok()?.notice()
+    xai_grok_workspace_types::rpc::worktree::StrategyReport::deserialize(strategy).ok()?.notice()
 }
 /// CANONICAL wire parser for `LoadSessionResponse._meta.codeRestore`.
 /// Any other code consuming this shape MUST go through this function; do not re-implement.
 pub(super) fn parse_session_load_restore_meta(
     resp_meta: Option<&acp::Meta>,
-) -> (bool, Option<String>, Option<xai_grok_workspace::session::git::RestoreDegree>) {
+) -> (bool, Option<String>, Option<xai_grok_workspace_types::rpc::git::RestoreDegree>) {
     let code_restore = resp_meta.and_then(|m| m.get("codeRestore"));
     let code_restored = code_restore
         .and_then(|r| r.get("restored"))
@@ -253,9 +355,9 @@ pub(crate) fn parse_session_load_running_prompt_id(
 /// only support the legacy layout, so save call sites can safely default it.
 pub(crate) fn parse_session_memory_mode(
     resp_meta: Option<&acp::Meta>,
-) -> Option<xai_grok_shell::config::MemoryMode> {
+) -> Option<xai_grok_config_types::MemoryMode> {
     resp_meta
-        .and_then(|meta| meta.get(xai_grok_shell::session::MEMORY_MODE_META_KEY))
+        .and_then(|meta| meta.get(xai_grok_shared::session::chunk_meta::MEMORY_MODE_META_KEY))
         .cloned()
         .and_then(|value| serde_json::from_value(value).ok())
 }
@@ -282,7 +384,7 @@ pub(crate) fn sanitize_user_error(raw: &str) -> String {
         ("Authentication required: ", ""),
         ("Authentication failed: ", ""),
     ];
-    let mut result = xai_grok_shell::sampling::error::rewrite_service_names(raw);
+    let mut result = xai_grok_shared::session::sampling_error::rewrite_service_names(raw);
     for (pattern, replacement) in REPLACEMENTS {
         result = result.replace(pattern, replacement);
     }
@@ -297,6 +399,8 @@ pub(crate) fn sanitize_user_error(raw: &str) -> String {
 /// `_meta["x.ai/session"].kind` is stamped `"chat"` so the shell takes the `require_gateway` / thin profile.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct SessionFlags {
+    /// External backends own MCP discovery; ACP requests carry no stock Grok servers.
+    pub external_agent: bool,
     pub plan_mode: bool,
     pub subagents: bool,
     pub ask_user: bool,
@@ -557,10 +661,10 @@ pub(crate) struct EffectMeta {
 ///
 /// Returns the first line of the `<user_query>` content (if present), or the first line of the raw user message text.
 pub(super) fn extract_first_user_prompt(
-    info: &xai_grok_shell::session::info::Info,
+    info: &xai_grok_shared::session::Info,
 ) -> Option<String> {
     use std::io::BufRead;
-    let history_path = xai_grok_shell::session::persistence::session_dir(info)
+    let history_path = xai_grok_shared::session::session_dir(info)
         .join("chat_history.jsonl");
     let file = std::fs::File::open(history_path).ok()?;
     let reader = std::io::BufReader::new(file);
@@ -600,7 +704,7 @@ pub(super) fn extract_first_user_prompt(
 /// Synthetic user messages (auto-continue, doom-loop) are excluded.
 pub(super) fn count_chat_history_stats(history_path: &Path) -> (usize, usize) {
     use std::io::BufRead;
-    use xai_grok_shell::sampling::{AssistantItem, ConversationItem, UserItem};
+    use xai_grok_sampling_types::{AssistantItem, ConversationItem, UserItem};
     let mut turn_count = 0usize;
     let mut tool_call_count = 0usize;
     let Ok(file) = std::fs::File::open(history_path) else {
@@ -674,6 +778,7 @@ pub(super) fn parse_session_list_scope(payload: &serde_json::Value) -> ListScope
 /// ([`Effect::FetchDashboardSessions`]) so both produce identical labels.
 /// Sessions older than 30 days, and sessions with no usable user prompt
 /// (empty `summary` after fallbacks), are dropped.
+#[cfg(feature = "stock-runtime")]
 pub(super) fn parse_session_picker_entries(
     payload: &serde_json::Value,
 ) -> Vec<crate::app::app_view::SessionPickerEntry> {
@@ -732,7 +837,7 @@ pub(super) fn parse_session_picker_entries(
                     parsed_created.unwrap_or(chrono::DateTime::<chrono::Utc>::UNIX_EPOCH)
                 }
             };
-            use xai_grok_tools::implementations::skills::skill::extract_skill_display_text;
+            use xai_tool_types::skills::extract_skill_display_text;
             let display = if let Some(ref fp) = first_prompt {
                 if let Some(d) = extract_skill_display_text(fp) {
                     d
@@ -749,7 +854,7 @@ pub(super) fn parse_session_picker_entries(
                     .and_then(|s| s.as_str())
                     .unwrap_or_default()
                     .to_string();
-                let info = xai_grok_shell::session::info::Info {
+                let info = xai_grok_shared::session::Info {
                     id: acp::SessionId::new(id.clone()),
                     cwd: info_cwd,
                 };
@@ -1037,11 +1142,11 @@ pub(crate) async fn persist_setting(
     value: crate::settings::SettingValue,
 ) -> Result<(), String> {
     use crate::settings::SettingValue;
-    if let Some(spec) = xai_grok_shell::host_features::feature_spec_by_setting_key(key) {
+    if let Some(spec) = xai_grok_shared::host_features::feature_spec_by_setting_key(key) {
         let SettingValue::Bool(enabled) = value else {
             return Err(kind_mismatch(key, "Bool", &value));
         };
-        return xai_grok_shell::util::config::set_host_feature_bool(spec.key, enabled)
+        return crate::settings_config::set_host_feature_bool(spec.key, enabled)
             .await
             .map_err(|e| e.to_string());
     }
@@ -1053,7 +1158,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("compact_mode", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_compact_mode(b)
+            crate::settings_config::set_compact_mode(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1061,7 +1166,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("trace_upload", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_trace_upload(b)
+            crate::settings_config::set_trace_upload(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1069,7 +1174,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("feedback_trace_card", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_feedback_trace_card(b)
+            crate::settings_config::set_feedback_trace_card(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1077,7 +1182,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("show_timestamps", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_show_timestamps(b)
+            crate::settings_config::set_show_timestamps(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1085,7 +1190,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("page_flip_on_send", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_page_flip_on_send(b)
+            crate::settings_config::set_page_flip_on_send(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1093,7 +1198,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("confirm_before_rewind", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_confirm_before_rewind(b)
+            crate::settings_config::set_confirm_before_rewind(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1101,7 +1206,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("combine_queued_prompts", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_combine_queued_prompts(b)
+            crate::settings_config::set_combine_queued_prompts(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1109,7 +1214,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("follow_up_behavior", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_follow_up_behavior(s.to_string())
+            crate::settings_config::set_follow_up_behavior(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1117,7 +1222,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("cancel_turn_key", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_cancel_turn_key(s.to_string())
+            crate::settings_config::set_cancel_turn_key(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1125,7 +1230,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("show_timeline", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_show_timeline(b)
+            crate::settings_config::set_show_timeline(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1133,7 +1238,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("simple_mode", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_simple_mode(b)
+            crate::settings_config::set_simple_mode(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1141,7 +1246,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("contextual_hints.undo", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_contextual_hint_undo(b)
+            crate::settings_config::set_contextual_hint_undo(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1149,7 +1254,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("contextual_hints.plan_mode", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_contextual_hint_plan_mode(b)
+            crate::settings_config::set_contextual_hint_plan_mode(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1159,7 +1264,7 @@ pub(crate) async fn persist_setting(
                     kind_mismatch("contextual_hints.image_input", "Bool", &value),
                 );
             };
-            xai_grok_shell::util::config::set_contextual_hint_image_input(b)
+            crate::settings_config::set_contextual_hint_image_input(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1167,7 +1272,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("contextual_hints.send_now", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_contextual_hint_send_now(b)
+            crate::settings_config::set_contextual_hint_send_now(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1177,7 +1282,7 @@ pub(crate) async fn persist_setting(
                     kind_mismatch("contextual_hints.small_screen", "Bool", &value),
                 );
             };
-            xai_grok_shell::util::config::set_contextual_hint_small_screen(b)
+            crate::settings_config::set_contextual_hint_small_screen(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1187,7 +1292,7 @@ pub(crate) async fn persist_setting(
                     kind_mismatch("contextual_hints.word_select", "Bool", &value),
                 );
             };
-            xai_grok_shell::util::config::set_contextual_hint_word_select(b)
+            crate::settings_config::set_contextual_hint_word_select(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1197,7 +1302,7 @@ pub(crate) async fn persist_setting(
                     kind_mismatch("contextual_hints.export_copy", "Bool", &value),
                 );
             };
-            xai_grok_shell::util::config::set_contextual_hint_export_copy(b)
+            crate::settings_config::set_contextual_hint_export_copy(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1205,7 +1310,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("contextual_hints.ssh_wrap", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_contextual_hint_ssh_wrap(b)
+            crate::settings_config::set_contextual_hint_ssh_wrap(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1218,7 +1323,7 @@ pub(crate) async fn persist_setting(
                     return Err(kind_mismatch("theme", "Enum|String", &other));
                 }
             };
-            xai_grok_shell::util::config::set_theme(s)
+            crate::settings_config::set_theme(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1226,7 +1331,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("auto_dark_theme", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_auto_dark_theme(s.to_string())
+            crate::settings_config::set_auto_dark_theme(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1234,7 +1339,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("auto_light_theme", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_auto_light_theme(s.to_string())
+            crate::settings_config::set_auto_light_theme(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1242,7 +1347,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("default_model", "String", &value));
             };
-            xai_grok_shell::util::config::set_default_model(s)
+            crate::settings_config::set_default_model(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1250,7 +1355,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Int(i) = value else {
                 return Err(kind_mismatch("scroll_speed", "Int", &value));
             };
-            xai_grok_shell::util::config::set_scroll_speed(i)
+            crate::settings_config::set_scroll_speed(i)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1258,7 +1363,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("scroll_mode", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_scroll_mode(s.to_string())
+            crate::settings_config::set_scroll_mode(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1266,7 +1371,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("invert_scroll", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_invert_scroll(b)
+            crate::settings_config::set_invert_scroll(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1276,7 +1381,7 @@ pub(crate) async fn persist_setting(
                     kind_mismatch("display_refresh_auto_cadence", "Bool", &value),
                 );
             };
-            xai_grok_shell::util::config::set_display_refresh_auto_cadence(b)
+            crate::settings_config::set_display_refresh_auto_cadence(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1284,7 +1389,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Int(i) = value else {
                 return Err(kind_mismatch("scroll_lines", "Int", &value));
             };
-            xai_grok_shell::util::config::set_scroll_lines(i)
+            crate::settings_config::set_scroll_lines(i)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1292,7 +1397,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("default_selected_permission", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_default_selected_permission(s.to_string())
+            crate::settings_config::set_default_selected_permission(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1302,7 +1407,7 @@ pub(crate) async fn persist_setting(
                     kind_mismatch("cancel_subagents_on_turn_cancel", "Enum", &value),
                 );
             };
-            xai_grok_shell::util::config::set_cancel_subagents_on_turn_cancel(
+            crate::settings_config::set_cancel_subagents_on_turn_cancel(
                     s.to_string(),
                 )
                 .await
@@ -1312,7 +1417,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("vim_mode", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_vim_mode(b)
+            crate::settings_config::set_vim_mode(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1320,7 +1425,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("remember_tool_approvals", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_remember_tool_approvals(b)
+            crate::settings_config::set_remember_tool_approvals(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1334,7 +1439,7 @@ pub(crate) async fn persist_setting(
                     ),
                 );
             };
-            xai_grok_shell::util::config::set_ask_user_question_timeout_enabled(b)
+            crate::settings_config::set_ask_user_question_timeout_enabled(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1342,7 +1447,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("show_thinking_blocks", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_show_thinking_blocks(b)
+            crate::settings_config::set_show_thinking_blocks(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1350,7 +1455,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("group_tool_verbs", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_group_tool_verbs(b)
+            crate::settings_config::set_group_tool_verbs(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1358,7 +1463,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("collapsed_edit_blocks", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_collapsed_edit_blocks(b)
+            crate::settings_config::set_collapsed_edit_blocks(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1366,7 +1471,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("prompt_suggestions", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_prompt_suggestions(b)
+            crate::settings_config::set_prompt_suggestions(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1374,7 +1479,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("keep_text_selection", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_keep_text_selection(s.to_string())
+            crate::settings_config::set_keep_text_selection(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1393,7 +1498,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("render_mermaid", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_render_mermaid(s.to_string())
+            crate::settings_config::set_render_mermaid(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1401,7 +1506,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("hunk_tracker_mode", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_hunk_tracker_mode(s.to_string())
+            crate::settings_config::set_hunk_tracker_mode(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1409,7 +1514,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("screen_mode", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_screen_mode(s.to_string())
+            crate::settings_config::set_screen_mode(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1417,7 +1522,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("voice_keybind_enabled", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_voice_keybind_enabled(b)
+            crate::settings_config::set_voice_keybind_enabled(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1425,7 +1530,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("voice_capture_mode", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_voice_capture_mode(s.to_string())
+            crate::settings_config::set_voice_capture_mode(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1433,7 +1538,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(s) = value else {
                 return Err(kind_mismatch("voice_stt_language", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_voice_stt_language(s.to_string())
+            crate::settings_config::set_voice_stt_language(s.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1441,7 +1546,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Int(i) = value else {
                 return Err(kind_mismatch("max_thoughts_width", "Int", &value));
             };
-            xai_grok_shell::util::config::set_max_thoughts_width(i)
+            crate::settings_config::set_max_thoughts_width(i)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1449,7 +1554,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("show_tips", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_show_tips(b)
+            crate::settings_config::set_show_tips(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1457,7 +1562,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("auto_update", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_auto_update(b)
+            crate::settings_config::set_auto_update(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1465,7 +1570,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("fork_secondary_model", "String", &value));
             };
-            xai_grok_shell::util::config::set_fork_secondary_model(s)
+            crate::settings_config::set_fork_secondary_model(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1473,7 +1578,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("thinking_border_colors", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_thinking_border_colors(b)
+            crate::settings_config::set_thinking_border_colors(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1481,7 +1586,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(value) = value else {
                 return Err(kind_mismatch("ctrl_o_tool_expansion", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_ctrl_o_tool_expansion(value.to_string())
+            crate::settings_config::set_ctrl_o_tool_expansion(value.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1489,7 +1594,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(value) = value else {
                 return Err(kind_mismatch("pi_bash_run_display", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_pi_bash_run_display(value.to_string())
+            crate::settings_config::set_pi_bash_run_display(value.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1497,7 +1602,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_bash_command_format", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_bash_command_format(b)
+            crate::settings_config::set_pi_bash_command_format(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1505,7 +1610,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("write_edit_hover_popups", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_write_edit_hover_popups(b)
+            crate::settings_config::set_write_edit_hover_popups(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1522,7 +1627,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("recap_model", "String", &value));
             };
-            xai_grok_shell::util::config::set_recap_model(s)
+            crate::settings_config::set_recap_model(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1530,7 +1635,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("recap_model_2", "String", &value));
             };
-            xai_grok_shell::util::config::set_recap_model_2(s)
+            crate::settings_config::set_recap_model_2(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1538,7 +1643,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("recap_model_3", "String", &value));
             };
-            xai_grok_shell::util::config::set_recap_model_3(s)
+            crate::settings_config::set_recap_model_3(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1546,7 +1651,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("btw_model", "String", &value));
             };
-            xai_grok_shell::util::config::set_btw_model(s)
+            crate::settings_config::set_btw_model(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1554,7 +1659,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("btw_model_2", "String", &value));
             };
-            xai_grok_shell::util::config::set_btw_model_2(s)
+            crate::settings_config::set_btw_model_2(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1562,7 +1667,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("btw_model_3", "String", &value));
             };
-            xai_grok_shell::util::config::set_btw_model_3(s)
+            crate::settings_config::set_btw_model_3(s)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1570,7 +1675,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::PiBuiltinTools(tools) = value else {
                 return Err(kind_mismatch("pi_builtin_tools", "PiBuiltinTools", &value));
             };
-            xai_grok_shell::util::config::set_pi_builtin_tools(tools)
+            crate::settings_config::set_pi_builtin_tools(tools)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1578,7 +1683,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_bash", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_bash(b)
+            crate::settings_config::set_pi_bash(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1586,7 +1691,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(version) = value else {
                 return Err(kind_mismatch("pi_eval", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_pi_eval(version.to_string())
+            crate::settings_config::set_pi_eval(version.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1594,7 +1699,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(language) = value else {
                 return Err(kind_mismatch("pi_eval_v2_language", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_pi_eval_v2_language(language.to_string())
+            crate::settings_config::set_pi_eval_v2_language(language.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1602,7 +1707,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Enum(mode) = value else {
                 return Err(kind_mismatch("pi_eval_v2_display_mode", "Enum", &value));
             };
-            xai_grok_shell::util::config::set_pi_eval_v2_display_mode(mode.to_string())
+            crate::settings_config::set_pi_eval_v2_display_mode(mode.to_string())
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1610,7 +1715,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_eval_v2_only", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_eval_v2_only(b)
+            crate::settings_config::set_pi_eval_v2_only(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1618,7 +1723,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_eval_mcp", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_eval_mcp(b)
+            crate::settings_config::set_pi_eval_mcp(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1626,7 +1731,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("psm_resume_index", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_psm_resume_index(b)
+            crate::settings_config::set_psm_resume_index(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1634,7 +1739,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_tree_file_rollback", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_tree_file_rollback(b)
+            crate::settings_config::set_pi_tree_file_rollback(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1646,7 +1751,7 @@ pub(crate) async fn persist_setting(
                     &value,
                 ));
             };
-            xai_grok_shell::util::config::set_pi_ask_user_question_notifications(b)
+            crate::settings_config::set_pi_ask_user_question_notifications(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1654,7 +1759,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_cache_graph", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_cache_graph(b)
+            crate::settings_config::set_pi_cache_graph(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1662,7 +1767,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_config_skill", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_config_skill(b)
+            crate::settings_config::set_pi_config_skill(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1670,7 +1775,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_user_markdown", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_user_markdown(b)
+            crate::settings_config::set_pi_user_markdown(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1678,7 +1783,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_at_search_hidden", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_at_search_hidden(b)
+            crate::settings_config::set_pi_at_search_hidden(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1686,7 +1791,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_keep_multi_agent", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_pi_keep_multi_agent(b)
+            crate::settings_config::set_pi_keep_multi_agent(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1694,7 +1799,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("show_other_tool_args", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_show_other_tool_args(b)
+            crate::settings_config::set_show_other_tool_args(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1702,7 +1807,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("review_file_tree", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_review_file_tree(b)
+            crate::settings_config::set_review_file_tree(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1710,7 +1815,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("review_include_reads", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_review_include_reads(b)
+            crate::settings_config::set_review_include_reads(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1718,7 +1823,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("session_recap", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_session_recap(b)
+            crate::settings_config::set_session_recap(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1726,7 +1831,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("recap_mermaid", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_recap_mermaid(b)
+            crate::settings_config::set_recap_mermaid(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1734,7 +1839,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("progress_bar", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_progress_bar(b)
+            crate::settings_config::set_progress_bar(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1742,7 +1847,7 @@ pub(crate) async fn persist_setting(
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("remote_tui_footer", "Bool", &value));
             };
-            xai_grok_shell::util::config::set_remote_tui_footer(b)
+            crate::settings_config::set_remote_tui_footer(b)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -1780,7 +1885,7 @@ pub(crate) async fn persist_permission_mode_and_notify(
     if notify_first {
         notify(tx.clone()).await;
     }
-    let disk_result = xai_grok_shell::util::config::update_config(|cfg| {
+    let disk_result = crate::settings_config::update_config(|cfg| {
             cfg.ui.permission_mode = Some(config_str.to_string());
         })
         .await;
@@ -1814,9 +1919,9 @@ pub(super) fn marketplace_outcome_succeeded(
 /// Probing the top level with untyped JSON here was why the tasks-pane ✗ never removed stale (`not_found`) rows after a session resume.
 pub(super) fn parse_kill_outcome(
     resp: &str,
-) -> Option<xai_grok_tools::types::KillOutcome> {
-    use xai_grok_shell::extensions::task::KillTaskResponse;
-    use xai_grok_shell::session::result::ExtMethodResult;
+) -> Option<xai_tool_types::task_snapshot::KillOutcome> {
+    use xai_tool_types::task_wire::KillTaskResponse;
+    use xai_grok_shared::session::result::ExtMethodResult;
     serde_json::from_str::<ExtMethodResult<KillTaskResponse>>(resp)
         .ok()
         .and_then(|envelope| envelope.result)
@@ -1826,7 +1931,7 @@ pub(super) fn parse_kill_outcome(
 /// Prefers the typed `outcome`; falls back to the legacy `cancelled` bool for an older shell or an unknown future `kind`.
 /// An error/unparseable body is `RpcFailed` (the subagent may still be running, so leave the row alone).
 pub(super) fn parse_subagent_kill_outcome(resp: &str) -> SubagentKillOutcome {
-    use xai_grok_shell::extensions::task::{
+    use xai_tool_types::task_wire::{
         CancelSubagentResponse, SubagentCancelOutcomeDto,
     };
     let Some(payload) = serde_json::from_str::<
@@ -1916,7 +2021,7 @@ pub(super) fn persist_hint(
 /// Prefers the newer credits-config fields (`credit_usage_percent`, `current_period`).
 /// Falls back to the deprecated `monthly_limit`/`used`/`billing_period_end`.
 pub(super) fn credit_balance_from_config(
-    c: xai_grok_shell::extensions::billing::BillingConfig,
+    c: xai_grok_shared::session::billing::BillingConfig,
 ) -> crate::views::credit_bar::CreditBalance {
     let limit = c.monthly_limit.map(|v| v.val).unwrap_or(0);
     let used = c.used.map(|v| v.val).unwrap_or(0);
@@ -2007,7 +2112,7 @@ pub(super) fn parse_auto_topup_response(
     result: &serde_json::Value,
 ) -> crate::views::credit_bar::AutoTopupFetch {
     use crate::views::credit_bar::{AutoTopupFetch, AutoTopupInfo};
-    use xai_grok_shell::extensions::billing::GetAutoTopupRuleResponse;
+    use xai_grok_shared::session::billing::GetAutoTopupRuleResponse;
     match serde_json::from_value::<GetAutoTopupRuleResponse>(result.clone()) {
         Ok(parsed) => {
             AutoTopupFetch::Resolved(
@@ -2031,7 +2136,7 @@ pub(super) fn parse_auto_topup_response(
 /// is best-effort, so skip on contention.
 pub(super) fn unregister_active_session_best_effort(session_id: &acp::SessionId) {
     unregister_active_session_best_effort_in(
-        &xai_grok_shell::util::grok_home::grok_home(),
+        &xai_grok_config::grok_home(),
         session_id,
     );
 }
@@ -2173,3 +2278,7 @@ mod pi_fork_parse_tests {
         assert_eq!(messages[1].text, "world");
     }
 }
+
+#[cfg(test)]
+#[path = "clipboard_backport_tests.rs"]
+mod clipboard_backport_tests;
