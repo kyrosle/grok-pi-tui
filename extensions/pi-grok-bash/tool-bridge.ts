@@ -279,11 +279,7 @@ export class EvalSessionToolBridge {
 				tool.exposure !== "hidden" && !EVAL_RECURSIVE_TOOLS.has(tool.name) && this.isAllowed(tool.name))
 			.map((tool) => {
 				const captured = this.registered.get(tool.name)?.registeredTool;
-				const runtimeInfo = tool as typeof tool & { executionMode?: BridgeExecutionMode };
-				const executionMode =
-					captured?.definition.executionMode === "parallel" || runtimeInfo.executionMode === "parallel"
-						? "parallel"
-						: "sequential";
+				const executionMode = this.executionMode(tool.name, ctx);
 				const metadata: EvalToolMetadata = {
 					name: tool.name,
 					executionMode,
@@ -299,7 +295,13 @@ export class EvalSessionToolBridge {
 			});
 	}
 
-	executionMode(toolName: string): BridgeExecutionMode {
+	executionMode(toolName: string, ctx?: ExtensionToolContext): BridgeExecutionMode {
+		// Pi 1.0's public getAllTools() info omits executionMode. The official
+		// callable implementation in ExtensionToolContext keeps the real override.
+		const callable = ctx?.tools.find((tool) => tool.name === toolName);
+		if (callable?.executionMode === "parallel" || callable?.executionMode === "sequential") {
+			return callable.executionMode;
+		}
 		if (this.registered.get(toolName)?.registeredTool.definition.executionMode === "parallel") {
 			return "parallel";
 		}

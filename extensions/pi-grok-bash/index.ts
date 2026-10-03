@@ -181,7 +181,7 @@ export default async function (pi: ExtensionAPI) {
 					if (!toolName) throw new Error("eval v2 host tool name must not be empty");
 					if (toolName === "eval") throw new Error("eval v2 cannot recursively invoke the eval tool");
 					if (!evalToolBridge) throw new Error("eval v2 host tool bridge unavailable");
-					const executionMode: HostCallExecutionMode = evalToolBridge.executionMode(toolName);
+					const executionMode: HostCallExecutionMode = evalToolBridge.executionMode(toolName, ctx);
 					return evalHostCallGate.run(executionMode, signal, async () => {
 						const result = await evalToolBridge.invoke(toolName, call.args ?? {}, signal, ctx);
 						const value = evalHostToolValue(result.content);
