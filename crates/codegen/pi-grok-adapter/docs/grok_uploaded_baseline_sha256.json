@@ -13138,7 +13138,7 @@
       "sourceCommits": [
         "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "3d8f23d6412c195dbb8306a321d2d1817fbe30dec3fdaa047485c216a81bc9a3"
+      "sha256": "85a03ee917c160f8af2d47eab0b365dba49663901aa059a2c02bf551a3dfd87b"
     },
     "crates/codegen/pi-grok-adapter/docs/mock-pi-contract.json": {
       "reason": "Refresh the generated mock protocol verification report for the actual Pi 1.0 contract and recursive adapter modules; it is verification evidence, not an upstream source identity baseline (P6).",
@@ -17750,7 +17750,7 @@
     "docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "9997a8fc13136968e466fc97a501079583da40539035ae485fc363975a89d96b"
+      "sha256": "16c55fc3a23e6909e87f3f54268c5b028d383b4ad831f2f0607d8c1a23dff1b1"
     },
     "docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
@@ -18049,6 +18049,11 @@
       "reason": "Verify isolated Pi and default stock Pager profiles and the exact normal/build dependency graph. Write current architecture/mock/syntax JSON reports to the existing ignored verification-logs tree, preserving tracked historical reports and repeatable frozen-source checks (FR-09/11).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "cdf1a736583836624ec67268b016d9420f5f58c5d9833f2cb2b017d9e39ee737"
+    },
+    "docs/issues/架构/20261003-pi-deep-adaptation-MANUAL.md": {
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "reason": "DA-10: reviewed operator steps from installed Pi 1.0 public docs and installed pi-cache-graph; isolated state, user-selected real provider/terminal and explicit pending evidence. Preparation is not acceptance.",
+      "sha256": "846bb01c6ea0416535516b5801456839290a9e0f633836dd912589d41f6b2024"
     }
   },
   "allowedModifiedFiles": [
@@ -19305,6 +19310,7 @@
     "docs/issues/架构/20260912-斜杠命令使用统计与智能排序可配置.md",
     "docs/issues/架构/20261002-pi-first-tui-PLAN.md",
     "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+    "docs/issues/架构/20261003-pi-deep-adaptation-MANUAL.md",
     "docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md",
     "docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md",
     "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",

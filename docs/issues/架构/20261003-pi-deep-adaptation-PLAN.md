@@ -110,3 +110,8 @@ category: "architecture"
 - 最终combined `./verify.sh` actualexit0并输出Allverificationpassed，log `/tmp/grok-pi-deep-verify-settings-scope-final-20261003.log`，完整archive `/tmp/grok-pi-deep-verify-settings-scope-final-20261003/`。Pi/stock两profilecheck、production806/七禁止runtime空、adapter207lib+disposition1/ACK1/EOF2非ignored、bin98、额外2native单testfilters、source21/21/phase722、recursive1662/failures空、mock8/33lines/stderrempty通过；actualignored三resourcecases及lifecycle/nativeprojection/modelprojection另实际运行，不算成verify执行。
 - Latest专项logs：`/tmp/grok-pi-deep-package-settings-bases-20261003.log`3unit、`/tmp/grok-pi-deep-resource-restore-settings-bases-20261003.log`3actual、`/tmp/grok-pi-deep-inherited-package-scope-final-20261003.log`17native。Default完整native testtarget10146未全跑，早期no-defaultfixture167编译错误仍保留。所有source/行为/receipts与exactmanifest同一个compileclosed本地commit；不push。
 - DA-10仅SDK真实chat子项通过。真实provider的nativeUI、真人OAuth/browser consent、真实image、代表第三方及目标终端真人体验未完成/未获明确延期，整体goal仍进行中。
+
+### DA-10：真人执行材料
+
+- 自动交付 `main@108e415e` 后保持工作树和证据核对。补充 [真人验收步骤](20261003-pi-deep-adaptation-MANUAL.md)：用户选择环境、独立状态目录、本人 OAuth、production chat、官方 Codemode image/classifier 示例和已安装第三方组件的导航/resize/退出证据。
+- 本阶段仅静态核对并准备材料；没有新增真实模型调用或账号授权，没有把准备步骤当成 DA-10 完成。环境选择/凭据路径/真人操作仍待用户提供或明确延期。
