@@ -1,8 +1,6 @@
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { findLoginProviderOptions, loginProviders } from "./providers.ts";
-import { configureRadiusMcp, promptAuth, resolveRuntime } from "./runtime.ts";
+import { promptAuth, resolveRuntime } from "./runtime.ts";
 import type { AuthType, ProviderOption } from "./shared.ts";
 
 export function registerLoginCommand(pi: ExtensionAPI): void {
@@ -15,12 +13,10 @@ export function registerLoginCommand(pi: ExtensionAPI): void {
     if (!providers.length) { ctx.ui.notify("No matching login provider", "warning"); return; }
     if (!args.trim()) {
      const methods = ["Sign in with an account", "Sign in with an API key"];
-     const radius = providers.find(provider => provider.id === "radius" && provider.authType === "oauth");
-     if (radius) methods.push("Sign in with Radius");
      const method = await promptAuth(ctx, { type: "select", message: "Select authentication method", options: methods.map(label => ({ id: label, label })) });
      if (!method) return;
      const authType: AuthType = method === methods[1] ? "api_key" : "oauth";
-     providers = method === "Sign in with Radius" ? [radius!] : providers.filter(provider => provider.authType === authType);
+     providers = providers.filter(provider => provider.authType === authType);
     }
     let provider: ProviderOption | undefined = providers[0];
     if (providers.length > 1) {
@@ -42,11 +38,6 @@ export function registerLoginCommand(pi: ExtensionAPI): void {
     });
     await ctx.modelRegistry.refresh();
     ctx.ui.notify(`Logged in to ${provider.name}`, "info");
-    if (provider.id === "radius" && await ctx.ui.confirm("Radius MCP", "Configure Radius MCP in your Pi mcp.json?")) {
-     configureRadiusMcp(join(getAgentDir(), "mcp.json"));
-     if (process.env.PI_GROK_MCP === "1") await ctx.reload();
-     else ctx.ui.notify("Radius MCP configured. Enable Pi MCP in F2 and restart to connect.", "info");
-    }
    } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message !== "Login cancelled") ctx.ui.notify(`Login failed: ${message}`, "error");

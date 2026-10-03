@@ -18,6 +18,12 @@ category: "architecture"
 - 不把任意 Pi TUI factory 兼容写成已经保证。官方 RPC 的 no-op/UI 限制、实验 shim 与可验证原生映射分别记录。减少私有补丁时不得静默移除现有兼容能力。
 - 各操作与显示采用 Pi 的真实状态、作用域和生命周期。内部 RPC 不要求逐个暴露为用户按钮。
 
+### 2026-10-03：用户明确的鉴权职责收敛
+
+- 用户明确：功能和鉴权都由 Pi 负责，grok-pi 中重复维护的业务逻辑应裁剪。登录桥只选择 Pi 提供的 provider/method、调用 Pi ModelRuntime、映射原生交互及刷新显示，不直接读写 MCP/凭据配置。
+- 删除桥内 Radius 专用入口及登录后的 MCP 配置写入。Radius 仍作为 Pi provider 通过通用选择器登录；MCP 配置交给 Pi 自身支持的配置入口，保留现有文件，不迁移/删除用户数据。
+- grok-pi 的鉴权开发验收限于薄桥委托、prompt/notify、响应、取消/超时/会话撤销。Pi 自身真实 OAuth 全流程不作为本轮 TUI 开发交付前置；未执行的真人流程仍如实记录为 Pi/provider 集成体验待验。
+
 ## 功能与验收要求
 
 | ID | 要求 | 验收 |
@@ -31,7 +37,7 @@ category: "architecture"
 | DA-07 | 形成可核对的 Pi extension UI 支持表和诊断；深化可映射的 working/status/widget/editor 等语义；factory/raw-input 兼容限定到实际验证范围 | 官方 RPC 方法、原生映射、实验 host、unsupported 分别测试；新增相对模块被 injector 全量物化；native Pi 不受 shim 干扰 |
 | DA-08 | 隔离且缩小私有 Runner/ctx.mode 补丁范围，保留必要 Remote TUI 行为与焦点/键盘/resize/dispose/cancel | 既有 Remote TUI tests、代表性第三方/custom fixture 和真实 PTY；关闭 shim 路径可独立启动；不承诺所有第三方组件兼容 |
 | DA-09 | 更新逐项能力/证据矩阵、双语说明与精确当前源码声明，保持三层 identity，无目录豁免 | source guard/negative/syntax/mock、依赖图七禁止包为空、相关 Pi/stock check、生产 build 与组合 verify |
-| DA-10 | 对照 Pi 和 grok-pi 的同脚本行为，并完成真实 provider、OAuth、图像生成、第三方扩展和目标终端验收 | 自动 fixture 不替代真实账号/模型；真人 OAuth、目标环境或凭据缺失时记录具体待验项并请求用户参与，不据此提前 complete goal |
+| DA-10 | 对照 Pi 与 grok-pi 的交互合同，验证原生 UI 映射、响应、取消、resize 和生命周期；真实 provider/OAuth/image/目标终端流程作为补充体验记录 | 用户明确 Pi 全部负责功能与鉴权后，开发完成以桥层和原生组件证据为准。未执行的真人流程如实 pending，不以 fixture 冒充，也不再作为本轮 TUI 开发 goal 的关闭前置 |
 
 ## 产品行为细节
 
@@ -43,4 +49,4 @@ category: "architecture"
 
 ## 交付
 
-[PLAN](20261003-pi-deep-adaptation-PLAN.md) 记录每阶段代码、命令、结果与剩余项。核心完成条件为 DA-01–09 实现及自动验收通过；DA-10 的真实验收完成或用户明确同意独立延期后才可关闭整体 goal。未获后者时保持准确的待验状态。
+[PLAN](20261003-pi-deep-adaptation-PLAN.md) 记录每阶段代码、命令、结果与剩余项。按本次用户明确的 TUI/Pi 所有权澄清，开发完成条件为 DA-01–09 与 DA-10 的交互桥验收通过、重复鉴权配置逻辑裁剪并验证；真实 provider/OAuth/image/目标终端体验作为独立补充记录，不冒称已通过，不再阻塞本轮开发 goal。这是用户后续范围澄清，取代先前要求全部真人流程通过或明确延期才能关闭的条件。

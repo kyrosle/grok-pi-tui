@@ -13116,9 +13116,10 @@
     "README.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "572ea8dcf04ed5b1a4c96f721abbdfcb48c1495474238e3262494e5a5541cb5c",
+      "sha256": "e5d9cbbcf93e970e1b8cebaf14823fd0c94246f5f510bbc4fd096b4438ce8ef7",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ]
     },
     "build.sh": {
@@ -13138,7 +13139,7 @@
       "sourceCommits": [
         "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "85a03ee917c160f8af2d47eab0b365dba49663901aa059a2c02bf551a3dfd87b"
+      "sha256": "515c5832a1b4925984616d7b6f43dbf378bd534b3664ac1d4877353355a78e25"
     },
     "crates/codegen/pi-grok-adapter/docs/mock-pi-contract.json": {
       "reason": "Refresh the generated mock protocol verification report for the actual Pi 1.0 contract and recursive adapter modules; it is verification evidence, not an upstream source identity baseline (P6).",
@@ -17686,50 +17687,56 @@
     "docs/FEATURE_MATRIX.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "601af0c5733be834e946ae7606268bc0f70995f86d5d8bd82b5e3ad46b9d2778",
+      "sha256": "7e46965d0fa4bccb5be762d9fef12f725fa3203d0c705b7c13ec22477842ab15",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ]
     },
     "docs/FEATURE_MATRIX.zh-CN.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "d32c0a250a8b89068ffb1b25d76edce22f77c7d27ae9fe200ca8437df54d56e9",
+      "sha256": "58788fadd8de7d8c1dd52033626f05d0604a142227fd6031d64721b0730bc78d",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ]
     },
     "docs/NATIVE_GROK_TUI_ALIGNMENT.md": {
       "reason": "DA-09: separate the completed 84174917 Pi-first architecture evidence from current 806-package graph and pending corrected resource-reload/build/PTY acceptance; retain original architecture inventory.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "2536be9fda26efb988cd0f2de252ef6ecde94717ab0f2ef24999ffbda0fc8f1f",
+      "sha256": "c3c2c21959260ae0990240c68963efe78b0099d631e5f38c42c4c5c64affd09c",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ]
     },
     "docs/README.zh-CN.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "91817820ae6aad072e75768602db9a5e95eb93d45f9bbfe10b1947874e433e62",
+      "sha256": "7850ae9d18a74173a0c7e85d45fd396fd41df74b9c494e1e7ba928531afdadcd",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ]
     },
     "docs/VERIFICATION.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "360942a3eac694d06f806b1f386bdd59522dc2dddfdedea87e07a5ed126f8b68",
+      "sha256": "325e6214f41bbc46068d2aa33ce59c1eb1f798b45cb1185fd23cc10e65c2af1c",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ]
     },
     "docs/VERIFICATION.zh-CN.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "84174917511690447ba32915571e9748b5e10ad4"
+        "84174917511690447ba32915571e9748b5e10ad4",
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
       ],
-      "sha256": "942cd6ec3222c393270854770ab89c041cd2e2200d0681ed6427ca8213d8469c"
+      "sha256": "e7e5c102e116308e3b3f016a093329074e34d0f2f7fec5ab789e137551a8dd34"
     },
     "docs/issues/架构/20261002-pi-first-tui-PLAN.md": {
       "reason": "Accepted scope and phase-by-phase evidence; committed task record.",
@@ -17748,19 +17755,28 @@
       "sha256": "68f5e4c98b57c67d64707810f42f8c1db2631e3df960e25d17ae18c0e1b52029"
     },
     "docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md": {
-      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "reason": "Record user ownership clarification, standalone auth business cut/regression, source checks and unchanged Rust/binary proof boundary; retain prior scope logs as history.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "16c55fc3a23e6909e87f3f54268c5b028d383b4ad831f2f0607d8c1a23dff1b1"
+      "sha256": "91714bf57bf5e4b1738991433e7ba73cea7bc8fc822087c5ab57092edc9cd2a3",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     },
     "docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md": {
       "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "cb677bc5bebfc18cbdafc72b28dd26b92d477f4dbcd4ce2514fd2accf374f392"
+      "sha256": "aed551218f4c746514553603b2cc0001c7805208ad4f26a717639be6ec5fb156",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     },
     "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md": {
-      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "reason": "User-approved Pi functionality/auth ownership and TUI bridge/lifecycle closing criteria; supplementary real flows remain pending and are not fictitious PASS.",
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "sha256": "b166a1aeb186908620302db1c9f555d9ce18a796013202a253c80f137e4860d1"
+      "sha256": "a77fe88804fd227b4a913519357a603cac70807d39e1a0e99c282c69f1ced852",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     },
     "docs/upstream/TUI_BACKPORTS.md": {
       "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
@@ -17773,9 +17789,12 @@
       "sha256": "f905d992793e2225b6be84382314022ce21eb3eb19ee2465f93cc37551f9530b"
     },
     "extensions/pi-grok-auth/index.test.ts": {
-      "reason": "Pi ModelRuntime authentication via native dialogs, copy-code/cancel and scoped teardown (FR-06).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "1cc04d7a58219d751331f1f3afd5a19af516fd00154d43ca52f7c4824feab8a6"
+      "reason": "Auth bridge regression: generic/explicit Radius delegation without MCP writes/create/confirmation/reload, preserve native copy/select/input/cancel/logout; mocked runtime, temporary files only.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "a74450de51e17f78017382a26f3688177c53a93eda1298925b3a560acfe9cf38",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     },
     "extensions/pi-grok-auth/index.ts": {
       "reason": "Pi ModelRuntime authentication via native dialogs, copy-code/cancel and scoped teardown (FR-06).",
@@ -17783,9 +17802,12 @@
       "sha256": "cfaf9e4a54397b75e198464d47b6736dee813d56e052065626d1530ef87c85a3"
     },
     "extensions/pi-grok-auth/login.ts": {
-      "reason": "Pi ModelRuntime authentication via native dialogs, copy-code/cancel and scoped teardown (FR-06).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "640605917d3bc32e79108913028694c749abae36fc42e3387f3a19169a18b02f"
+      "reason": "User auth ownership clarification: delete Radius-specific selection/configuration confirmation and post-login MCP reload; generic provider login, native prompt/notify and Pi ModelRuntime delegation remain.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "c605f244eefb58fdf9c05e270557aa8194fb8006b0cd3beed2aeaddfab49ab22",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     },
     "extensions/pi-grok-auth/logout.ts": {
       "reason": "Pi ModelRuntime authentication via native dialogs, copy-code/cancel and scoped teardown (FR-06).",
@@ -17793,9 +17815,12 @@
       "sha256": "8ee893e8f78e54911d7675c2ade7ebec81a70614700430d2daf6bb6c14a2a755"
     },
     "extensions/pi-grok-auth/runtime.ts": {
-      "reason": "Pi ModelRuntime authentication via native dialogs, copy-code/cancel and scoped teardown (FR-06).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "54a36420400d7b3b046e6a16ad711ec92d3bd767962db292ca1ad195a9119e6c"
+      "reason": "User auth ownership clarification: remove bridge filesystem/path/MCP JSON transaction business; retain native prompt UUID/cancel/scope completion and runtime delegation.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "0790a01628e696ac35dac272d2d96d42d854bebe13b48f069acb6ae1d752617d",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     },
     "extensions/pi-grok-auth/shared.ts": {
       "reason": "Pi ModelRuntime authentication via native dialogs, copy-code/cancel and scoped teardown (FR-06).",
@@ -18052,8 +18077,11 @@
     },
     "docs/issues/架构/20261003-pi-deep-adaptation-MANUAL.md": {
       "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
-      "reason": "DA-10: reviewed operator steps from installed Pi 1.0 public docs and installed pi-cache-graph; isolated state, user-selected real provider/terminal and explicit pending evidence. Preparation is not acceptance.",
-      "sha256": "846bb01c6ea0416535516b5801456839290a9e0f633836dd912589d41f6b2024"
+      "reason": "User scope clarification: optional Pi/provider experience steps, not TUI-development completion prerequisite; preserve pending truth and isolated human consent, note pre-auth-cut binary boundary.",
+      "sha256": "9e9bd5c9a30b0e20a7ec50caf407c6dcbc80cad44469d4fcea533dea2f7ce805",
+      "sourceCommits": [
+        "84016080de58d0966d92ba98ca30ac977386cbfa"
+      ]
     }
   },
   "allowedModifiedFiles": [

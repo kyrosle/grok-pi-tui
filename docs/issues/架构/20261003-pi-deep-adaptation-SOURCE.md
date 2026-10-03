@@ -4,6 +4,8 @@
 
 已有 phase entry 的原 sourceCommits 保留，触及条目补本轮 review-base 来源；未触及旧 phase 的来源和 SHA 保持不变。self manifest 继续唯一使用 canonical JSON omit-self-SHA，其他文件均完整字节 SHA-256。真实 provider/OAuth/目标终端验收不由 source identity 代替。
 
+本次后续范围澄清只裁剪auth薄桥的Radius MCP业务；3个TypeScript文件与相关currentdocs/RootSPEC/PLAN重新审阅。旧9c46binary/build/PTY为auth裁剪前checkpoint；Standalone扩展遵循AGENTS，不运行Cargo/build。Pi/provider真人体验是独立补充pending，不再作为TUI开发关闭前置，未假写PASS。
+
 | File | Source / reason |
 |---|---|
 | `AGENTS.md` | DA-09: add current incremental SPEC/PLAN/source-review pointers while preserving the completed Pi-first baseline and project invariants. |
@@ -82,9 +84,13 @@
 | `docs/README.zh-CN.md` | DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance. |
 | `docs/VERIFICATION.md` | DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance. |
 | `docs/VERIFICATION.zh-CN.md` | DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance. |
-| `docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md` | DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance. |
+| `docs/issues/架构/20261003-pi-deep-adaptation-MANUAL.md` | User scope clarification: optional Pi/provider experience steps, not TUI-development completion prerequisite; preserve pending truth and isolated human consent, note pre-auth-cut binary boundary. |
+| `docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md` | Record user ownership clarification, standalone auth business cut/regression, source checks and unchanged Rust/binary proof boundary; retain prior scope logs as history. |
 | `docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md` | DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance. |
-| `docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md` | DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance. |
+| `docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md` | User-approved Pi functionality/auth ownership and TUI bridge/lifecycle closing criteria; supplementary real flows remain pending and are not fictitious PASS. |
+| `extensions/pi-grok-auth/index.test.ts` | Auth bridge regression: generic/explicit Radius delegation without MCP writes/create/confirmation/reload, preserve native copy/select/input/cancel/logout; mocked runtime, temporary files only. |
+| `extensions/pi-grok-auth/login.ts` | User auth ownership clarification: delete Radius-specific selection/configuration confirmation and post-login MCP reload; generic provider login, native prompt/notify and Pi ModelRuntime delegation remain. |
+| `extensions/pi-grok-auth/runtime.ts` | User auth ownership clarification: remove bridge filesystem/path/MCP JSON transaction business; retain native prompt UUID/cancel/scope completion and runtime delegation. |
 | `extensions/pi-grok-remote-tui/host.ts` | DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility. |
 | `extensions/pi-grok-remote-tui/index.test.ts` | DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility. |
 | `extensions/pi-grok-remote-tui/index.ts` | DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility. |

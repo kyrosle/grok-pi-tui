@@ -136,6 +136,12 @@ Extension, Prompt Template, and Skill commands returned by Pi are not hard-coded
 
 Stock Grok product or local session-store commands—including Grok `/history`, Grok account `/login`/`/logout`, `usage`, `plugins`, `mcp`, `memory`, `workspace`, and `share`—are excluded. The same bare `/login`/`/logout` names may be supplied by grok-pi's Pi auth extension, where they authenticate Pi model providers rather than Grok.com. The original `/minimal` and `/fullscreen` re-exec commands are also not exposed: switch screen mode at startup so Pi process arguments are preserved.
 
-## 2026-10-03 Pi 1.0 adaptation status
+## Current Pi authentication ownership
+
+The login/logout bridge delegates Pi ModelRuntime and only maps provider/method selection, prompts, notifications and UI responses. Generic Radius login remains; the bridge neither confirms nor writes Radius MCP configuration or mcp.json. MCP configuration uses Pi-supported entry points. Development acceptance is the native bridge contract/lifecycle; real Pi/provider flows remain supplementary pending experience.
+
+## Historical Pi-first checkpoint at 84174917
+
+The paragraph below preserves the former Radius product-confirmation scope and 805-package proof as history. That provider-specific configuration flow was removed under the latest user clarification; current behavior is described above.
 
 F2 `pi_mcp` explicitly loads Pi built-in MCP. Normal Eval tool calls use `ctx.executeTool`; Eval-only uses `prepareLoadout.hiddenDeclarations` while retaining allowed callable tools. Off-turn Eval MCP has no tool context and keeps its isolated compatibility path. Native auth no longer imports Pi interactive components; Radius config requires product confirmation. Codemode images enter the native gallery/viewer. The 12-case installed Pi + local MCP fixture passes, including abort, concurrency, background tasks and policy persistence across new/switch/fresh load. Seven actual Pi → ACP cases cover live/replay Eval, Codemode and children plus auth signal/timeout/EOF teardown. The production Pi normal/build graph has 805 unique packages and no stock agent/tools/workspace/MCP/sampler/Shell/plugin-marketplace runtime. Native PTY, source freeze and real model/OAuth acceptance are recorded by proof layer in [VERIFICATION](VERIFICATION.md).

@@ -110,6 +110,7 @@ Update channels are product-local and persisted in `~/.grok-pi/config.toml` unde
 | Area | Included |
 |---|---|
 | Agent runtime | Pi models, providers, tools, extensions, skills, sessions, retries, and compaction |
+| Provider authentication | Thin native UI bridge to Pi ModelRuntime login/logout. Pi owns provider methods, credentials and MCP configuration; generic Radius login stays available, with no bridge-written `mcp.json` or provider-specific setup. |
 | Model management | `/pi-models` provides a native Provider → Model → Details editor with safe `models.json` transactions, backup/restore, live Pi reload, and typed activation; `/model` remains the fast switcher |
 | Web config workbench | `/pi-config web` / `/pi-models web`: responsive zh/en workbench with global search, model/provider duplication and advanced options, four resource path lists, staged Grok/Pi settings, conflict feedback, and light/dark themes. Served by the Pi extension on a token-gated loopback port. |
 | Terminal UI | Grok Pager input, slash completion, Markdown, tool cards, diffs, dialogs, and scrollback |
@@ -124,6 +125,8 @@ Update channels are product-local and persisted in `~/.grok-pi/config.toml` unde
 | Updates | Isolated `stable` / `beta` GitHub Release channels, persisted under `~/.grok-pi/config.toml`; channel-aware background checks, `grok-pi update`, `--check --json`, and target-tag installer downloads |
 
 The final automatic build/verify and four native PTYs pass. One configured-default real SDK chat returned OK with unchanged credential/config bytes; real-provider native UI, human OAuth, real image generation and target-terminal acceptance remain separate pending layers.
+
+The latest ownership clarification keeps agent/provider business and authentication in Pi; Grok Pager presents dialogs and results. TUI development acceptance uses UI delegation, responses, cancellation and lifecycle contracts. Real Pi/provider flows remain optional integration-experience records and are not a prerequisite for this development delivery. The recorded binary/build predates the standalone auth-bridge cut; it is not a new build of that extension revision.
 
 For field-level behavior and intentional omissions, see the [feature matrix](docs/FEATURE_MATRIX.md).
 

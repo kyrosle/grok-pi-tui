@@ -1,11 +1,11 @@
 import { test, expect, mock } from "bun:test";
-import { lstatSync, mkdtempSync, readFileSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-mock.module("@earendil-works/pi-coding-agent", () => ({ getAgentDir: () => join(tmpdir(), "pi-auth-fixture") }));
+mock.module("@earendil-works/pi-coding-agent", () => ({ getAgentDir: () => process.env.PI_CODING_AGENT_DIR ?? join(tmpdir(), "pi-auth-fixture") }));
 const { registerLoginCommand } = await import("./login.ts");
 import { registerLogoutCommand } from "./logout.ts";
-import { configureRadiusMcp, promptAuth } from "./runtime.ts";
+import { promptAuth } from "./runtime.ts";
 import { AUTH_DIALOG_DONE_STATUS, AUTH_DIALOG_PREFIX } from "./shared.ts";
 
 test("native login handles provider method selection and copy code without custom TUI", async () => {
@@ -44,34 +44,74 @@ test("cancelled authentication finishes its native dialog scope", async () => {
  expect(statuses.length).toBe(1);
 });
 
-test("Radius config preserves other servers, unknown fields, and invalid source bytes", () => {
+test("Radius delegates through the generic OAuth provider picker without changing MCP configuration", async () => {
  const directory = mkdtempSync(join(tmpdir(), "pi-auth-config-"));
  const path = join(directory, "mcp.json");
+ const previous = process.env.PI_CODING_AGENT_DIR;
+ process.env.PI_CODING_AGENT_DIR = directory;
+ let handler: any, confirmations = 0, reloads = 0, refreshed = 0;
+ const calls: unknown[] = [];
+ const selections: string[][] = [];
+ const notices: string[] = [];
+ const original = JSON.stringify({ extra: 42, mcpServers: { radius: { url: "https://other.example/mcp" } } });
  try {
-  writeFileSync(path, JSON.stringify({ extra: 42, mcpServers: { radius: { url: "https://other.example/mcp" } } }));
-  expect(configureRadiusMcp(path)).toBe(true);
-  const saved = JSON.parse(readFileSync(path, "utf8"));
-  expect(saved.extra).toBe(42);
-  expect(saved.mcpServers.radius.url).toBe("https://other.example/mcp");
-  expect(saved.mcpServers["radius-mcp-1"].auth).toEqual({ provider: "radius" });
-  expect(configureRadiusMcp(path)).toBe(false);
-  writeFileSync(path, "invalid JSON");
-  expect(() => configureRadiusMcp(path)).toThrow("preserved");
-  expect(readFileSync(path, "utf8")).toBe("invalid JSON");
- } finally { rmSync(directory, { recursive: true, force: true }); }
+  writeFileSync(path, original);
+  registerLoginCommand({ registerCommand(_name: string, command: any) { handler = command.handler; } } as any);
+  await handler("", {
+   modelRegistry: {
+    runtime: {
+     getProviders: () => ["anthropic", "radius"].map(id => ({ id, name: id === "radius" ? "Radius" : "Anthropic", auth: { oauth: { login() {} } } })),
+     getProviderAuthStatus: () => ({ configured: false }),
+     async login(provider: string, method: string, interaction: any) { calls.push([provider, method]); interaction.notify({ type: "info", message: "Pi OAuth completed" }); },
+    },
+    async refresh() { refreshed++; },
+   },
+   async reload() { reloads++; },
+   ui: {
+    async select(_title: string, options: string[]) { selections.push(options); return options.find(option => option.startsWith("Radius")) ?? options[0]; },
+    async confirm() { confirmations++; return true; },
+    setStatus() {}, notify(message: string) { notices.push(message); },
+   },
+  });
+  expect(selections[0]).toEqual(["Sign in with an account", "Sign in with an API key"]);
+  expect(selections[1]).toContain("Radius · oauth");
+  expect(calls).toEqual([["radius", "oauth"]]);
+  expect(refreshed).toBe(1);
+  expect(confirmations).toBe(0); expect(reloads).toBe(0);
+  expect(notices).toEqual(["Pi OAuth completed", "Logged in to Radius"]);
+  expect(readFileSync(path, "utf8")).toBe(original);
+ } finally {
+  if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = previous;
+  rmSync(directory, { recursive: true, force: true });
+ }
 });
 
-test("Radius config keeps an existing config symlink", () => {
+test("explicit Radius OAuth login neither creates MCP configuration nor asks to reload it", async () => {
  const directory = mkdtempSync(join(tmpdir(), "pi-auth-linked-config-"));
- const target = join(directory, "shared.json");
  const path = join(directory, "mcp.json");
+ const previous = { agent: process.env.PI_CODING_AGENT_DIR, mcp: process.env.PI_GROK_MCP };
+ process.env.PI_CODING_AGENT_DIR = directory; process.env.PI_GROK_MCP = "1";
+ let handler: any, confirmations = 0, reloads = 0;
+ const calls: unknown[] = [];
  try {
-  writeFileSync(target, "{}");
-  symlinkSync(target, path);
-  expect(configureRadiusMcp(path)).toBe(true);
-  expect(lstatSync(path).isSymbolicLink()).toBe(true);
-  expect(JSON.parse(readFileSync(target, "utf8")).mcpServers.radius.auth.provider).toBe("radius");
- } finally { rmSync(directory, { recursive: true, force: true }); }
+  registerLoginCommand({ registerCommand(_name: string, command: any) { handler = command.handler; } } as any);
+  await handler("radius", {
+   modelRegistry: { runtime: {
+    getProviders: () => [{ id: "radius", name: "Radius", auth: { oauth: { login() {} } } }],
+    getProviderAuthStatus: () => ({ configured: false }),
+    async login(provider: string, method: string) { calls.push([provider, method]); },
+   }, async refresh() {} },
+   async reload() { reloads++; },
+   ui: { async confirm() { confirmations++; return true; }, setStatus() {}, notify() {} },
+  });
+  expect(calls).toEqual([["radius", "oauth"]]);
+  expect(confirmations).toBe(0); expect(reloads).toBe(0);
+  expect(existsSync(path)).toBe(false);
+ } finally {
+  if (previous.agent === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = previous.agent;
+  if (previous.mcp === undefined) delete process.env.PI_GROK_MCP; else process.env.PI_GROK_MCP = previous.mcp;
+  rmSync(directory, { recursive: true, force: true });
+ }
 });
 
 test("logout uses a scoped native selection and Pi runtime", async () => {

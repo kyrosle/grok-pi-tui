@@ -1,6 +1,6 @@
-# DA-10 真人验收步骤
+# Pi/provider 补充体验步骤
 
-对应 [SPEC](20261003-pi-deep-adaptation-SPEC.md) / [PLAN](20261003-pi-deep-adaptation-PLAN.md)。这是待执行的验收材料，不是完成证明。先记录用户选择的 provider/model、终端名称/版本与 binary SHA；目前用户尚未选择环境或明确延期。
+对应 [SPEC](20261003-pi-deep-adaptation-SPEC.md) / [PLAN](20261003-pi-deep-adaptation-PLAN.md)。按最新用户“功能/鉴权全部由 Pi 负责”的澄清，本文件是可选补充集成体验材料，不是 TUI 开发完成前置，也不是已执行证明。开发交付以原生 UI 薄桥的委托、响应、取消及生命周期合同为准；未执行的 Pi/provider 真人流程仍如实 pending。执行补充步骤前先记录用户选择的 provider/model、终端名称/版本与 binary/extension source SHA，确认版本包含当前 auth 裁剪；旧 9c46d5… binary checkpoint 不覆盖该 standalone extension 新修订。
 
 ## 独立验收环境与 OAuth
 
@@ -20,6 +20,8 @@ cd "$MANUAL_PI_ROOT/project"
 1. `/login`：在原生 QuestionView 选择目标 provider/OAuth，先取消一次，确认输入焦点恢复。
 2. 再次登录，由本人浏览器完成 consent/code。测试凭据只写入上述独立 Pi 目录；不记录登录 URL、code、token 或 accountID，不用 `/logout` 修改真实账号凭据。
 3. 新临时会话发送“只回复 OK，不调用任何工具”，记录返回、模型、usage/cost。已有单次真实 SDK chat 不替代这次 production TUI 验收。
+
+Radius 仍由通用 Pi provider 选择器登录；MCP 配置交给 Pi 自身支持的入口。grok-pi auth 桥不提供专用 Radius MCP 配置确认，不读写 mcp.json，不改现有配置或用户数据。
 
 ## 真实 image / classifier
 
@@ -49,6 +51,6 @@ text({ stopReason: r.stopReason, answers: r.answers, usage: r.usage });
 3. `Esc` / `q` 关闭后输入普通草稿；检查输入 capture 释放、旧 frame 清理及再次打开。画面消失本身不证明 dispose；结合生命周期/输入恢复证据记录结果。
 4. 检查 Ctrl+C 与正常退出后的终端恢复。截图/录屏只包含脱敏 UI，不共享含 `auth.json` 的整个临时目录，不导入或改写真实业务会话。
 
-每个结果记录：commit、binary SHA、Pi/终端/扩展版本、provider/model、步骤、预期、实际、usage、证据路径和 pass/fail/pending。OAuth、真实图片/classifier、第三方或目标终端未完成项逐项保留；用户明确同意延期或真人验收完成之前，不关闭整体 goal。
+每个结果记录：commit、binary SHA、Pi/终端/扩展版本、provider/model、步骤、预期、实际、usage、证据路径和 pass/fail/pending。OAuth、真实图片/classifier、第三方或目标终端未完成项逐项保留为补充体验 pending，不冒称 PASS；它们不再阻塞按已澄清桥层范围的开发 goal。
 
 调用形状来自实际 system Pi 1.0 的 `docs/codemode.md` / `docs/models.md`；`/cache graph` 与按键来自已安装 `pi-cache-graph/index.ts` / `src/index.ts`。本材料仅静态核对，没有执行上述真人步骤。

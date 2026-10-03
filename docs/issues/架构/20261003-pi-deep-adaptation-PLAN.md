@@ -17,7 +17,7 @@ category: "architecture"
 | P1 | DA-03/04 | 官方CLI/SDK声明base、admission重算、officialreload或EOF/restore、Web条件保存 | 最新生产native install/remove/registry/history/cancel PASS；明确safe defer/loader/CAS边界 |
 | P2 | DA-05/06 | selected/dispatched/usage，official image/classifier | 合成actualSDK/RPC/live-replay/nativecard PASS；真实图片仍DA10 pending |
 | P3 | DA-07/08 | UI支持表、workingstatus、scoped facade、RemoteTUI生命周期 | namedcontracts/actualnative resize/input/dispose PASS；不保证所有第三方 |
-| P4 | DA-09/10 | exactsource、profiles/graph/build/verify/4PTY、realSDKchat | DA09自动PASS；单次SDK真实chatPASS，DA10其余pending，整体goal不complete |
+| P4 | DA-09/10 | exactsource、profiles/graph/build/verify/4PTY、交互桥与补充realSDKchat | 开发阶段完成：自动/原生交互、auth5tests/28assertions、sourceguard21/negative均PASS；真人Pi/provider体验补充pending，按用户范围澄清不再阻塞开发goal |
 
 ## 执行约束
 
@@ -28,6 +28,12 @@ category: "architecture"
 - 真实模型与 OAuth 的用户选择不阻塞独立实现；真人 consent 不自动代办。必要真实验收缺失时列出具体步骤，不能把 synthetic PASS 当成真实 PASS。
 
 ## 日志
+
+### 2026-10-03：鉴权业务裁剪
+
+- 按用户“全部用 Pi，重复业务要裁剪”的明确指示，登录桥收敛到 ModelRuntime 委托和原生 UI 请求/响应。实现前更新 SPEC，裁剪 Radius MCP 写入与专用流程，保留通用 Radius provider 登录和对话框生命周期。
+- Pi 自身的真人 OAuth 不再是本轮 TUI 开发交付前置；以桥层委托/响应/取消回归验收，真人流程状态仍如实保留。独立 TypeScript 改动只运行扩展与来源检查；不改 Rust loader、Pi core 或用户配置，不重复 Cargo/build。
+- 同步 DA-10/交付条件：已完成的原生桥与组件证据支撑 TUI 开发交付；未执行的真实 provider/image/目标终端体验保留补充清单，不假写 PASS。前面历史日志中的真人阻塞条件为当时范围，已由本次用户澄清取代。
 
 ### 2026-10-03：SPEC / PLAN
 

@@ -127,6 +127,12 @@ Pi 返回的 extension、Prompt Template 和 Skill 命令不硬编码在 Rust �
 
 stock Grok 产品或本地 session-store 命令——包括 Grok `/history`、Grok 账户 `/login`/`/logout`、`usage`、`plugins`、`mcp`、`memory`、`workspace`、`share`——均排除。同名 `/login`/`/logout` 可由 grok-pi 的 Pi auth extension 提供，此时认证的是 Pi 模型 Provider，而不是 Grok.com。原版 `/minimal`、`/fullscreen` re-exec 也不暴露；screen mode 应在启动时选择，以保留 Pi 进程参数。
 
-## 2026-10-03 Pi 1.0 适配状态
+## 当前 Pi 鉴权所有权
+
+登录/退出薄桥委托 Pi ModelRuntime，只映射 provider/method 选择、prompt/notify、原生响应。Radius 保留通用登录；桥内不确认或写入 Radius MCP 配置/mcp.json，MCP 使用 Pi 支持的配置入口。开发验收为原生桥合同及生命周期，Pi/provider 真人流程保留补充 pending 体验。
+
+## 历史 Pi-first 检查点：84174917
+
+下段保留当时 Radius 产品确认 scope 与 805-package 证明，仅属历史。最新用户澄清已裁剪该 provider 专用配置流程；当前行为见上段。
 
 Pi MCP 通过 F2 `pi_mcp` 显式 opt-in；Pi 拥有客户端、OAuth 和工具 exposure。Eval 正常工具路径使用 `ctx.executeTool`，Eval-only 通过 `prepareLoadout.hiddenDeclarations` 隐藏顶层声明、保留合法 callable tools；外部 Eval MCP 无工具上下文，暂保留其隔离兼容边界。取消补充 Pi `clear_queue`。登录/退出通过原生 QuestionView；Radius 全局 MCP 配置需产品内确认。Codemode 图片使用原生 gallery/viewer。实际安装 Pi + 本地 MCP 的 12 个 fixture 场景已通过，包括 abort、并发、后台任务与 new/switch/fresh load 后政策保持。7 个实际 Pi → ACP 场景覆盖 Eval、Codemode、child live/replay 与 auth signal/timeout/EOF 撤销。生产 Pi normal/build 图为 805 个唯一 package，stock agent/tools/workspace/MCP/sampler/Shell/plugin-marketplace runtime 均不可达。原生 PTY、源码冻结与真实账户/模型验收按证据层记录在 [VERIFICATION](VERIFICATION.md)。

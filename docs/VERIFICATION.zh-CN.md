@@ -2,10 +2,11 @@
 
 ## 2026-10-03 深度适配：已交付自动证据
 
-本轮从干净 `main@84174917511690447ba32915571e9748b5e10ad4` 开始；[SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md)、[PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md)、[source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md) 保留范围、检查点与失败 captures。修正后的 shipping source/fixtures 已冻结，最新 build、4 native PTY、组合 verify 均通过；一个明确委任的集成 runner 运行 Cargo/build/commit。**DA-10仍未关闭**：一次SDK真实chat之外，OAuth、真实图片、真人provider的nativeUI和目标终端真人验收未完成或获明确延期。
+本轮从干净 `main@84174917511690447ba32915571e9748b5e10ad4` 开始；[SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md)、[PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md)、[source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md) 保留范围、检查点与失败 captures。修正后的 shipping source/fixtures 已冻结，最新 build、4 native PTY、组合 verify 均通过；一个明确委任的集成 runner 运行 Cargo/build/commit。按最新用户所有权澄清，功能/鉴权交给Pi，TUI开发以原生委托/响应/取消/生命周期合同验收。真人OAuth/image/provider/目标终端体验仍补充pending，不再作为开发关闭前置。下方已构建binary/PTY/combinedverify早于独立auth裁剪，保留为checkpoint，不冒称新auth源码已构建。
 
 | 要求 / 证据层 | 结果 | 证据与边界 |
 |---|---|---|
+| Auth所有权裁剪 | PASS，独立扩展 | `bun test extensions/pi-grok-auth/index.test.ts`5tests/28assertions/exit0；通用Radius委托Pi，无MCP确认/reload/writer，已有bytes不变、缺mcp.json不创建；保留select/copy/input/cancel/logout scope。Rustloader/contract未变，不跑Cargo/build或真实账号。 |
 | DA-01 / disposition | PASS，有界 | Adapter lib207、disposition1 target/4scenarios、actuallifecycle1；started/queued/handled、晚回目标slot/reservation、取消、operation-scoped有界legacyprobe保持独立工作及一次completion。 |
 | DA-02 / 运行控制 | PASS | 官方retry/compaction/abort-retry、持久化与native取消通过SDK/RPC/PTY；livecompaction与configuredretry分开，公开RPC没有live retry-policy getter。 |
 | DA-03/04 / package/reload | PASS，命名路径 | Native真实Pi local install/remove及factory/command registry通过。FreshSDK installedPath/publicCONFIG_DIR_NAME settingsbase校正声明相对source；继承update取选中resource实际source scope。保留pins/filters/CLI限制/trust；不变admission走ctx.reload+ACK，变更输入走officialEOF/restart与公开session/leaf/model/thinking恢复。 |
@@ -17,7 +18,7 @@
 | DA-09 / tests/profiles | PASS，有界 | Combinedverify：adapter207lib+disposition1/ACK1/EOF2非ignored、隔离binary98、productionno-default jemalloc/sandbox-enforce与stockdefaultchecks、另2个native单testfilter。Actualignored resource3/lifecycle1/nativeprojection1/modelprojection1另实际执行；资源modal17及其他focused通过，未跑总10146-testPager全suite。 |
 | DA-09 / graph | PASS | Freshproductionnormal/build806packages，七禁止stockruntimes全空；stockcheck另exit0/1m55s。数量不代表coldbuild节省或跨平台runtime验收。 |
 | DA-09 / source/negative/syntax/mock | PASS | Guard21/21：原始3797Git blobs、历史4479、上一84174917、native830/protected3147分层；phase722逐文件、unfrozen空、无目录豁免。Recursive rustfmt1662/failures空、negative、mock8checks/33lines/stderrempty通过；18声明RPC含explicitgenerator，不称任意computed类型全覆盖。仅selfmanifest canonicalomitselfSHA。 |
-| DA-10 / 真实验收 | 部分PASS；其余PENDING | 配置defaultopenai-codex/gpt-6.1-sol单次SDKchat HTTP200/requests1/OK/真实files不变；未完成native真实provider/OAuth/image/真人targetterminal，亦无明确延期，整体goal保持进行中。 |
+| DA-10 / 桥层开发与补充体验 | 桥证据PASS；补充流程PENDING | 原生UI委托、响应、cancel/timeout/EOF与生命周期支持TUI开发验收；defaultSDKchat HTTP200/requests1/OK/真实files不变。OAuth/image/native真实provider/真人terminal独立pending；最新用户范围澄清取代旧真人关闭前置。 |
 
 最终artifact：**184,693,160bytes**，SHA-256 `9c46d5c6d0b9a3b85657b2fbb5ecc2bcd8e2256a571347863f03db36115c74ad`；正式build exit0/Cargo22.34s，proof `/tmp/grok-pi-deep-artifact-settings-scope-final-20261003.json`，log `/tmp/grok-pi-deep-build-settings-scope-final-20261003.log`。Source stamp为precommit fe7515f528e7cb6ace46ed8dfa7edbe6b32fcc5e+dirtyfrozen settings-scope，不声称cleanfinalHEAD/coldbenchmark；后续doc-onlyreceipts不变更测试binary。
 

@@ -103,6 +103,7 @@ grok-pi update --channel stable  # 切回 stable；默认即 stable
 | 领域 | 能力 |
 |---|---|
 | Agent Runtime | Pi 模型、Provider、工具、扩展、skills、会话、重试和压缩 |
+| Provider 鉴权 | 原生 UI 薄桥委托 Pi ModelRuntime login/logout；provider methods、凭据与 MCP 配置由 Pi 所有。Radius 保留通用登录，桥内不写 `mcp.json`、不维护 provider 专用配置流程。 |
 | 模型管理 | `/pi-models` 提供原生 Provider → Model → Details 编辑器，含安全 `models.json` 事务、备份/恢复、Pi 热重载和 typed 激活；`/model` 保留为快速切换器 |
 | 浏览器配置工作台 | `/pi-config web` / `/pi-models web`：完整中英界面、全局搜索、模型/服务商复制与高级参数、四类资源路径管理、Grok/Pi 设置草稿与批量保存、外部修改冲突提示、深浅主题和手机布局。由 Pi 扩展提供带 token 的本地回环服务。 |
 | 终端 UI | Grok Pager 输入、斜杠补全、Markdown、工具卡片、diff、对话框和 scrollback |
@@ -117,6 +118,8 @@ grok-pi update --channel stable  # 切回 stable；默认即 stable
 | 更新 | 产品隔离的 `stable` / `beta` GitHub Release 通道；持久化到 `~/.grok-pi/config.toml`，后台检查、`grok-pi update`、`--check --json` 与目标 tag 安装器下载均感知通道 |
 
 最终自动build/verify与4nativePTY通过；一次配置default的真实SDKchat返回OK且credential/config字节未改。真人provider的nativeUI、OAuth、真实图片及目标终端体验仍独立pending。
+
+按最新用户所有权澄清，Agent/provider 业务及鉴权交给 Pi，Grok Pager 只呈现对话和结果。TUI 开发以 UI 委托、响应、取消及生命周期合同验收；Pi/provider 真人流程保留为补充集成体验记录，不再作为本轮开发交付前置。已记录 binary/build 早于这次独立 auth 桥裁剪，不冒称该扩展新修订已构建。
 
 详细行为和有意边界见[功能矩阵（中文）](FEATURE_MATRIX.zh-CN.md) / [English](FEATURE_MATRIX.md)。
 
