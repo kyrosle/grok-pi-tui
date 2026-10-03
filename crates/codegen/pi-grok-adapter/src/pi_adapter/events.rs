@@ -256,6 +256,14 @@ impl PiAgent {
                 }
             }
             "adapter_process_exit" => {
+                if event.get("intentional").and_then(Value::as_bool) == Some(true)
+                    && event
+                        .get("generation")
+                        .and_then(Value::as_u64)
+                        .is_some_and(|generation| generation < self.rpc.generation())
+                {
+                    return Ok(());
+                }
                 let message = string(&event, &["message"]).unwrap_or("Pi RPC process exited");
                 let intentional = event
                     .get("intentional")
@@ -353,6 +361,7 @@ impl PiAgent {
         let Some(message) = event.get("message") else {
             return;
         };
+        self.publish_model_route(Some(message)).await;
         // Prefer the assistant message's own usage for a low-latency bar update;
         // agent_settled still revalidates via get_session_stats.
         if let Some(tokens) = message.get("usage").and_then(context_tokens_from_usage) {
@@ -475,42 +484,45 @@ impl PiAgent {
         }
     }
 
-    pub(super) async fn probe_prompt_without_agent(&self) {
+    pub(super) async fn probe_prompt_without_agent(
+        &self,
+        operation_id: Option<u64>,
+        entry: Option<QueueEntry>,
+        owns_run: bool,
+    ) {
         tokio::time::sleep(Duration::from_millis(40)).await;
-        let should_probe = {
+        let still_current = || {
             let state = self.state.borrow();
-            state
-                .active_prompts
-                .iter()
-                .any(|active| !active.agent_started)
-                || (state.queue_mirror.running().is_some() && state.agent_running)
+            !state.cancelling
+                && (operation_id.is_some_and(|id| {
+                    state
+                        .active_prompts
+                        .iter()
+                        .any(|active| active.id == id && !active.agent_started)
+                }) || (operation_id.is_none()
+                    && entry.as_ref().is_some_and(|entry| {
+                        state
+                            .queue_mirror
+                            .running()
+                            .is_some_and(|running| running.id == entry.id)
+                    })))
         };
-        if !should_probe {
+        if !still_current() {
             return;
         }
         let Ok(value) = self.rpc.request(json!({ "type": "get_state" })).await else {
             return;
         };
-        if parse_state(&value).is_streaming {
+        if parse_state(&value).is_streaming || !still_current() {
             return;
         }
-        let running = {
-            let mut state = self.state.borrow_mut();
-            state.agent_running = false;
-            state.cancelling = false;
-            state.live_prompt_id = None;
-            state.turn_start_ms = None;
-            state.stream_start_ms = None;
-            state.queue_mirror.clear_running()
-        };
-        self.publish_queue_snapshot().await;
-        self.finish_prompts(acp::StopReason::EndTurn);
-        if let Some(entry) = running
-            && entry.origin != QueueOrigin::Client
-        {
-            self.send_server_prompt_complete(&entry, acp::StopReason::EndTurn)
-                .await;
-        }
+        self.apply_prompt_response(
+            &json!({"disposition":"handled"}),
+            operation_id,
+            entry.as_ref(),
+            owns_run,
+        )
+        .await;
         let dispatched = self.dispatch_next_queued().await;
         if !dispatched {
             self.maybe_continue_goal().await;

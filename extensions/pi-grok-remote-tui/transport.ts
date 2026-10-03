@@ -55,7 +55,7 @@ export function drainKeys(host: ActiveHost): void {
     for (const line of chunk.split("\n")) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      let msg: { id?: string; op?: string; data?: string };
+      let msg: { id?: string; op?: string; data?: string; columns?: number; rows?: number };
       try {
         msg = JSON.parse(trimmed) as typeof msg;
       } catch {
@@ -69,6 +69,11 @@ export function drainKeys(host: ActiveHost): void {
       }
       if (msg.op === "input" && typeof msg.data === "string") {
         host.handleInput(msg.data);
+      }
+      if (msg.op === "resize"
+        && Number.isInteger(msg.columns) && Number.isInteger(msg.rows)
+        && msg.columns! > 0 && msg.columns! <= 65535 && msg.rows! > 0 && msg.rows! <= 65535) {
+        host.resize(msg.columns!, msg.rows!);
       }
     }
   } catch {

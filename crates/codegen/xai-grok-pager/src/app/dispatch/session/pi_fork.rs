@@ -245,19 +245,21 @@ pub(in crate::app::dispatch) fn dispatch_pi_reload(app: &mut AppView) -> Vec<Eff
 
 pub(in crate::app::dispatch) fn handle_pi_session_reloaded(
     app: &mut AppView,
-    _agent_id: AgentId,
-    _session_id: String,
+    agent_id: AgentId,
+    session_id: String,
 ) -> Vec<Effect> {
     // Pi interactive re-registers themes after reload; rescan so /theme sees
     // newly added or edited JSON without restarting grok-pi.
-    let cwd = get_active_agent(app)
-        .map(|agent| agent.session.cwd.clone())
-        .unwrap_or_else(|| app.cwd.clone());
+    let Some(agent) = app.agents.get(&agent_id) else {
+        return vec![];
+    };
+    if agent.session.session_id.as_ref().map(|id| id.0.as_ref()) != Some(session_id.as_str()) {
+        return vec![];
+    }
+    let cwd = agent.session.cwd.clone();
     let report = crate::theme::pi::rediscover(&cwd);
     if report.errors.is_empty() {
-        app.show_toast(
-            "Reloaded keybindings, extensions, skills, prompts, themes, and context files",
-        );
+        app.show_toast("Pi resources refreshed; complete extension loading is not verified");
     } else {
         app.show_toast(&format!(
             "Reloaded resources; theme rediscovery reported {} issue(s)",

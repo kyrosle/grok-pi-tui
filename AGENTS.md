@@ -19,6 +19,8 @@ base     37949780c144e37df692e3d669051a21fec24f20
 
 The current product spec and execution record are [Pi-first TUI SPEC](docs/issues/架构/20261002-pi-first-tui-SPEC.md) and [PLAN](docs/issues/架构/20261002-pi-first-tui-PLAN.md). Grok Build is absorbed as TUI; functionality always follows Pi semantics.
 
+That Pi-first record is the completed baseline at `84174917`. The current increment follows [Pi deep adaptation SPEC](docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md), and the [exact source review](docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md). Keep prior verification separate from new source/fixture/build/real-provider acceptance.
+
 ## Upstream sync workflow
 
 Syncing upstream Grok Build is a **two-phase** process. Always record what

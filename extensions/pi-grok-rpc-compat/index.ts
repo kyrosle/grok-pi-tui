@@ -9,16 +9,19 @@
  *
  * Pi stays in JSONL RPC. All patches are runtime host-module hooks.
  *
- * IMPORTANT: Do NOT reassign ESM named exports like `writeRawStdout` — Node
- * freezes them (`Cannot redefine property`). Intercept by wrapping
- * `process.stdout.write` then re-running `takeOverStdout()` so rpc-mode's
- * private raw writer points at our wrap.
+ * Completion enrichment runs at the child stdout Writable sink. Pi's existing
+ * stdout guard and backpressure remain intact; no output-guard module clone or
+ * frozen ESM export is patched.
  */
 
 import { basename, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { realpathSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+  hasRemoteTuiHost, hasRpcUiBridge, installRpcUiBridge, resetRpcUiBridge,
+  setWorkingActive, uiCapabilityReport,
+} from "./ui.ts";
 
 type ArgCompletion = { value: string; label: string; description?: string };
 
@@ -42,12 +45,6 @@ type ExtensionRunnerConstructor = {
     __piGrokRunnerCapture?: boolean;
     __piGrokGetCommandsCapture?: boolean;
   };
-};
-
-type OutputGuardModule = {
-  takeOverStdout?: () => void;
-  restoreStdout?: () => void;
-  isStdoutTakenOver?: () => boolean;
 };
 
 const PROCESS_MARK = "__piGrokGetCommandsStdoutWrap" as const;
@@ -125,35 +122,33 @@ async function loadExtensionRunnerPrototype(): Promise<
   return module.ExtensionRunner?.prototype ?? null;
 }
 
-async function installRunnerHooks(): Promise<void> {
-  const prototype = await loadExtensionRunnerPrototype();
-  if (!prototype) {
-    throw new Error("Pi ExtensionRunner is unavailable for grok-pi RPC compatibility");
+export function installRunnerHooksOn(prototype: ExtensionRunnerConstructor["prototype"]): void {
+  if (typeof prototype.setUIContext !== "function" || typeof prototype.getRegisteredCommands !== "function") {
+    throw new Error("Pi ExtensionRunner contract changed (setUIContext/getRegisteredCommands)");
   }
-
-  const tuiCompat = process.env.PI_GROK_EXTENSION_TUI_COMPAT === "1";
-
-  // Capture runner on setUIContext (+ optional rpc→tui rewrite).
-  if (tuiCompat && !prototype.__piGrokTuiModeFacade) {
+  // One scoped hook: never relabel native/print mode, and never advertise TUI
+  // when the actual custom() host is absent or disabled.
+  if (!prototype.__piGrokRunnerCapture) {
     const original = prototype.setUIContext;
     prototype.setUIContext = function setUIContext(
       this: ExtensionRunnerLike,
       uiContext: unknown,
       mode = "print",
     ): void {
-      original.call(this, uiContext, mode === "rpc" ? "tui" : mode);
-      snapshotAllCompletions(this);
-    };
-    prototype.__piGrokTuiModeFacade = true;
-    prototype.__piGrokRunnerCapture = true;
-  } else if (!prototype.__piGrokRunnerCapture) {
-    const previous = prototype.setUIContext;
-    prototype.setUIContext = function setUIContext(
-      this: ExtensionRunnerLike,
-      uiContext: unknown,
-      mode = "print",
-    ): void {
-      previous.call(this, uiContext, mode);
+      let projectedMode = mode;
+      if (process.env.PI_GROK === "1" && mode === "rpc") {
+        installRpcUiBridge(uiContext);
+        const remoteFlag = process.env.PI_GROK_REMOTE_TUI?.toLowerCase();
+        const remoteEnabled = !["0", "false", "off", "no"].includes(remoteFlag ?? "");
+        if (process.env.PI_GROK_EXTENSION_TUI_COMPAT === "1" && remoteEnabled) {
+          const host = globalThis as typeof globalThis & {
+            __piGrokEnsureRemoteTuiHost?: (ui: unknown) => void;
+          };
+          host.__piGrokEnsureRemoteTuiHost?.(uiContext);
+          if (hasRemoteTuiHost(uiContext)) projectedMode = "tui";
+        }
+      }
+      original.call(this, uiContext, projectedMode);
       snapshotAllCompletions(this);
     };
     prototype.__piGrokRunnerCapture = true;
@@ -174,6 +169,12 @@ async function installRunnerHooks(): Promise<void> {
     };
     prototype.__piGrokGetCommandsCapture = true;
   }
+}
+
+async function installRunnerHooks(): Promise<void> {
+  const prototype = await loadExtensionRunnerPrototype();
+  if (!prototype) throw new Error("Pi ExtensionRunner is unavailable for grok-pi RPC compatibility");
+  installRunnerHooksOn(prototype);
 }
 
 function isGetCommandsSuccessLine(obj: unknown): obj is {
@@ -227,78 +228,74 @@ function maybeEnrichStdoutText(text: string): string {
   return lines.map((line) => (line ? enrichGetCommandsLine(line) : line)).join("\n");
 }
 
-/**
- * Intercept JSONL RPC output without redefining ESM exports.
- *
- * rpc-mode already called takeOverStdout(): its writeRawStdout uses a private
- * bound process.stdout.write. We restore, wrap that write, then take over again
- * so the bound raw writer is our wrapper.
- */
+/** Pi writes each serialized RPC line in order and awaits the Writable callback. */
 async function installGetCommandsStdoutIntercept(): Promise<void> {
   const proc = process as NodeJS.Process & { [PROCESS_MARK]?: boolean };
   if (proc[PROCESS_MARK]) return;
 
-  let mod: OutputGuardModule;
-  try {
-    mod = (await import(hostUrl("core/output-guard.js"))) as OutputGuardModule;
-  } catch {
+  type Write = (chunk: string | Uint8Array, encoding: BufferEncoding, callback: (error?: Error | null) => void) => void;
+  const output = process.stdout as typeof process.stdout & { _write: Write };
+  if (typeof output._write !== "function") {
+    console.error("[pi-grok-rpc-compat] completion enrichment unavailable: stdout Writable sink missing");
     return;
   }
-  if (typeof mod.takeOverStdout !== "function" || typeof mod.restoreStdout !== "function") {
-    return;
-  }
-
-  try {
-    if (mod.isStdoutTakenOver?.()) {
-      mod.restoreStdout();
-    }
-
-    const previous = process.stdout.write.bind(process.stdout) as typeof process.stdout.write;
-    process.stdout.write = ((
-      chunk: string | Uint8Array,
-      encodingOrCallback?: BufferEncoding | ((error?: Error | null) => void),
-      callback?: (error?: Error | null) => void,
-    ): boolean => {
-      let text: string;
-      if (typeof chunk === "string") {
-        text = chunk;
-      } else {
-        text = Buffer.from(chunk).toString(
-          typeof encodingOrCallback === "string" ? encodingOrCallback : "utf8",
-        );
-      }
-      const enriched = maybeEnrichStdoutText(text);
-
-      if (typeof encodingOrCallback === "function") {
-        return previous(enriched, encodingOrCallback);
-      }
-      if (typeof callback === "function") {
-        return previous(enriched, encodingOrCallback as BufferEncoding, callback);
-      }
-      if (typeof encodingOrCallback === "string") {
-        return previous(enriched, encodingOrCallback);
-      }
-      return previous(enriched);
-    }) as typeof process.stdout.write;
-
-    mod.takeOverStdout();
-    proc[PROCESS_MARK] = true;
-  } catch (err) {
-    // Never block Pi startup if intercept fails.
+  const previous = output._write;
+  let warned = false;
+  output._write = ((chunk, encoding, callback) => {
+    const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+    let enriched = text;
     try {
-      if (!mod.isStdoutTakenOver?.()) {
-        mod.takeOverStdout();
-      }
-    } catch {
-      // ignore
+      enriched = maybeEnrichStdoutText(text);
+    } catch (error) {
+      if (!warned) console.error("[pi-grok-rpc-compat] completion enrichment failed; preserving official RPC output:", error);
+      warned = true;
     }
-    console.error("[pi-grok-rpc-compat] stdout intercept failed:", err);
-  }
+    // Pass unrelated bytes through unchanged, including binary/string identity.
+    const next = enriched === text ? chunk : typeof chunk === "string" ? enriched : Buffer.from(enriched, "utf8");
+    previous.call(output, next, encoding, callback);
+  }) as Write;
+  proc[PROCESS_MARK] = true;
 }
 
 export default async function (pi: ExtensionAPI): Promise<void> {
-  await installRunnerHooks();
-  await installGetCommandsStdoutIntercept();
+  // This bridge may be loaded manually in native Pi. Leave that host untouched.
+  if (process.env.PI_GROK !== "1") return;
+  const hookErrors: string[] = [];
+  try {
+    await installRunnerHooks();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    hookErrors.push(detail);
+    // Private internals can change on a Pi update; keep official RPC usable.
+    console.error(`[pi-grok-rpc-compat] private host hook unavailable: ${detail}`);
+  }
+  try {
+    await installGetCommandsStdoutIntercept();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    hookErrors.push(detail);
+    console.error(`[pi-grok-rpc-compat] completion hook unavailable: ${detail}`);
+  }
+
+  const prepareUi = (ctx: { mode: string; ui: unknown }) => {
+    if (ctx.mode === "rpc" || hasRpcUiBridge(ctx.ui)) installRpcUiBridge(ctx.ui);
+  };
+  pi.on("session_start", (_event, ctx) => {
+    prepareUi(ctx);
+    resetRpcUiBridge(ctx.ui);
+  });
+  pi.on("agent_start", (_event, ctx) => { prepareUi(ctx); setWorkingActive(ctx.ui, true); });
+  pi.on("agent_end", (_event, ctx) => { setWorkingActive(ctx.ui, false); });
+  pi.registerCommand("pi-ui-capabilities", {
+    description: "Pi extension UI: official RPC, native mappings, experimental host and unsupported calls",
+    handler: async (_args, ctx) => {
+      prepareUi(ctx);
+      ctx.ui.notify([
+        uiCapabilityReport(ctx.ui, ctx.mode),
+        ...hookErrors.map((error) => `Private hook unavailable: ${error}`),
+      ].join("\n"), "info");
+    },
+  });
 
   // User extensions such as loop.ts call sendUserMessage(), which re-enters
   // AgentSession.prompt with source="extension". Capture it before any later

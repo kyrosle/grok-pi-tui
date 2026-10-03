@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, mock, test } from "bun:test";
-import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { metaPath } from "./transport.ts";
@@ -200,6 +200,102 @@ test("remote host filters key release unless component opts in", () => {
 
   expect(regularInputs).toEqual([press]);
   expect(releaseAwareInputs).toEqual([release]);
+});
+
+test("Pi session shutdown closes a custom host and disposes its component exactly once", async () => {
+  const previous = process.env.PI_GROK_REMOTE_TUI;
+  process.env.PI_GROK_REMOTE_TUI = "1";
+  const handlers = new Map<string, (...args: any[]) => void>();
+  const pi = {
+    on: (event: string, handler: (...args: any[]) => void) => { handlers.set(event, handler); },
+    registerCommand() {},
+  };
+  let disposed = 0;
+  const ui = { custom: async (..._args: any[]): Promise<any> => undefined, setWidget() {} };
+  try {
+    registerRemoteTui(pi as never);
+    handlers.get("session_start")?.({}, { ui });
+    const result = ui.custom(() => ({ render: () => ["frame"], invalidate() {}, dispose() { disposed++; } }));
+    await new Promise((resolve) => setImmediate(resolve));
+    handlers.get("session_shutdown")?.();
+    expect(await result).toBeUndefined();
+    handlers.get("session_shutdown")?.();
+    expect(disposed).toBe(1);
+    expect(existsSync(metaPath())).toBe(false);
+  } finally {
+    handlers.get("session_shutdown")?.();
+    if (previous === undefined) delete process.env.PI_GROK_REMOTE_TUI;
+    else process.env.PI_GROK_REMOTE_TUI = previous;
+  }
+});
+
+test("Pi shallow UI wrapper retains the host marker and custom input ownership", async () => {
+  const ui = { custom: async (..._args: any[]): Promise<any> => undefined, setWidget() {} };
+  installCustomPatch(ui);
+  const original = ui.custom;
+  const wrapped = { ...ui, custom: (...args: unknown[]) => original(...args) };
+  const wrappedCustom = wrapped.custom;
+  installCustomPatch(wrapped as never);
+  expect(wrapped.custom).toBe(wrappedCustom);
+  expect((wrapped as Record<string, unknown>).__piGrokRemoteTuiHost).toBe(true);
+  expect(await wrapped.custom((_tui: unknown, _theme: unknown, _keys: unknown, done: (result: string) => void) => {
+    done("closed");
+    return { render: () => [], invalidate() {} };
+  })).toBe("closed");
+});
+
+test("id-scoped resize updates dimensions, invalidates focused content and recomputes overlay layout", async () => {
+  const widths: number[] = [];
+  const layouts: Record<string, unknown>[] = [];
+  let terminal: { columns: number; rows: number } | undefined;
+  let invalidated = 0;
+  let childInvalidated = 0;
+  let disposed = 0;
+  const ui = {
+    custom: async (..._args: any[]): Promise<any> => undefined,
+    setWidget(key: string, lines?: string[]) {
+      if (key === "__pi_grok_remote_tui_layout__" && lines?.[0]) layouts.push(JSON.parse(lines[0]));
+    },
+  };
+  installCustomPatch(ui);
+  const result = ui.custom((tui: any, _theme: unknown, _keys: unknown, done: (result: string) => void) => {
+    terminal = tui.terminal;
+    tui.setFocus({render:()=>[],invalidate(){childInvalidated++;},handleInput(data: string){if(data==="x") done("picked");}});
+    return {
+      render(width: number) { widths.push(width); return ["frame"]; },
+      invalidate() { invalidated++; }, dispose() { disposed++; },
+      handleInput() { throw new Error("resize stole child focus"); },
+    };
+  }, { overlay: true, overlayOptions: { width: "50%", maxHeight: "60%" } });
+  await new Promise((resolve) => setImmediate(resolve));
+  const { id, keysPath } = JSON.parse(readFileSync(metaPath(), "utf8"));
+  appendFileSync(keysPath, [
+    {id:"old",op:"resize",columns:200,rows:80},
+    {id,op:"resize",columns:120,rows:40},
+  ].map(value => JSON.stringify(value)+"\n").join(""));
+  await new Promise((resolve) => setTimeout(resolve, 75));
+  expect(terminal).toEqual({columns:120,rows:40});
+  expect(widths.at(-1)).toBe(60);
+  expect(layouts.at(-1)).toMatchObject({overlay:true,width:60,maxHeight:"60%"});
+  expect(invalidated).toBe(1);
+  expect(childInvalidated).toBe(1);
+  appendFileSync(keysPath, JSON.stringify({id,op:"input",data:"x"})+"\n");
+  expect(await result).toBe("picked");
+  expect(disposed).toBe(1);
+});
+
+test("a component failing resize invalidation releases focus and disposes the host", async () => {
+  let disposed = 0;
+  const ui = {custom:async (..._args: any[]): Promise<any> => undefined,setWidget(){}};
+  installCustomPatch(ui);
+  const result = ui.custom(() => ({render:()=>["frame"],invalidate(){throw new Error("resize failed");},dispose(){disposed++;}}));
+  const rejected = result.catch((error: Error) => error.message);
+  await new Promise((resolve) => setImmediate(resolve));
+  const {id,keysPath} = JSON.parse(readFileSync(metaPath(), "utf8"));
+  appendFileSync(keysPath, JSON.stringify({id,op:"resize",columns:100,rows:30})+"\n");
+  expect(await rejected).toBe("resize failed");
+  expect(disposed).toBe(1);
+  expect(existsSync(metaPath())).toBe(false);
 });
 
 test("custom host is NOT installed under native Pi (no PI_GROK)", async () => {

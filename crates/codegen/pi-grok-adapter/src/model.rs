@@ -6,6 +6,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod routing;
+pub use routing::{PiDispatchedModel, model_route_status, session_model_usage};
+
 /// Local Pi session metadata derived from the JSONL format owned by Pi.
 ///
 /// This mirrors the fields Pi's `SessionManager.listAll()` uses for its native
@@ -955,6 +958,14 @@ impl PiEntryReplayCache {
             .collect()
     }
 
+    pub fn latest_dispatched_model(&self) -> Option<PiDispatchedModel> {
+        self.active_branch_entries()
+            .into_iter()
+            .rev()
+            .filter_map(|entry| entry.get("message"))
+            .find_map(PiDispatchedModel::from_message)
+    }
+
     pub fn editor_text(&self, entry_id: &str) -> Option<String> {
         self.by_id
             .get(entry_id)
@@ -1066,6 +1077,12 @@ fn collect_models(value: &Value, provider_hint: &str, out: &mut Vec<PiModel>) {
             }
         }
         Value::Object(map) => {
+            if matches!(
+                map.get("type").and_then(Value::as_str),
+                Some("image" | "classifier")
+            ) {
+                return;
+            }
             if let Some(mut model) = parse_model(value) {
                 if model.provider.is_empty() {
                     model.provider = provider_hint.to_string();
@@ -1097,6 +1114,9 @@ fn collect_models(value: &Value, provider_hint: &str, out: &mut Vec<PiModel>) {
 }
 
 pub fn parse_model(value: &Value) -> Option<PiModel> {
+    if matches!(string(value, &["type"]), Some("image" | "classifier")) {
+        return None;
+    }
     let id = string(value, &["id", "modelId", "model_id"])?;
     // `api` is the protocol (openai-completions / anthropic-messages / …),
     // not the provider id — keep them separate so the picker can show both.

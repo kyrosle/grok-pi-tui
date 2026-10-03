@@ -7,6 +7,7 @@ mod jump;
 mod modes;
 mod notes;
 mod permissions;
+mod pi_controls;
 mod prompt;
 mod prompt_ack;
 mod queue_release;

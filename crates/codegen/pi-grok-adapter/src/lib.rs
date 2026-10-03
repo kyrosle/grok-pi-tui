@@ -27,6 +27,6 @@ mod tool_projection;
 mod workflow_host;
 
 pub use model::{PiSessionInfo, PiSessionSwitch, scan_local_sessions};
-pub use pi_adapter::{PiAgent, PiBootstrap};
+pub use pi_adapter::{PiAgent, PiBootstrap, ResourceAdmissionPlanner};
 pub use pi_rpc::{PiProcess, PiRpc, SpawnConfig};
 pub use subagent_transport::SubagentEventTransport;

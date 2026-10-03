@@ -57,6 +57,7 @@ impl PiAgent {
         self.send_models(bootstrap).await;
         self.send_session_title(bootstrap.state.session_name.as_deref())
             .await;
+        self.publish_model_route(None).await;
     }
 
     pub(super) async fn replay_history(&self) -> Result<()> {
@@ -87,6 +88,7 @@ impl PiAgent {
         }
         if refreshed {
             self.send_btw_history(btw_history, "replay").await;
+            self.publish_model_route(None).await;
         }
         Ok(())
     }

@@ -9,10 +9,12 @@ test("key transport buffers partial records and ignores stale component input/ca
   const dir = mkdtempSync(join(tmpdir(), "remote-tui-transport-test-"));
   const keysPath = join(dir, "keys.jsonl");
   const inputs: string[] = [];
+  const resizes: number[][] = [];
   const host = {
     id: "current", keysPath, keyOffset: 0, closed: false,
     close: () => { host.closed = true; },
     handleInput: (data: string) => inputs.push(data),
+    resize: (columns: number, rows: number) => resizes.push([columns, rows]),
   } as ActiveHost;
   try {
     writeFileSync(keysPath, '{"id":"current","op":"input","data":"a"');
@@ -24,11 +26,17 @@ test("key transport buffers partial records and ignores stale component input/ca
     appendFileSync(keysPath, [
       { id: "old", op: "input", data: "s" },
       { id: "old", op: "cancel" },
+      { id: "old", op: "resize", columns: 100, rows: 40 },
+      { id: "current", op: "resize", columns: 0, rows: 10 },
+      { id: "current", op: "resize", columns: 10, rows: 1.5 },
+      { id: "current", op: "resize", columns: 65536, rows: 10 },
+      { id: "current", op: "resize", columns: 52, rows: 17 },
       { id: "current", op: "input", data: "\x1b" },
     ].map((event) => JSON.stringify(event) + "\n").join(""));
     drainKeys(host);
     expect(host.closed).toBe(false);
     expect(inputs).toEqual(["a", "\x1b"]);
+    expect(resizes).toEqual([[52, 17]]);
     appendFileSync(keysPath, JSON.stringify({ id: "current", op: "cancel" }) + "\n");
     drainKeys(host);
     expect(host.closed).toBe(true);

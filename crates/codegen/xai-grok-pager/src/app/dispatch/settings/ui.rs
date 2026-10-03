@@ -21,7 +21,7 @@ use super::setters::{
     set_vim_mode_inner, set_voice_capture_mode_inner, set_voice_keybind_enabled_inner,
     set_voice_stt_language_inner, set_write_edit_hover_popups_inner,
 };
-use crate::app::actions::{Action, Effect};
+use crate::app::actions::{Action, Effect, PiControlMethod};
 use crate::app::app_view::{ActiveView, AppView};
 use crate::app::dispatch::ctx::with_active_agent;
 use crate::app::dispatch::modes::{set_yolo_mode_inner, sync_active_auto_flag};
@@ -525,8 +525,13 @@ pub(in crate::app::dispatch) fn dispatch_open_pi_config(app: &mut AppView) -> Ve
     let Some(cwd) = app.agents.get(&id).map(|agent| agent.session.cwd.clone()) else {
         return vec![];
     };
+    if app.external_agent && app.agents.get(&id).and_then(|agent| agent.session.session_id.as_ref()).is_none() {
+        app.show_toast("Pi session is not ready");
+        return vec![];
+    }
     match crate::views::pi_config::PiConfigModalState::open(cwd) {
-        Ok(state) => {
+        Ok(mut state) => {
+            if app.external_agent { state.begin_snapshot_load(); }
             if let Some(agent) = app.agents.get_mut(&id) {
                 agent.active_modal = Some(ActiveModal::PiConfig {
                     state: Box::new(state),
@@ -538,7 +543,24 @@ pub(in crate::app::dispatch) fn dispatch_open_pi_config(app: &mut AppView) -> Ve
             app.show_toast(&message);
         }
     }
-    vec![]
+    if app.external_agent && app.agents.get(&id).is_some_and(|agent| matches!(agent.active_modal, Some(ActiveModal::PiConfig { .. }))) {
+        dispatch_pi_control(app, PiControlMethod::PackagesList, serde_json::json!({}))
+    } else { vec![] }
+}
+
+pub(in crate::app::dispatch) fn dispatch_pi_control(app: &mut AppView, method: PiControlMethod, mut params: serde_json::Value) -> Vec<Effect> {
+    if !app.external_agent {
+        app.show_toast("Pi controls are available in Pi sessions");
+        return vec![];
+    }
+    let ActiveView::Agent(agent_id) = app.active_view else { return vec![]; };
+    let Some(session_id) = app.agents.get(&agent_id).and_then(|agent| agent.session.session_id.clone()) else {
+        app.show_toast("Pi session is not ready");
+        return vec![];
+    };
+    let Some(object) = params.as_object_mut() else { return vec![]; };
+    object.insert("sessionId".into(), serde_json::json!(session_id.0.as_ref()));
+    vec![Effect::PiControlRequest { agent_id, session_id, method, params }]
 }
 
 /// Open the native Pi provider/model management center.

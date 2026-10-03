@@ -18,7 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pi_contract_sources import load_pi_contract
+from pi_contract_sources import load_pi_contract, runtime_rpc_commands
 
 
 def sha256(path: Path) -> str:
@@ -45,6 +45,7 @@ def source_files(root: Path) -> set[str]:
 
 UPSTREAM_COMMIT = "37949780c144e37df692e3d669051a21fec24f20"
 INTEGRATION_COMMIT = "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+PHASE_REVIEW_BASE_COMMIT = "84174917511690447ba32915571e9748b5e10ad4"
 PHASE_MANIFEST_PATH = "crates/codegen/pi-grok-adapter/docs/grok_uploaded_baseline_sha256.json"
 PHASE_MANIFEST_HASH_MODE = "canonical-json-without-self-sha256"
 NATIVE_COMPONENT_PREFIXES = (
@@ -121,6 +122,11 @@ def verify_source_identity(
         baseline_errors.append("upstream source commit/revision/tree mismatch")
     if manifest.get("integrationSource") != {"commit": INTEGRATION_COMMIT, "tree": integration_tree}:
         baseline_errors.append("frozen integration source commit/tree mismatch")
+    review_tree = subprocess.check_output(
+        ["git", "rev-parse", f"{PHASE_REVIEW_BASE_COMMIT}^{{tree}}"], cwd=root, text=True,
+    ).strip()
+    if manifest.get("phaseReviewBaseSource") != {"commit": PHASE_REVIEW_BASE_COMMIT, "tree": review_tree}:
+        declaration_errors.append("previous Pi-first phase review-base commit/tree mismatch")
     if manifest.get("baselineFiles") != upstream or manifest.get("baselineFileCount") != len(upstream):
         baseline_errors.append("upstream file inventory/hashes differ from source Git blobs")
 
@@ -212,6 +218,7 @@ def verify_source_identity(
         "historicalNativeCarryovers": sorted(p for p, item in historical.items() if item.get("category") == "historical-native-carryover"),
         "semanticReviewRequired": sorted(p for p, item in historical.items() if item.get("semanticReview") == "provenance-only"),
         "phaseSeamCount": len(phase),
+        "phaseReviewBaseCommit": PHASE_REVIEW_BASE_COMMIT,
         "unfrozenPhaseSeams": sorted(p for p, item in phase.items() if "sha256" not in item),
         "protectedNativeFileCount": len(native_upstream),
     }
@@ -482,6 +489,7 @@ def main() -> int:
         "doctor",
         "debug",
         "pi-config",
+        "pi-runtime",
         "pi-models",
         "pi-shortcut-manager",
     ]
@@ -539,13 +547,16 @@ def main() -> int:
         "set_thinking_level",
         "set_session_name",
     }
+    runtime_commands, runtime_command_errors = runtime_rpc_commands(read(adapter / "src/pi_adapter/runtime.rs"))
+    adapter_command_tokens.update(runtime_commands)
     missing_rpc_commands = sorted(adapter_command_tokens - pi_command_tokens)
     check(
         "adapter_rpc_calls_exist_in_uploaded_pi",
-        not missing_rpc_commands,
-        f"validated {len(adapter_command_tokens)} adapter RPC calls against Pi {pi_identity['version']} {pi_identity['kind']}"
-        if not missing_rpc_commands
-        else f"missing Pi RPC commands: {missing_rpc_commands}",
+        not missing_rpc_commands and not runtime_command_errors,
+        f"validated {len(adapter_command_tokens)} declared adapter RPC contracts including the explicit runtime generator against Pi {pi_identity['version']} {pi_identity['kind']}"
+        if not missing_rpc_commands and not runtime_command_errors
+        else f"missing Pi RPC commands: {missing_rpc_commands}; runtime generation errors: {runtime_command_errors}",
+        {"commands": sorted(adapter_command_tokens), "runtimeGeneratorCommands": sorted(runtime_commands)},
     )
 
     expected_ui = {

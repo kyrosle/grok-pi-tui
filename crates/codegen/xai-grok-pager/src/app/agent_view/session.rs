@@ -165,6 +165,7 @@ impl AgentView {
             modal_buttons: Vec::new(),
             modal_hovered_key: None,
             context_state: None,
+            external_context_window: None,
             status_context: None,
             last_status_line_size: None,
             chat_kind: false,
@@ -733,6 +734,7 @@ impl AgentView {
     /// Open a reconnect reload window: stash the current transcript/tracker and point the live fields at fresh state for the `session/load` replay.
     /// The transcript is NOT cleared; it stays recoverable until [`finish_session_reload`](Self::finish_session_reload) decides the outcome.
     pub(crate) fn begin_session_reload(&mut self, generation: u64) {
+        self.external_context_window = None;
         self.dismiss_jump_picker();
         self.dismiss_fork_picker();
         if let Some(prev) = self.session_reload.take() {

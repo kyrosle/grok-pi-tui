@@ -2,6 +2,22 @@ use crate::{model::json_text, queue_bridge::QueueLane};
 use agent_client_protocol as acp;
 use serde_json::{Value, json};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PiInputDisposition {
+    Started,
+    Queued,
+    Handled,
+}
+
+pub(crate) fn pi_input_disposition(response: &Value) -> Option<PiInputDisposition> {
+    match response.get("disposition").and_then(Value::as_str) {
+        Some("started") => Some(PiInputDisposition::Started),
+        Some("queued") => Some(PiInputDisposition::Queued),
+        Some("handled") => Some(PiInputDisposition::Handled),
+        _ => None,
+    }
+}
+
 pub(crate) fn direct_bash_command(blocks: &[acp::ContentBlock]) -> Option<String> {
     blocks.iter().find_map(|block| {
         let acp::ContentBlock::Text(text) = block else {

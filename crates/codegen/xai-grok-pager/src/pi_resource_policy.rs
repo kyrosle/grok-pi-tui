@@ -95,15 +95,17 @@ impl ResourcePolicy {
     /// Load layered policy: user home → project config → project sidecar.
     /// Returns `Default` when no layers exist.
     pub fn load_from_config() -> Self {
+        Self::load_for_cwd(&std::env::current_dir().unwrap_or_default())
+    }
+
+    pub fn load_for_cwd(cwd: &Path) -> Self {
         let mut policy = Self::default();
         let home = xai_grok_config::grok_home().join("config.toml");
         policy.merge_partial(&load_partial_from_path(&home));
 
-        if let Ok(cwd) = std::env::current_dir() {
-            if let Some((project_config, sidecar)) = project_policy_paths(&cwd) {
-                policy.merge_partial(&load_partial_from_path(&project_config));
-                policy.merge_partial(&load_partial_from_path(&sidecar));
-            }
+        if let Some((project_config, sidecar)) = project_policy_paths(cwd) {
+            policy.merge_partial(&load_partial_from_path(&project_config));
+            policy.merge_partial(&load_partial_from_path(&sidecar));
         }
         policy
     }

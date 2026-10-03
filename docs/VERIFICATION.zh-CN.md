@@ -1,5 +1,34 @@
 # Grok Native TUI × Pi 验证报告
 
+## 2026-10-03 深度适配：已交付自动证据
+
+本轮从干净 `main@84174917511690447ba32915571e9748b5e10ad4` 开始；[SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md)、[PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md)、[source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md) 保留范围、检查点与失败 captures。修正后的 shipping source/fixtures 已冻结，最新 build、4 native PTY、组合 verify 均通过；一个明确委任的集成 runner 运行 Cargo/build/commit。**DA-10仍未关闭**：一次SDK真实chat之外，OAuth、真实图片、真人provider的nativeUI和目标终端真人验收未完成或获明确延期。
+
+| 要求 / 证据层 | 结果 | 证据与边界 |
+|---|---|---|
+| DA-01 / disposition | PASS，有界 | Adapter lib207、disposition1 target/4scenarios、actuallifecycle1；started/queued/handled、晚回目标slot/reservation、取消、operation-scoped有界legacyprobe保持独立工作及一次completion。 |
+| DA-02 / 运行控制 | PASS | 官方retry/compaction/abort-retry、持久化与native取消通过SDK/RPC/PTY；livecompaction与configuredretry分开，公开RPC没有live retry-policy getter。 |
+| DA-03/04 / package/reload | PASS，命名路径 | Native真实Pi local install/remove及factory/command registry通过。FreshSDK installedPath/publicCONFIG_DIR_NAME settingsbase校正声明相对source；继承update取选中resource实际source scope。保留pins/filters/CLI限制/trust；不变admission走ctx.reload+ACK，变更输入走officialEOF/restart与公开session/leaf/model/thinking恢复。 |
+| DA-04 / safe defer | 已确认边界 | 无persistent sessionFile及user-message leaf保留旧process/context、返回saved/deferred，待完成响应或手动重启；不改用户JSONL、不静默变history。 |
+| DA-04 / loader errors | 已确认边界 | Invalidrelativeimport可能officialreload成功但无command/stderr/extension_error；只陈述registry并loaded:null/loadStatus:unverified。Native前置Load unverified防左pane裁掉边界。false/missing/nonboolean业务ACK单独失败；有界stderr不覆盖完整hiddenloadererrors。 |
+| DA-04 / Web revision | PASS，有界 | Bun7tests/195assertions：GETpreflight+serverrevision/If-Match拒绝缺条件428/旧版本409，保留未知字段。compare/rename不是外部同时写的完整CAS，公开SDK无FileSettingsStorage transaction。 |
+| DA-05/06 / 模型 | PASS，合成管线 | ActualPi virtualdispatch/context/cost+image/classifier Codemode live/replay ACP及nativeimageaffordance/classifiercost通过；selected/physical/thinking与unattributed明确，chatpicker排除非chat；不代替真实图片provider推理。 |
+| DA-07/08 / extension UI | PASS，有界 | standard/mapped/degraded/unsupported、workingstatus、实际host门控facade、focus/input/resize/dispose、SDK/nativeprojection1target/7scenarios；不保证所有第三方factory。 |
+| DA-09 / tests/profiles | PASS，有界 | Combinedverify：adapter207lib+disposition1/ACK1/EOF2非ignored、隔离binary98、productionno-default jemalloc/sandbox-enforce与stockdefaultchecks、另2个native单testfilter。Actualignored resource3/lifecycle1/nativeprojection1/modelprojection1另实际执行；资源modal17及其他focused通过，未跑总10146-testPager全suite。 |
+| DA-09 / graph | PASS | Freshproductionnormal/build806packages，七禁止stockruntimes全空；stockcheck另exit0/1m55s。数量不代表coldbuild节省或跨平台runtime验收。 |
+| DA-09 / source/negative/syntax/mock | PASS | Guard21/21：原始3797Git blobs、历史4479、上一84174917、native830/protected3147分层；phase722逐文件、unfrozen空、无目录豁免。Recursive rustfmt1662/failures空、negative、mock8checks/33lines/stderrempty通过；18声明RPC含explicitgenerator，不称任意computed类型全覆盖。仅selfmanifest canonicalomitselfSHA。 |
+| DA-10 / 真实验收 | 部分PASS；其余PENDING | 配置defaultopenai-codex/gpt-6.1-sol单次SDKchat HTTP200/requests1/OK/真实files不变；未完成native真实provider/OAuth/image/真人targetterminal，亦无明确延期，整体goal保持进行中。 |
+
+最终artifact：**184,693,160bytes**，SHA-256 `9c46d5c6d0b9a3b85657b2fbb5ecc2bcd8e2256a571347863f03db36115c74ad`；正式build exit0/Cargo22.34s，proof `/tmp/grok-pi-deep-artifact-settings-scope-final-20261003.json`，log `/tmp/grok-pi-deep-build-settings-scope-final-20261003.log`。Source stamp为precommit fe7515f528e7cb6ace46ed8dfa7edbe6b32fcc5e+dirtyfrozen settings-scope，不声称cleanfinalHEAD/coldbenchmark；后续doc-onlyreceipts不变更测试binary。
+
+最终4nativePTY均exit0，前后binarySHA不变：runtimecontrols/retrycancel；package实际localinstall/remove、registry/session/file/leaf/branch/model/thinking保全、local源保留、取消PIDdead；virtualmodel/image/classifiercard/cost；RemoteTUIresize/input/dispose。报告 `/tmp/grok-pi-deep-pty-settings-scope-final-20261003/report.json`，保留真实process/UItrace与xterm/headlesscaptures。旧readiness/admission/origin/noticevisibility/relativebase失败保留PLAN，不抹掉。
+
+Combined `./verify.sh` exit0并结束Allverificationpassed，log `/tmp/grok-pi-deep-verify-settings-scope-final-20261003.log`，完整archive `/tmp/grok-pi-deep-verify-settings-scope-final-20261003/`。Transport2/actualrestore3/packageunit3/nativemodal17最新logs见PLAN；早期no-defaultPagerlibtest167feature-dependent编译错误仍记录，defaultfocused不冒称全suite。
+
+真实SDK命令 `node crates/codegen/pi-grok-adapter/tests/pi_real_chat_smoke.mjs --execute-once`，项目rootcwd/exit0，safeproof `/tmp/grok-pi-real-chat-sdk-20261003.json`。Thinkingminimal→sentlow；input21/output5/total26/reasoning0；SDKcatalogcost0.000092（非billingreceipt），无abort。Server不支持maxTokens32hardcap，使用SSE/noretries、20sdeadline与观察>64textbytes后abort，不保证<=32。已有freshOAuth仅内存，无tools/session/refresh/login/credential-command/persistent写；preflight0dispatch/hash不变通过。独立脚本不embedded、不改shippingbinary，不替代剩余DA-10。
+
+## 历史记录：2026-07-17
+
 验证日期：2026-07-17
 交付版本：`pi-grok-native-v4.0.0`
 

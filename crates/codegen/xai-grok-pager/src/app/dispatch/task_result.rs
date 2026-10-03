@@ -481,6 +481,40 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
         crate::app::workspace_sync::request(app);
     }
     match result {
+        TaskResult::PiControlComplete { agent_id, session_id, method, result } => {
+            use crate::app::actions::PiControlMethod;
+            let Some(agent) = app.agents.get_mut(&agent_id) else { return vec![]; };
+            if agent.session.session_id.as_ref() != Some(&session_id) { return vec![]; }
+            if let Some(crate::views::modal::ActiveModal::PiConfig { state }) = agent.active_modal.as_mut() {
+                match method {
+                    PiControlMethod::PackagesList => state.finish_snapshot(result.clone()),
+                    PiControlMethod::PackagesAction | PiControlMethod::ResourcesReload => state.finish_operation(result.clone()),
+                    _ => {}
+                }
+            }
+            let reloaded = result.as_ref().is_ok_and(|value|
+                value.get("reloaded").and_then(serde_json::Value::as_bool) == Some(true)
+                || (method == PiControlMethod::ResourcesReload && value.get("ok").and_then(serde_json::Value::as_bool) == Some(true)));
+            let message = match &result {
+                Err(error) => Some(format!("Pi operation failed: {error}")),
+                Ok(value) if method == PiControlMethod::PackagesCancel => Some(
+                    if value.get("cancelRequested").and_then(serde_json::Value::as_bool) == Some(true) {
+                        "Package cancellation requested".to_owned()
+                    } else { "No package operation is running".to_owned() }),
+                Ok(value) => value.get("message").and_then(serde_json::Value::as_str).map(str::to_string)
+                    .or_else(|| reloaded.then(|| "Pi registry refreshed · extension load status unverified".to_owned())),
+            };
+            if let Some(message) = &message {
+                if method == PiControlMethod::RuntimeControl {
+                    agent.scrollback.push_block(RenderBlock::system(message.clone()));
+                }
+            }
+            let effects = if reloaded {
+                super::session::pi_fork::handle_pi_session_reloaded(app, agent_id, session_id.0.to_string())
+            } else { vec![] };
+            if let Some(message) = message { app.show_toast(&message); }
+            effects
+        }
         TaskResult::WithPinnedMemoryMode { .. } => {
             unreachable!("pinned memory mode wrapper is removed before task-result dispatch")
         }

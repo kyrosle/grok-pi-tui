@@ -206,14 +206,15 @@ impl PiAgent {
             prompt_id
         };
         let request = json!({ "type": "prompt", "message": message });
-        if let Err(error) = self.rpc.request(request).await {
-            self.remove_prompt(prompt_id);
-            return Err(acp_internal(error));
-        }
-        let probe = self.clone();
-        tokio::task::spawn_local(async move {
-            probe.probe_prompt_without_agent().await;
-        });
+        let response = match self.rpc.request(request).await {
+            Ok(response) => response,
+            Err(error) => {
+                self.remove_prompt(prompt_id);
+                return Err(acp_internal(error));
+            }
+        };
+        self.apply_prompt_response(&response, Some(prompt_id), None, false)
+            .await;
         let _ = completion_rx.await;
         Ok(())
     }
@@ -970,6 +971,7 @@ impl PiAgent {
 
         let result = self.reload_session_resources_inner().await;
         self.state.borrow_mut().reload_in_flight = false;
+        self.dispatch_next_queued().await;
         result
     }
 
@@ -989,6 +991,17 @@ impl PiAgent {
             return Err(acp::Error::internal_error()
                 .data("Wait for compaction to finish before reloading."));
         }
+        let replacement_args = if let Some(planner) = &self.resource_admission_planner {
+            let mut snapshot = self.package_snapshot().await?;
+            snapshot["currentPiArgs"] = json!(self.rpc.spawn_config().pi_args);
+            let args = planner(&snapshot).map_err(acp_internal)?;
+            (args != self.rpc.spawn_config().pi_args).then_some(args)
+        } else {
+            None
+        };
+        if let Some(args) = replacement_args {
+            return self.restart_with_resource_admission(args, &state).await;
+        }
         // Pi interactive calls `resetExtensionUI()` after the same gates and
         // before `session.reload()`. Its extension runner is about to be
         // replaced, so Pager must not retain widgets/statuses/shortcuts from
@@ -996,13 +1009,179 @@ impl PiAgent {
         // notification; the adapter remains headless.
         self.send_ext_notification("pi/ui/reset_extension_ui", json!({}))
             .await;
-        self.run_bridge_command(RELOAD_COMMAND, "").await?;
+        let response_dir = tempfile::tempdir().map_err(acp_internal)?;
+        let response_path = response_dir.path().join("reload.json");
+        self.run_bridge_command(
+            RELOAD_COMMAND,
+            &json!({"responsePath":response_path}).to_string(),
+        )
+        .await?;
+        let acknowledgement: Value =
+            serde_json::from_slice(&std::fs::read(&response_path).map_err(acp_internal)?)
+                .map_err(acp_internal)?;
+        if acknowledgement.get("ok").and_then(Value::as_bool) != Some(true) {
+            return Err(acp::Error::internal_error().data(
+                string(&acknowledgement, &["error"])
+                    .unwrap_or("Pi reload did not acknowledge success"),
+            ));
+        }
         let bootstrap = self.refresh().await.map_err(acp_internal)?;
         self.publish_bootstrap(&bootstrap).await;
+        self.refresh_context_usage().await;
+        let snapshot = self.package_snapshot().await.ok();
         Ok(json!({
             "ok": true,
+            "status": "registry_refreshed",
+            "reloaded": true,
+            "loaded": null,
+            "loadStatus": "unverified",
+            "snapshot": snapshot,
             "sessionId": bootstrap.state.session_id,
         }))
+    }
+
+    /// Resource admission uses the real Pi process and public session APIs.
+    /// No session JSONL edits or extension factory emulation are involved.
+    async fn restart_with_resource_admission(
+        &self,
+        args: Vec<String>,
+        previous: &PiState,
+    ) -> Result<Value, acp::Error> {
+        let path = previous.session_file.as_deref().map(Path::new)
+            .filter(|path| path.is_file())
+            .ok_or_else(|| acp::Error::internal_error().data(
+                "Resource declarations are saved, but this session has no persistent sessionFile. Preserve the in-memory conversation and restart grok-pi to apply them."))?;
+        let entries = self
+            .rpc
+            .request(json!({"type":"get_entries"}))
+            .await
+            .map_err(acp_internal)?;
+        let (leaf_id, user_leaf) = crate::pi_rpc::with_large_stack(move || {
+            let leaf = string(&entries, &["leafId"]).map(str::to_owned);
+            let user = entries
+                .get("entries")
+                .and_then(Value::as_array)
+                .is_some_and(|rows| {
+                    rows.iter().any(|entry| {
+                        entry.get("id").and_then(Value::as_str) == leaf.as_deref()
+                            && entry
+                                .get("message")
+                                .and_then(|message| message.get("role"))
+                                .and_then(Value::as_str)
+                                == Some("user")
+                    })
+                });
+            (leaf, user)
+        });
+        if user_leaf {
+            return Err(acp::Error::internal_error().data("Resource declarations are saved; Pi navigateTree edits a user-message leaf by moving to its parent. Finish the response or restart manually to preserve this leaf."));
+        }
+        // The workflow scheduler lives outside Pi. Drain it while its bridge
+        // can still reach the old child; EOF then runs Pi's own child-scope teardown.
+        let workflow = self.workflow_host.borrow().clone();
+        if let Some(host) = workflow {
+            host.shutdown().await.map_err(acp_internal)?;
+            self.workflow_host.borrow_mut().take();
+        }
+        let idle = parse_state(
+            &self
+                .rpc
+                .request(json!({"type":"get_state"}))
+                .await
+                .map_err(acp_internal)?,
+        );
+        if idle.is_streaming
+            || idle.is_compacting
+            || idle.session_id != previous.session_id
+            || idle.session_file != previous.session_file
+        {
+            return Err(acp::Error::internal_error()
+                .data("Pi session changed or became busy; resource restart was deferred"));
+        }
+        self.send_ext_notification("pi/ui/reset_extension_ui", json!({}))
+            .await;
+        self.rpc
+            .shutdown_gracefully(Duration::from_secs(35))
+            .await
+            .map_err(acp_internal)?;
+        self.rpc
+            .respawn_with_args(args)
+            .await
+            .map_err(acp_internal)?;
+        let startup = PiBootstrap::load(&self.rpc).await.map_err(acp_internal)?;
+        self.replace_bootstrap(startup);
+        let switched = self
+            .switch_session(path, &previous.session_id)
+            .await
+            .map_err(acp_internal)?;
+        if switched.cancelled {
+            return Err(acp::Error::internal_error().data(
+                "Pi resource restart completed, but restoring the previous session was cancelled",
+            ));
+        }
+        let restored_model = self.state.borrow().bootstrap.state.model.clone();
+        if let Some(model) = &idle.model
+            && !restored_model
+                .as_ref()
+                .is_some_and(|current| current.provider == model.provider && current.id == model.id)
+        {
+            self.rpc
+                .request(json!({"type":"set_model","provider":model.provider,"modelId":model.id}))
+                .await
+                .map_err(acp_internal)?;
+        }
+        let selected = parse_state(
+            &self
+                .rpc
+                .request(json!({"type":"get_state"}))
+                .await
+                .map_err(acp_internal)?,
+        );
+        if !idle.thinking_level.is_empty() && selected.thinking_level != idle.thinking_level {
+            self.rpc
+                .request(json!({"type":"set_thinking_level","level":idle.thinking_level}))
+                .await
+                .map_err(acp_internal)?;
+        }
+        if let Some(leaf) = &leaf_id {
+            // The command uses official ctx.navigateTree; summary is off.
+            self.run_bridge_command(NAVIGATE_TREE_COMMAND, leaf).await?;
+        }
+        let restored = self
+            .rpc
+            .request(json!({"type":"get_entries"}))
+            .await
+            .map_err(acp_internal)?;
+        let actual = crate::pi_rpc::with_large_stack(move || {
+            string(&restored, &["leafId"]).map(str::to_owned)
+        });
+        if actual != leaf_id {
+            return Err(acp::Error::internal_error()
+                .data("Pi resource restart could not restore the previous tree leaf"));
+        }
+        let bootstrap = self.refresh().await.map_err(acp_internal)?;
+        if bootstrap.state.session_id != previous.session_id {
+            return Err(acp::Error::internal_error()
+                .data("Pi resource restart restored a different session"));
+        }
+        if bootstrap.state.thinking_level != idle.thinking_level
+            || idle.model.as_ref().is_some_and(|wanted| {
+                !bootstrap.state.model.as_ref().is_some_and(|actual| {
+                    actual.provider == wanted.provider && actual.id == wanted.id
+                })
+            })
+        {
+            return Err(acp::Error::internal_error().data(
+                "Pi resources restarted but the selected model/thinking could not be restored",
+            ));
+        }
+        self.publish_bootstrap(&bootstrap).await;
+        self.refresh_context_usage().await;
+        let snapshot = self.package_snapshot().await?;
+        Ok(
+            json!({"ok":true,"status":"registry_refreshed","reloaded":true,"restarted":true,
+            "loaded":null,"loadStatus":"unverified","snapshot":snapshot,"sessionId":bootstrap.state.session_id}),
+        )
     }
 
     /// Duplicate the current Pi leaf into a new session file (`position: "at"`).

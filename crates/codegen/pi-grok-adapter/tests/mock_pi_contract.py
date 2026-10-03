@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import queue
+import re
 import threading
 import subprocess
 import sys
@@ -13,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from pi_contract_sources import load_pi_contract
+from pi_contract_sources import load_pi_contract, runtime_rpc_commands
 
 
 def main() -> int:
@@ -128,6 +129,8 @@ def main() -> int:
     }
 
     pi_identity, pi_rpc_types, _, _ = load_pi_contract(args.pi_source)
+    runtime_commands, runtime_errors = runtime_rpc_commands((root / "src/pi_adapter/runtime.rs").read_text())
+    pi_commands = set(re.findall(r'type:\s*"([a-zA-Z0-9_]+)"', pi_rpc_types.split("// RPC Responses", 1)[0]))
     settled = adapter_source.partition('"agent_settled" => {')[2].split('\n            "', 1)[0]
     checks = {
         "mock_ui_methods": ui_methods == expected_ui,
@@ -138,6 +141,7 @@ def main() -> int:
         and '"agent_end" => {}' in adapter_source,
         "history_is_requested": '"type": "get_messages"' in adapter_source,
         "pi_commands_are_discovered": '"type": "get_commands"' in adapter_source,
+        "production_runtime_generator_matches_installed_pi": not runtime_errors and runtime_commands <= pi_commands,
     }
 
     proc.stdin.close()
@@ -148,6 +152,8 @@ def main() -> int:
     report = {
         "passed": all(checks.values()) and proc.returncode == 0 and not stderr,
         "piContract": pi_identity,
+        "runtimeGeneratorCommands": sorted(runtime_commands),
+        "runtimeContractErrors": runtime_errors,
         "checks": checks,
         "uiMethods": sorted(ui_methods),
         "eventTypes": sorted(str(value) for value in event_types),

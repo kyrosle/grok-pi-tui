@@ -72,11 +72,13 @@ pub struct PiRpc {
 /// control senders are swappable so `respawn` can attach a replacement child
 /// process without invalidating existing clones or the events receiver.
 struct RpcShared {
-    config: SpawnConfig,
+    config: Mutex<SpawnConfig>,
+    stderr_ring: Mutex<Arc<Mutex<StderrRingBuffer>>>,
     writer: Mutex<mpsc::UnboundedSender<Value>>,
     /// Control channel for the exit coordinator, which is the sole owner of
     /// the child process. This avoids holding a mutex across `Child::wait()`.
     child_control: Mutex<mpsc::UnboundedSender<ChildControl>>,
+    stdin_close: Mutex<Option<oneshot::Sender<()>>>,
     pending: PendingMap,
     next_id: AtomicU64,
     /// Event sink shared across child generations; `PiProcess::events` keeps
@@ -92,6 +94,10 @@ pub struct PiProcess {
 }
 
 enum ChildControl {
+    ExpectExit {
+        armed: oneshot::Sender<()>,
+        exited: oneshot::Sender<Result<(), String>>,
+    },
     Kill {
         done: oneshot::Sender<()>,
         /// Marks the resulting `adapter_process_exit` event as a deliberate
@@ -104,6 +110,8 @@ enum ChildControl {
 struct ChildEndpoints {
     writer: mpsc::UnboundedSender<Value>,
     child_control: mpsc::UnboundedSender<ChildControl>,
+    stderr_ring: Arc<Mutex<StderrRingBuffer>>,
+    stdin_close: oneshot::Sender<()>,
 }
 
 impl PiRpc {
@@ -114,9 +122,11 @@ impl PiRpc {
         Ok(PiProcess {
             rpc: PiRpc {
                 shared: Arc::new(RpcShared {
-                    config,
+                    config: Mutex::new(config),
+                    stderr_ring: Mutex::new(endpoints.stderr_ring),
                     writer: Mutex::new(endpoints.writer),
                     child_control: Mutex::new(endpoints.child_control),
+                    stdin_close: Mutex::new(Some(endpoints.stdin_close)),
                     pending,
                     next_id: AtomicU64::new(1),
                     event_tx,
@@ -131,24 +141,121 @@ impl PiRpc {
     /// original config. The pending map and event channel are reused, so all
     /// `PiRpc` clones and the `PiProcess::events` receiver keep working.
     pub async fn respawn(&self) -> Result<()> {
+        self.respawn_with_args(self.spawn_config().pi_args).await
+    }
+
+    /// Replace only startup arguments after the composition admission planner
+    /// recomputes resources. The executable, cwd and environment stay selected.
+    pub async fn respawn_with_args(&self, pi_args: Vec<String>) -> Result<()> {
         // Defensive teardown so two Pi children can never coexist. Marked
         // intentional: if the old child was somehow still alive, its exit
         // event must not trigger another round of crash recovery.
         self.kill().await;
         let generation = self.shared.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let mut config = self.spawn_config();
+        config.pi_args = pi_args;
         let endpoints = attach_child(
-            &self.shared.config,
+            &config,
             &self.shared.pending,
             &self.shared.event_tx,
             generation,
         )?;
+        *self.shared.config.lock().expect("Pi spawn config poisoned") = config;
         *self.shared.writer.lock().expect("Pi writer poisoned") = endpoints.writer;
+        *self
+            .shared
+            .stderr_ring
+            .lock()
+            .expect("Pi stderr capture poisoned") = endpoints.stderr_ring;
         *self
             .shared
             .child_control
             .lock()
             .expect("Pi child control poisoned") = endpoints.child_control;
+        *self
+            .shared
+            .stdin_close
+            .lock()
+            .expect("Pi stdin close poisoned") = Some(endpoints.stdin_close);
         Ok(())
+    }
+
+    pub(crate) fn spawn_config(&self) -> SpawnConfig {
+        self.shared
+            .config
+            .lock()
+            .expect("Pi spawn config poisoned")
+            .clone()
+    }
+
+    pub(crate) fn generation(&self) -> u64 {
+        self.shared.generation.load(Ordering::SeqCst)
+    }
+
+    /// EOF enters Pi's official RPC shutdown/dispose path. Wait for the old
+    /// child and its exit coordinator before a replacement can start.
+    pub async fn shutdown_gracefully(&self, deadline: Duration) -> Result<()> {
+        let (armed_tx, armed_rx) = oneshot::channel();
+        let (exited_tx, exited_rx) = oneshot::channel();
+        self.shared
+            .child_control
+            .lock()
+            .expect("Pi child control poisoned")
+            .send(ChildControl::ExpectExit {
+                armed: armed_tx,
+                exited: exited_tx,
+            })
+            .map_err(|_| anyhow!("Pi process control is closed"))?;
+        armed_rx
+            .await
+            .map_err(|_| anyhow!("Pi intentional shutdown could not be armed"))?;
+        let close = self
+            .shared
+            .stdin_close
+            .lock()
+            .expect("Pi stdin close poisoned")
+            .take()
+            .ok_or_else(|| anyhow!("Pi stdin was already closed"))?;
+        close
+            .send(())
+            .map_err(|_| anyhow!("Pi stdin writer is closed"))?;
+        let outcome = tokio::time::timeout(deadline, exited_rx)
+            .await
+            .map_err(|_| {
+                anyhow!("Pi session shutdown did not finish; resource restart was deferred")
+            })?
+            .map_err(|_| anyhow!("Pi session shutdown acknowledgement was lost"))?;
+        outcome.map_err(anyhow::Error::msg)?;
+        Ok(())
+    }
+
+    pub(crate) fn stderr_checkpoint(&self) -> (u64, u64) {
+        let ring = self
+            .shared
+            .stderr_ring
+            .lock()
+            .expect("Pi stderr capture poisoned");
+        let seen = ring.lock().expect("Pi stderr ring poisoned").seen;
+        (self.shared.generation.load(Ordering::SeqCst), seen)
+    }
+
+    pub(crate) fn stderr_since(&self, checkpoint: (u64, u64)) -> Result<Vec<String>> {
+        if checkpoint.0 != self.shared.generation.load(Ordering::SeqCst) {
+            bail!("Pi restarted while verifying resource reload");
+        }
+        let ring = self
+            .shared
+            .stderr_ring
+            .lock()
+            .expect("Pi stderr capture poisoned");
+        let ring = ring.lock().expect("Pi stderr ring poisoned");
+        let count = ring.seen.saturating_sub(checkpoint.1) as usize;
+        if count > ring.lines.len() {
+            bail!(
+                "Pi reload diagnostics exceeded the bounded stderr capture; inspect pi-rpc-stderr.log"
+            );
+        }
+        Ok(ring.lines[ring.lines.len() - count..].to_vec())
     }
 
     pub async fn request(&self, command: Value) -> Result<Value> {
@@ -330,8 +437,16 @@ fn attach_child(
     let (writer_tx, mut writer_rx) = mpsc::unbounded_channel::<Value>();
     let stderr_ring: Arc<Mutex<StderrRingBuffer>> = Arc::new(Mutex::new(StderrRingBuffer::new(32)));
 
+    let (stdin_close_tx, mut stdin_close_rx) = oneshot::channel();
     tokio::spawn(async move {
-        while let Some(value) = writer_rx.recv().await {
+        loop {
+            let value = tokio::select! {
+                value = writer_rx.recv() => { let Some(value) = value else { break; }; value },
+                _ = &mut stdin_close_rx => {
+                    let _ = stdin.shutdown().await;
+                    break;
+                }
+            };
             let line = match serde_json::to_vec(&value) {
                 Ok(line) => line,
                 Err(error) => {
@@ -428,7 +543,7 @@ fn attach_child(
     let event_exit = event_tx.clone();
     let stderr_ring_for_exit = stderr_ring.clone();
     tokio::spawn(async move {
-        let exit = wait_for_child_exit(child, child_control_rx).await;
+        let mut exit = wait_for_child_exit(child, child_control_rx).await;
         // Wait for the stderr reader to finish (bounded so we never hang).
         let _ = tokio::time::timeout(Duration::from_secs(2), stderr_done_rx).await;
         let stderr_context = stderr_ring_for_exit
@@ -449,12 +564,18 @@ fn attach_child(
             "type": "adapter_process_exit",
             "message": message,
             "intentional": exit.intentional,
+            "generation": generation,
         }));
+        if let Some(done) = exit.graceful_done.take() {
+            let _ = done.send(if exit.success { Ok(()) } else { Err(message) });
+        }
     });
 
     Ok(ChildEndpoints {
         writer: writer_tx,
         child_control: child_control_tx,
+        stderr_ring,
+        stdin_close: stdin_close_tx,
     })
 }
 
@@ -462,27 +583,43 @@ struct ChildExit {
     message: String,
     /// True when the exit came from a deliberate `ChildControl::Kill`.
     intentional: bool,
+    graceful_done: Option<oneshot::Sender<Result<(), String>>>,
+    success: bool,
 }
 
 async fn wait_for_child_exit(
     mut child: tokio::process::Child,
     mut control: mpsc::UnboundedReceiver<ChildControl>,
 ) -> ChildExit {
+    let mut graceful_done = None;
     loop {
         tokio::select! {
             command = control.recv() => match command {
+                Some(ChildControl::ExpectExit { armed, exited }) => {
+                    if graceful_done.is_none() {
+                        graceful_done = Some(exited);
+                        let _ = armed.send(());
+                    }
+                }
                 Some(ChildControl::Kill { done, intentional }) => {
                     let _ = child.start_kill();
                     let result = child.wait().await;
+                    let success = result.as_ref().is_ok_and(|status| status.success());
                     let _ = done.send(());
                     return ChildExit {
                         message: describe_child_exit(result),
-                        intentional,
+                        intentional: intentional || graceful_done.is_some(),
+                        graceful_done,
+                        success,
                     };
                 }
-                None => return ChildExit {
-                    message: describe_child_exit(child.wait().await),
-                    intentional: false,
+                None => {
+                    let result = child.wait().await;
+                    let success = result.as_ref().is_ok_and(|status| status.success());
+                    return ChildExit {
+                        message: describe_child_exit(result),
+                        intentional: graceful_done.is_some(), graceful_done, success,
+                    };
                 },
             },
             _ = tokio::time::sleep(Duration::from_millis(25)) => {
@@ -490,14 +627,18 @@ async fn wait_for_child_exit(
                     Ok(Some(status)) => {
                         return ChildExit {
                             message: format!("Pi RPC process exited with {status}"),
-                            intentional: false,
+                            intentional: graceful_done.is_some(),
+                            graceful_done,
+                            success: status.success(),
                         };
                     }
                     Ok(None) => {}
                     Err(error) => {
                         return ChildExit {
                             message: format!("failed waiting for Pi RPC process: {error}"),
-                            intentional: false,
+                            intentional: graceful_done.is_some(),
+                            graceful_done,
+                            success: false,
                         };
                     }
                 }
@@ -600,6 +741,7 @@ fn open_pi_stderr_log_at(grok_home: &Path) -> std::io::Result<File> {
 struct StderrRingBuffer {
     lines: Vec<String>,
     capacity: usize,
+    seen: u64,
 }
 
 impl StderrRingBuffer {
@@ -607,10 +749,12 @@ impl StderrRingBuffer {
         Self {
             lines: Vec::with_capacity(capacity),
             capacity,
+            seen: 0,
         }
     }
 
     fn push(&mut self, line: String) {
+        self.seen = self.seen.saturating_add(1);
         if self.lines.len() >= self.capacity {
             self.lines.remove(0);
         }
@@ -627,7 +771,7 @@ impl StderrRingBuffer {
 /// - `.js`/`.mjs`/`.cjs` → `node` / `node.exe` (shebang is not honored by CreateProcess)
 /// - `.cmd`/`.bat` → `cmd.exe /D /C <path>` (CreateProcess cannot run batch as image)
 /// - otherwise → direct executable path / name
-fn spawn_command_for_program(program: &Path) -> Command {
+pub(crate) fn spawn_command_for_program(program: &Path) -> Command {
     if looks_like_js_cli(program) {
         return Command::new(if cfg!(windows) { "node.exe" } else { "node" });
     }
@@ -651,7 +795,7 @@ fn uses_cmd_wrapper(program: &Path) -> bool {
     )
 }
 
-fn looks_like_js_cli(program: &Path) -> bool {
+pub(crate) fn looks_like_js_cli(program: &Path) -> bool {
     matches!(
         program.extension().and_then(|e| e.to_str()),
         Some("js" | "mjs" | "cjs")
@@ -770,9 +914,11 @@ mod tests {
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
         let rpc = PiRpc {
             shared: Arc::new(RpcShared {
-                config: shell_config("true"),
+                config: Mutex::new(shell_config("true")),
+                stderr_ring: Mutex::new(Arc::new(Mutex::new(StderrRingBuffer::new(32)))),
                 writer: Mutex::new(writer),
                 child_control: Mutex::new(child_control),
+                stdin_close: Mutex::new(None),
                 pending: Arc::new(Mutex::new(HashMap::new())),
                 next_id: AtomicU64::new(1),
                 event_tx,

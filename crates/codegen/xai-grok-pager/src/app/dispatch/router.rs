@@ -1387,6 +1387,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
         Action::PrivacyBannerOptIn => dispatch_privacy_banner_opt_in(app),
         Action::PrivacyBannerOptOut => dispatch_privacy_banner_opt_out(app),
         Action::OpenPiConfig => dispatch_open_pi_config(app),
+        Action::PiControlRequest { method, params } => super::settings::ui::dispatch_pi_control(app, method, params),
         Action::OpenPiModels => dispatch_open_pi_models(app),
         Action::OpenCommandPalette => dispatch_open_command_palette(app),
         Action::OpenShortcutsHelp => dispatch_open_shortcuts_help(app),

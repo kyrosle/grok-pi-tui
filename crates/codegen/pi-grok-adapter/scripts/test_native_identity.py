@@ -6,11 +6,22 @@ from pathlib import Path
 from unittest.mock import patch
 
 import verify_native_grok as verifier
+from pi_contract_sources import runtime_rpc_commands, RUNTIME_RPC_COMMANDS
 
 root = Path(__file__).resolve().parents[4]
 docs = root / "crates/codegen/pi-grok-adapter/docs"
 manifest = json.loads((docs / "grok_uploaded_baseline_sha256.json").read_text())
 renderer = json.loads((docs / "native_renderer_sha256.json").read_text())
+runtime_source = (root / "crates/codegen/pi-grok-adapter/src/pi_adapter/runtime.rs").read_text()
+runtime_commands, errors = runtime_rpc_commands(runtime_source)
+assert runtime_commands == RUNTIME_RPC_COMMANDS and not errors, errors
+for changed in (
+    runtime_source.replace('"abort_retry"', '"undeclared_retry"'),
+    runtime_source.replace('"set_auto_compaction"', '"compact"'),
+    runtime_source.replace('fn runtime_command', 'fn removed_command'),
+    runtime_source.replace('.request(command)', '.request(unreviewed_command)'),
+):
+    assert runtime_rpc_commands(changed)[1], "runtime generator contract drift was accepted"
 result = verifier.verify_source_identity(root, manifest, renderer)
 for key in ("baselineErrors", "declarationErrors", "identityErrors", "rendererErrors"):
     assert not result[key], (key, result[key])
@@ -21,6 +32,7 @@ bad_manifest, bad_renderer = copy.deepcopy(manifest), copy.deepcopy(renderer)
 protected = next(p for p in renderer["files"] if p not in manifest["historicalFiles"] and p not in manifest["phaseSeams"])
 bad_manifest["baselineFiles"][protected] = "0" * 64
 bad_manifest["allowedAddedPrefixes"] = ["crates/"]
+bad_manifest["phaseReviewBaseSource"]["tree"] = "0" * 40
 reviewed = next(iter(manifest["phaseSeams"]))
 bad_manifest["phaseSeams"][reviewed]["sha256"] = "0" * 64
 bad_renderer["files"].pop(protected)
@@ -33,6 +45,7 @@ for key in ("baselineErrors", "declarationErrors", "identityErrors", "rendererEr
 assert any(protected in error for error in rejected["identityErrors"])
 assert any("undeclared-native.rs" in error for error in rejected["identityErrors"])
 assert any(f"reviewed phase bytes changed: {reviewed}" == error for error in rejected["identityErrors"])
+assert "previous Pi-first phase review-base commit/tree mismatch" in rejected["declarationErrors"]
 
 # The sole self-referential metadata entry hashes canonical content. Both a
 # changed content field and a forged embedded SHA must still be rejected.

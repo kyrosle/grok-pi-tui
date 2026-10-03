@@ -668,6 +668,18 @@ impl AgentView {
                     InputOutcome::Changed
                 }
                 crate::views::pi_config::PiConfigOutcome::Changed => InputOutcome::Changed,
+                crate::views::pi_config::PiConfigOutcome::PackageAction(params) => InputOutcome::Action(Action::PiControlRequest {
+                    method: crate::app::actions::PiControlMethod::PackagesAction, params,
+                }),
+                crate::views::pi_config::PiConfigOutcome::CancelPackage => InputOutcome::Action(Action::PiControlRequest {
+                    method: crate::app::actions::PiControlMethod::PackagesCancel, params: serde_json::json!({}),
+                }),
+                crate::views::pi_config::PiConfigOutcome::Reload => {
+                    state.begin_reload();
+                    InputOutcome::Action(Action::PiControlRequest {
+                        method: crate::app::actions::PiControlMethod::ResourcesReload, params: serde_json::json!({}),
+                    })
+                }
             };
         }
 
@@ -805,6 +817,10 @@ impl AgentView {
         }
         if let Some(ActiveModal::PiModels { state }) = self.active_modal.as_mut() {
             state.handle_paste(text);
+            return InputOutcome::Changed;
+        }
+        if let Some(ActiveModal::PiConfig { state }) = self.active_modal.as_mut() {
+            state.paste_package_source(text);
             return InputOutcome::Changed;
         }
         let pi_settings_outcome = match self.active_modal.as_mut() {
@@ -2558,8 +2574,20 @@ impl AgentView {
         // Pi resources: modal chrome owns close/tabs, then the native resource
         // tree receives clicks and wheel input.
         if let Some(ActiveModal::PiConfig { state }) = &mut self.active_modal {
+            let previous_tab = state.window.active_tab;
             let outcome =
                 mw::handle_modal_mouse(&mut state.window, mouse.kind, mouse.column, mouse.row);
+            if state.is_operation_running() {
+                state.window.active_tab = previous_tab;
+                return if matches!(outcome, ModalWindowOutcome::CloseRequested) {
+                    match state.handle_key(&KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)) {
+                        crate::views::pi_config::PiConfigOutcome::CancelPackage => InputOutcome::Action(Action::PiControlRequest {
+                            method: crate::app::actions::PiControlMethod::PackagesCancel, params: serde_json::json!({}),
+                        }),
+                        _ => InputOutcome::Changed,
+                    }
+                } else { InputOutcome::Changed };
+            }
             return match outcome {
                 ModalWindowOutcome::CloseRequested => {
                     state.complete_picker(false);
@@ -2583,6 +2611,18 @@ impl AgentView {
                         InputOutcome::Changed
                     }
                     crate::views::pi_config::PiConfigOutcome::Changed => InputOutcome::Changed,
+                    crate::views::pi_config::PiConfigOutcome::PackageAction(params) => InputOutcome::Action(Action::PiControlRequest {
+                        method: crate::app::actions::PiControlMethod::PackagesAction, params,
+                    }),
+                    crate::views::pi_config::PiConfigOutcome::CancelPackage => InputOutcome::Action(Action::PiControlRequest {
+                        method: crate::app::actions::PiControlMethod::PackagesCancel, params: serde_json::json!({}),
+                    }),
+                    crate::views::pi_config::PiConfigOutcome::Reload => {
+                        state.begin_reload();
+                        InputOutcome::Action(Action::PiControlRequest {
+                            method: crate::app::actions::PiControlMethod::ResourcesReload, params: serde_json::json!({}),
+                        })
+                    }
                 },
                 _ => InputOutcome::Changed,
             };
@@ -5467,6 +5507,44 @@ fn render_model_picker_detail(buf: &mut Buffer, area: Rect, lines: &[String], th
     Paragraph::new(tui_lines)
         .wrap(Wrap { trim: false })
         .render(inner, buf);
+}
+
+#[cfg(test)]
+mod pi_config_control_tests {
+    use crate::actions::ActionRegistry;
+    use crate::app::actions::{Action, PiControlMethod};
+    use crate::app::agent_view::test_fixtures::make_agent;
+    use crate::app::app_view::InputOutcome;
+    use crate::views::modal::ActiveModal;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Rect;
+
+    #[test]
+    fn package_modal_routes_paste_submit_and_busy_chrome_without_closing() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut agent = make_agent();
+        let state = crate::views::pi_config::PiConfigModalState::open(directory.path().into()).unwrap();
+        agent.active_modal = Some(ActiveModal::PiConfig { state:Box::new(state) });
+        let registry = ActionRegistry::defaults();
+        agent.handle_modal_key(&KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE));
+        agent.handle_modal_paste("npm:fixture-package@1.0.0", &registry);
+        let submitted = agent.handle_modal_key(&KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert!(matches!(submitted, InputOutcome::Action(Action::PiControlRequest {method:PiControlMethod::PackagesAction, params})
+            if params["operation"] == "install" && params["source"] == "npm:fixture-package@1.0.0"));
+        if let Some(ActiveModal::PiConfig {state}) = agent.active_modal.as_mut() {
+            state.window.close_button_rect = Some(Rect::new(1,1,1,1));
+            state.window.tab_rects = vec![Some(Rect::new(3,3,1,1)), Some(Rect::new(4,3,1,1))];
+        }
+        let mouse = |column,row| MouseEvent {kind:MouseEventKind::Down(MouseButton::Left),column,row,modifiers:KeyModifiers::NONE};
+        let cancelled = agent.handle_modal_mouse_with_registry(&mouse(1,1), &registry);
+        assert!(matches!(cancelled, InputOutcome::Action(Action::PiControlRequest {method:PiControlMethod::PackagesCancel, ..})));
+        assert!(matches!(agent.active_modal,Some(ActiveModal::PiConfig {..})));
+        assert!(matches!(agent.handle_modal_mouse_with_registry(&mouse(4,3), &registry),InputOutcome::Changed));
+        if let Some(ActiveModal::PiConfig {state}) = agent.active_modal.as_ref() {
+            assert_eq!(state.window.active_tab,0);
+            assert!(state.is_operation_running());
+        }
+    }
 }
 
 #[cfg(test)]

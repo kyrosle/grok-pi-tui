@@ -1,6 +1,21 @@
 #![cfg_attr(rustfmt, rustfmt::skip)]
     use super::*;
 
+    #[test]
+    fn physical_context_window_survives_later_token_updates_and_clears_on_reload() {
+        let mut agent = make_agent(Some("s1"));
+        confirm_context_window(&mut agent, 32768);
+        confirm_context_used(&mut agent, 1000);
+        assert_eq!(agent.context_state.as_ref().unwrap().total, 32768);
+        confirm_context_used(&mut agent, 2000);
+        assert_eq!(agent.context_state.as_ref().unwrap().total, 32768);
+        confirm_context_window(&mut agent, 65536);
+        assert_eq!(agent.context_state.as_ref().unwrap().total, 65536);
+        assert_eq!(agent.context_state.as_ref().unwrap().used, 2000);
+        agent.begin_session_reload(1);
+        assert!(agent.external_context_window.is_none());
+    }
+
     // ── apply_session_event ────────────────────────────────────────────
 
     #[test]
@@ -1506,4 +1521,3 @@
         assert!(!modal.hooks_collapsed_groups.contains("/src1"));
         assert!(modal.hooks_collapsed_groups.contains("/src2"));
     }
-

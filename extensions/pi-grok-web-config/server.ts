@@ -24,7 +24,7 @@ export interface WebConfigServerDeps {
 	uiHtmlPath: string;
 	loadState: () => Promise<unknown>;
 	saveModels: (doc: unknown) => void | Promise<void>;
-	saveSettings: (doc: unknown) => void | Promise<void>;
+	saveSettings: (doc: unknown, expectedVersion: string) => void | Promise<void>;
 	useModel: (provider: string, modelId: string) => Promise<void>;
 	reload: () => Promise<void>;
 	/** Persist grok-pi `[ui]` F2 settings (TOML scalars only). */
@@ -41,7 +41,7 @@ export interface WebConfigServer {
 
 type RouteResult = { status?: number; payload?: unknown; close?: boolean };
 
-type Route = (body: unknown, url: URL) => Promise<RouteResult | void>;
+type Route = (body: unknown, url: URL, req: IncomingMessage) => Promise<RouteResult | void>;
 
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
 	const text = JSON.stringify(payload);
@@ -169,8 +169,12 @@ export async function startWebConfigServer(deps: WebConfigServerDeps): Promise<W
 		],
 		[
 			"PUT /api/settings",
-			async (body) => {
-				await deps.saveSettings(body);
+			async (body, _url, req) => {
+				const condition = req.headers["if-match"];
+				if (typeof condition !== "string" || !/^"[a-f0-9]{64}"$/.test(condition)) {
+					return { status: 428, payload: { error: "Refresh settings before saving; an If-Match settings version is required" } };
+				}
+				await deps.saveSettings(body, condition.slice(1, -1));
 				await deps.reload();
 				return { payload: { ok: true } };
 			},
@@ -232,11 +236,12 @@ export async function startWebConfigServer(deps: WebConfigServerDeps): Promise<W
 					return;
 				}
 				const body = req.method === "GET" ? undefined : await readBody(req);
-				const result = await route(body, url);
+				const result = await route(body, url, req);
 				sendJson(res, result?.status ?? 200, result?.payload ?? { ok: true });
 				if (result?.close) shutdown(server, deps);
 			} catch (error) {
-				sendJson(res, 500, {
+				const status = error && typeof error === "object" && "statusCode" in error && error.statusCode === 409 ? 409 : 500;
+				sendJson(res, status, {
 					error: error instanceof Error ? error.message : String(error),
 				});
 			}

@@ -2,6 +2,7 @@
 import { startWebConfigServer } from "../server.ts";
 import { readdirSync,readFileSync,writeFileSync,mkdirSync } from "node:fs";
 import { join,resolve } from "node:path";
+import { createHash } from "node:crypto";
 const root = resolve(import.meta.dir,"../../..");
 const catalog = readdirSync(join(root,"extensions")).flatMap(name=>{
  try { const manifest=JSON.parse(readFileSync(join(root,"extensions",name,"grok-pi.json"),"utf8"));return (manifest.settings||[]).map(entry=>({...entry,...entry.f2,source:"extensions/"+name+"/grok-pi.json"})); } catch { return []; }
@@ -19,12 +20,13 @@ const state:any = {
  resources:{extensions:[{path:"/demo/extensions/review.ts",name:"Review helper",source:"settings"},{path:"/demo/cli/bridge.ts",name:"Session bridge",source:"cli"}],skills:[{name:"Review code",path:"/demo/skills/review/SKILL.md",description:"Review changes before sharing.",source:"discovered"}],prompts:[{name:"Explain changes",path:"/demo/prompts/explain.md",description:"Explain the reasoning behind a code change.",source:"discovered"}],themes:[{name:"Graphite",path:"/demo/themes/graphite.json",source:"discovered"}]},
  host:{grokHome:"/demo/grok-pi",configPath:"/demo/grok-pi/config.toml",ui:{pi_subagents:true,terminal_custom:"value"},uiTables:{keybindings:{"Ctrl+K":"search"}},catalog}
 };
+const settingsVersion=()=>createHash("sha256").update(JSON.stringify(state.settings)).digest("hex");
 export async function fixture() {
  let writes=0;
  const server = await startWebConfigServer({host:"127.0.0.1",port:0,uiHtmlPath:join(root,"extensions/pi-grok-web-config/web/index.html"),
- loadState:async()=>structuredClone(state),
+	loadState:async()=>({...structuredClone(state),settingsVersion:settingsVersion()}),
  saveModels:async doc=>{ state.models=doc;writes++; },
- saveSettings:async doc=>{state.settings=doc;state.defaults={provider:state.settings.defaultProvider,modelId:state.settings.defaultModel};writes++;},
+	 saveSettings:async(doc,version)=>{if(version!==settingsVersion())throw Object.assign(new Error("settings changed"),{statusCode:409});state.settings=doc;state.defaults={provider:state.settings.defaultProvider,modelId:state.settings.defaultModel};writes++;},
  saveHostUi:async updates=>{Object.assign(state.host.ui,updates);writes++;},
  useModel:async(provider,modelId)=>{state.current={provider,modelId};},
  reload:async()=>{},

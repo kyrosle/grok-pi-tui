@@ -143,12 +143,13 @@ export default function piGrokWebConfig(pi: ExtensionAPI): void {
 					if (invalid) throw new Error(invalid);
 					saveModelsDoc(agentPaths(hostState().ctx?.cwd ?? process.cwd()).paths.models, doc);
 				},
-				saveSettings: (doc) => {
+				saveSettings: (doc, expectedVersion) => {
 					const invalid = validateSettingsDoc(doc);
 					if (invalid) throw new Error(invalid);
 					saveSettingsDoc(
 						agentPaths(hostState().ctx?.cwd ?? process.cwd()).paths.settings,
 						doc,
+						expectedVersion,
 					);
 				},
 				useModel: async (providerId, modelId) => {

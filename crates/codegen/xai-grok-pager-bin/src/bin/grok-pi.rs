@@ -47,6 +47,8 @@ mod plan_mode_extension;
 mod recap_extension;
 #[path = "grok_pi/remote_tui_extension.rs"]
 mod remote_tui_extension;
+#[path = "grok_pi/resource_refresh.rs"]
+mod resource_refresh;
 #[path = "grok_pi/rollback_extension.rs"]
 mod rollback_extension;
 #[path = "grok_pi/rpc_compat_extension.rs"]
@@ -208,6 +210,7 @@ const PI_GROK_NATIVE_COMMANDS: &[&str] = &[
     "debug",
     // Pager-native Pi resource manager (`/pi-config`, `/pi-resources`).
     "pi-config",
+    "pi-runtime",
     // Pager-native Pi provider/model manager with live reload.
     "pi-models",
     // Native Pi extension-shortcut manager (independent of remote-tui).
@@ -542,7 +545,7 @@ async fn run(mut args: Args) -> Result<()> {
     // Disable Pi's auto-discovery and load only policy-approved resources.
     // Bridge extensions (subagent, bash, recap, etc.) are appended separately
     // below and always load regardless of policy.
-    let mut resource_policy = ResourcePolicy::load_from_config();
+    let mut resource_policy = ResourcePolicy::load_for_cwd(&cwd);
     // Feature-gated package blocks (assets/native_feature_conflicts.toml).
     // Enabled host features contribute their declared conflict keys; todo
     // additionally forces its native tool registration.
@@ -636,6 +639,7 @@ async fn run(mut args: Args) -> Result<()> {
     let has_no_prompts = pi_args.iter().any(|a| a == "--no-prompt-templates");
     let has_no_themes = pi_args.iter().any(|a| a == "--no-themes");
 
+    let managed_resource_start = pi_args.len();
     if !has_no_extensions {
         pi_args.push("--no-extensions".to_string());
         for path in &launch_plan.extensions {
@@ -666,6 +670,9 @@ async fn run(mut args: Args) -> Result<()> {
             pi_args.extend(["--theme".to_string(), path.to_string_lossy().into_owned()]);
         }
     }
+
+    let managed_resource_args = pi_args[managed_resource_start..].to_vec();
+    let skip_herdr_resources = herdr_extension.is_some();
 
     // Eval-v2-only is a strong F2 isolation mode: keep Pi's registry intact,
     // then let the host extension collapse the top-level active set to `eval`.
@@ -1236,8 +1243,17 @@ async fn run(mut args: Args) -> Result<()> {
 
         // Extension self-heal still owns Pi bootstrap semantics; only the wait
         // moved behind the native Pager startup surface.
-        let (process, bootstrap, _pi_args) =
+        let (process, bootstrap, healed_pi_args) =
             spawn_with_extension_self_heal(&args, &cwd, pi_args, &env).await?;
+        let resource_planner = resource_refresh::planner(
+            healed_pi_args,
+            managed_resource_args,
+            resource_policy,
+            !has_no_extensions,
+            !has_no_prompts,
+            !has_no_themes,
+            skip_herdr_resources,
+        );
 
         if btw_enabled {
             env.push(("PI_GROK_BTW".to_string(), "1".to_string()));
@@ -1273,7 +1289,8 @@ async fn run(mut args: Args) -> Result<()> {
                 workflows_enabled,
                 eval_v2_only_tool_policy_applied,
             )
-            .context("failed to restore Pi plan-mode state")?,
+            .context("failed to restore Pi plan-mode state")?
+            .with_resource_admission_planner(resource_planner),
         );
 
         let event_adapter = adapter.clone();

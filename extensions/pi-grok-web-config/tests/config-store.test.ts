@@ -56,3 +56,18 @@ test("TOML inline comments do not turn booleans into strings",()=>{
  expect(result).toContain('label = "value#kept" # comment');expect(result).toContain('[voice]\nlanguage = "en"');
  expect(()=>store.saveHostUi(join(dir,"config.toml"),{bad:NaN})).toThrow();
 });
+test("conditional settings save rejects an external package edit and preserves unknown fields",async()=>{
+ const path=join(dir,"settings.json");
+ writeFileSync(path,JSON.stringify({customFuture:{keep:true},packages:[]}));
+ const before=await store.collectState(undefined);
+ writeFileSync(path,JSON.stringify({customFuture:{keep:true},packages:["npm:@fixture/tools"]}));
+ expect(()=>store.saveSettingsDoc(path,{...before.settings,defaultThinkingLevel:"high"},before.settingsVersion)).toThrow("changed outside this draft");
+ expect(JSON.parse(readFileSync(path,"utf8")).packages).toEqual(["npm:@fixture/tools"]);
+ const current=await store.collectState(undefined);
+ store.saveSettingsDoc(path,{...current.settings,defaultThinkingLevel:"high"},current.settingsVersion);
+ const saved=JSON.parse(readFileSync(path,"utf8"));
+ expect(saved.customFuture).toEqual({keep:true});
+ expect(saved.packages).toEqual(["npm:@fixture/tools"]);
+ expect(saved.defaultThinkingLevel).toBe("high");
+ expect((await store.collectState(undefined)).settingsVersion).not.toBe(current.settingsVersion);
+});

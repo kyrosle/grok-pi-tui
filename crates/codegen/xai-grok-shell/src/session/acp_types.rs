@@ -573,6 +573,7 @@ mod tests {
                     total: 100,
                 },
                 cost: 0.125,
+                model_usage: Vec::new(),
             }),
             cache_metrics: None,
             data: SessionInfoData {

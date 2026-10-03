@@ -113,6 +113,7 @@ export type WebConfigState = {
 	models: ModelsDoc;
 	modelsError?: string;
 	settings: JsonObject;
+	settingsVersion: string;
 	settingsError?: string;
 	current: { provider?: string; modelId?: string; name?: string } | null;
 	defaults: { provider?: string; modelId?: string; thinkingLevel?: string };

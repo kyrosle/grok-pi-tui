@@ -13093,9 +13093,12 @@
   },
   "phaseSeams": {
     "AGENTS.md": {
-      "reason": "Pi 1.0 product baseline, build entry, and exact dependency contract (FR-01/08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "0a9bb3cca443af1f7ca9dce515d8ccc0d06c60b7a959788972d8eaf8ca23bd0d"
+      "reason": "DA-09: add current incremental SPEC/PLAN/source-review pointers while preserving the completed Pi-first baseline and project invariants.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "45c3688b705d0681141b003d9e55148a76666464780d6be053538278a1c079a6",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "Cargo.lock": {
       "reason": "Pi 1.0 product baseline, build entry, and exact dependency contract (FR-01/08/09).",
@@ -13111,9 +13114,12 @@
       "sha256": "c463cac64301969b534c0a6b55ae8aab514c4c75ad4f962fc90f9565d9957f8e"
     },
     "README.md": {
-      "reason": "Pi 1.0 product baseline, build entry, and exact dependency contract (FR-01/08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "cc83a8b9237ca7f4991ae98f8564e8b3694245804f1564e1623df22ea463783e"
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "572ea8dcf04ed5b1a4c96f721abbdfcb48c1495474238e3262494e5a5541cb5c",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "build.sh": {
       "reason": "Pi 1.0 product baseline, build entry, and exact dependency contract (FR-01/08/09).",
@@ -13126,10 +13132,13 @@
       "sha256": "637873cbd74a7cee14b621b29bafe2f4e0d956941a2b2cddafcba948e635f573"
     },
     "crates/codegen/pi-grok-adapter/docs/grok_uploaded_baseline_sha256.json": {
-      "reason": "Exact layered source inventory. Only this metadata file hashes canonical JSON after omitting its own sha256 field to avoid self-reference; all other phase files retain complete-byte SHA-256 (FR-11).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-09: preserve original Git blobs and frozen historical records; add exact new file provenance and reviewed current hashes only after SOURCE FREEZE. Only self metadata uses canonical omit-self-SHA.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "hashMode": "canonical-json-without-self-sha256",
-      "sha256": "56d2a990b49455a336d813c477b75402a5abd0e554dcb2dc9583abb7ef1ae7ef"
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "3d8f23d6412c195dbb8306a321d2d1817fbe30dec3fdaa047485c216a81bc9a3"
     },
     "crates/codegen/pi-grok-adapter/docs/mock-pi-contract.json": {
       "reason": "Refresh the generated mock protocol verification report for the actual Pi 1.0 contract and recursive adapter modules; it is verification evidence, not an upstream source identity baseline (P6).",
@@ -13147,24 +13156,49 @@
       "sha256": "529b35817e61e8ee0d5652e76e14c6fe32f2a014b4595f5fcc78401db01a6587"
     },
     "crates/codegen/pi-grok-adapter/scripts/pi_contract_sources.py": {
-      "reason": "Headless adapter, recursive syntax/contract checks, and exact layered Git-source identity; isolated Pi 1.0 RPC fixtures (FR-01/02/03/11).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "14a30fdd6cc3e9d3734cff512e81d48d309e60cff1b5d8a49f38c2d304d28f10"
+      "reason": "DA-02/09: audit the explicit production runtime RPC generator, reject unknown/missing mappings, and share installed-Pi contract validation with sourceguard/mock.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "8fdcde761992290ce72b235a69dcdaf603639e26a704721e004f6ff18b657fdc",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/scripts/test_native_identity.py": {
-      "reason": "Read-only positive identity check and negative guards for protected native bytes, forged ancestor hashes, incomplete renderer inventory, directory exemptions, undeclared additions, reviewed phase bytes and the sole metadata self-content/self-SHA; no fixture changes become an accepted baseline (FR-11).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "bc7d94c122006b9f657fa8d3b1432cd13096bb8488490d5b6a7826f6b345a5a1"
+      "reason": "DA-09: exact native command contract and strict review-base Git provenance checks; original ancestor/historical protections and negative tamper checks retained.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "b04f1509be836ac955960297f958aacbe5ae3d0f11c60938d5d9e962620244a6",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/scripts/verify_native_grok.py": {
-      "reason": "Check immutable ancestor Git blobs, exact frozen integration commit/blob provenance, every current-phase source file and complete native renderer inventory; recursively inspect headless adapter/composition and actual installed-Pi dist contracts. Only the exact self-referential inventory path uses declared canonical JSON content hash; any hashMode on another path is rejected (FR-01/11).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "258a82072de706ece5c05622ce2638046de3f118200143f06bbac5ace6387f66"
+      "reason": "DA-09: exact native command contract and strict review-base Git provenance checks; original ancestor/historical protections and negative tamper checks retained.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "2e1788b9e94d4b282e3f075bfb4c7fbc48d44988ce2cd235315cb03d75391029",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
+    },
+    "crates/codegen/pi-grok-adapter/src/lib.rs": {
+      "reason": "DA-03/04: export the headless resource-admission planning callback; native policy stays in composition rather than adding UI dependencies to adapter.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "1e94caae85c7488657681133e0a8c81478538b5352a42918916f313a8ca308d8"
     },
     "crates/codegen/pi-grok-adapter/src/model.rs": {
-      "reason": "Keep complete persisted tool-result envelopes and use the live ACP normalization/content path on replay; actual installed-Pi synthetic-provider ACP and dialog teardown checks (FR-05/06/11).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "27a2160f75cc7bc79606e1713a76010736a56f23451f544c4d4cd4dea52bbdbc"
+      "reason": "DA-05/06: selected versus actual dispatched model/thinking, whole-file actual/unattributed usage, non-chat picker exclusion, and active-branch replay.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "fa7782bee35823242a4276cc0447dc0320ae880f108c6b8b49bbe8e52ac304fa",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
+    },
+    "crates/codegen/pi-grok-adapter/src/model/routing.rs": {
+      "reason": "DA-05/06: selected versus actual dispatched model/thinking, whole-file actual/unattributed usage, non-chat picker exclusion, and active-branch replay.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "0f408ac27cf16906fad7304936fceda2a04ee66ed8e76e619dd7ab98b5f0928a"
     },
     "crates/codegen/pi-grok-adapter/src/model/tests.rs": {
       "reason": "Keep complete persisted tool-result envelopes and use the live ACP normalization/content path on replay; actual installed-Pi synthetic-provider ACP and dialog teardown checks (FR-05/06/11).",
@@ -13172,29 +13206,75 @@
       "sha256": "029eb06d88068f56f729c3df4a38c15feaa76b8db7a156e43ce51dad031118ab"
     },
     "crates/codegen/pi-grok-adapter/src/pi_adapter.rs": {
-      "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "5225868f58d206d640f3140affeb82999ef15ea16c572f781d43368ae0a35f5f"
+      "reason": "DA-01/02/03/04/05/07/08: headless Pi lifecycle/runtime/package/model/UI ownership seams; preserve Pi semantics and native-only terminal surfaces.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "85e373ea35faa1c804afe390d1ac3b764b907d59da70e3ab99e35617046d2b5f",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/src/pi_adapter/agent.rs": {
-      "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "20f46bfe58f20a6696b1646d406a9eb97899abb5485e4daa0e0c65680910818c"
+      "reason": "DA-01/02/03/04/05/07/08: headless Pi lifecycle/runtime/package/model/UI ownership seams; preserve Pi semantics and native-only terminal surfaces.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "553ee345b8476871fceb3d3f0472837e15e0172da5a4dc4a95035377a5219673",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/src/pi_adapter/events.rs": {
-      "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "7f330c53d7f89c15081078892debd4330ec0c77c1dcd99c20dec4bd1ae010e01"
+      "reason": "DA-01/02/03/04/05/07/08: headless Pi lifecycle/runtime/package/model/UI ownership seams; preserve Pi semantics and native-only terminal surfaces.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "858f29b95b154729e2e7d18c249d0f8875f7b36cbaaa534ccbfd0c44341c07f8",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
+    },
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/handled_response_tests.rs": {
+      "reason": "DA-01: focused late-handled response/slot-reservation races, successor work and exactly-once waiter completion regression.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "9425a46dbe3140d806dae435a9dd4eef4f1d688e41c20ce458b0866b43e4893c"
+    },
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/notifications.rs": {
+      "reason": "DA-01/02/03/04/05/07/08: headless Pi lifecycle/runtime/package/model/UI ownership seams; preserve Pi semantics and native-only terminal surfaces.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "fdc752b0cf68b2d9d044b441278e0e95b2f6d22f958a94a9cedc37f8959a14d0"
+    },
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/packages.rs": {
+      "reason": "DA-03/04: fresh SDK declaration identity, installedPath or public settings bases normalize existing local remove/update; preserve qualified Npm/git pins/filters/install cwd, strict scope, offline/cancel/ACK and unverified registry feedback.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "791738e4539f9c4db298fc809b25828021404a52f41ef051f4100a15e3f9c81d"
+    },
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/queue_runtime.rs": {
+      "reason": "DA-01: consume prompt disposition with target-slot completion and operation-scoped bounded legacy probes, retaining event races, isolated queues and cancellation without clearing successor work.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "9c1d5bbf2c62e113f4c1aa05a50cad526a2b002cfa9da0a0a695ce6ef3436639"
     },
     "crates/codegen/pi-grok-adapter/src/pi_adapter/replay.rs": {
-      "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "3f9c44088b77772165288868f73f28255c8a7bd00b859737fcc87b31239279c7"
+      "reason": "DA-05/06: selected versus actual dispatched model/thinking, whole-file actual/unattributed usage, non-chat picker exclusion, and active-branch replay.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "763f97435d16426ab63ba7f2e11da1d0a2dd577bf64705bbdb3d8efe68a0877c",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
+    },
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/runtime.rs": {
+      "reason": "DA-02: typed official retry/compaction controls; distinguish live compaction from fresh configured retry policy.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "ea0d12402e77c1d366c806366b0fe87d660740272d067bb90fb133b08a7e667c"
     },
     "crates/codegen/pi-grok-adapter/src/pi_adapter/session.rs": {
-      "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "54fc47f466dc74d5fcfa9cfa4b590266d2ffe98e635d80525ea46c99ab9b3855"
+      "reason": "DA-01/02/03/04/05: scoped legacy probes, business reload ACK and generated-resource admission refresh; official EOF/respawn and public session/leaf/model/thinking restore, preserving/defering unsafe in-memory context without JSONL edits.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "4506639493ff3fb1e3516fc9812c93b5cb3c2977a114ea687695cd50fb0e4227",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/src/pi_adapter/tests.rs": {
       "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
@@ -13206,10 +13286,34 @@
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "4a86d7382aabfe9a905083930977dec8601f08c66ee92c3bfb3b4018cb756804"
     },
+    "crates/codegen/pi-grok-adapter/src/pi_rpc.rs": {
+      "reason": "DA-03/04/08: retain configured launcher/env/offline, bounded generation-scoped stderr and component resize; graceful EOF disposal plus updated-argument respawn on the same headless connection.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "afeab3753817cd8f7b613df947bd87c0e61155e89737dbce730490df23a086d3"
+    },
     "crates/codegen/pi-grok-adapter/src/pi_workflow_backend.rs": {
       "reason": "Pi-owned queue cancellation, scoped native auth projection, live/replay nested-tool snapshots, and neutral Workflow persistence (FR-02/03/05/06/07/08).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "92226583d03a1ca487a080afb8c62f2ec78228aab31b7912fb39a78c02bc1924"
+    },
+    "crates/codegen/pi-grok-adapter/src/prompt_bridge.rs": {
+      "reason": "DA-01: consume successful prompt disposition while retaining event races, isolated queues, cancellation, and bounded old-host compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "12702d90e62a534b4647b8bde6232659ae9c38f46c7c68dbe5b2e66f7fe73efc"
+    },
+    "crates/codegen/pi-grok-adapter/src/queue_bridge.rs": {
+      "reason": "DA-01: preserve queue row/reservation identity for operation-scoped disposition completion and stale-probe protection.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "090d233985b03640c53f7345a17858f407f9f0fe98fa7ecadfebc6c8acf4c322"
     },
     "crates/codegen/pi-grok-adapter/src/tool_projection.rs": {
       "reason": "Keep complete persisted tool-result envelopes and use the live ACP normalization/content path on replay; actual installed-Pi synthetic-provider ACP and dialog teardown checks (FR-05/06/11).",
@@ -13226,10 +13330,40 @@
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "3ca3d17b6e3d683acc00a4f77747c6bbf5d79c07a022aba3c96b2ec3641f328b"
     },
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_disposition_rpc.py": {
+      "reason": "DA-01/02: fake disposition and actual installed-Pi input-handler/queue/runtime fixtures; isolated state, no real-provider claims.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "fffb140676a505275c355c686c89e572c849c2946ae80e1abb79dde6c455d3f4"
+    },
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_lifecycle.ts": {
+      "reason": "DA-01/02: fake disposition and actual installed-Pi input-handler/queue/runtime fixtures; isolated state, no real-provider claims.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "0eb30c37a21dedcd82cc5a0dc527d579f2b02d662da6ea31a668cc232e5bd73a"
+    },
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_models.ts": {
+      "reason": "DA-05/06: synthetic official image/classifier/virtual ModelRuntime, actual RPC-to-ACP model/context/usage/image proof with isolated state.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "d95e77b52c202fe7b72848a258fcdb7bddcfe48149a2e9aeece0a8a83e4b732a"
+    },
     "crates/codegen/pi-grok-adapter/tests/fixtures/pi_native_tools.ts": {
       "reason": "Headless adapter, recursive syntax/contract checks, and exact layered Git-source identity; isolated Pi 1.0 RPC fixtures (FR-01/02/03/11). Actual installed-Pi official executeTool fixtures cover real AbortSignal/drain, explicit parallel/sequential modes, managed background output and durable new/switch/load sessions with Eval-only declaration/callable/CLI exclusions. Native host-call mode metadata comes from official ExtensionToolContext.tools; retain captured/fallback paths when no official context exists. Temporary roots and scrubbed keys/tokens prevent real model/credential/user-data use (FR-02/04).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "717dd6ac33acec0e8899de44a8bff5899d3b01a48a724b982c10d2517678405f"
+    },
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_pty_controls.ts": {
+      "reason": "DA-01/02/03/04/07/08: isolated native PTY controls/CLI fixtures; final execution and artifact identity recorded separately.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "00eac7e79dd074f53229e1c3aa50b5179dcf9b3e751f70302b72c0ac64a24c88"
+    },
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_pty_package_cli.py": {
+      "reason": "DA-01/02/03/04/07/08: isolated native PTY controls/CLI fixtures; final execution and artifact identity recorded separately.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "b00d75a16fe233775c68ee7f394de63a00cec4d904fdf2e32ce0a68b656a7ff7"
+    },
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_reload_ack_rpc.py": {
+      "reason": "DA-04: isolated fake RPC reload ACK success/missing/false fixture; distinguish RPC response from official reload completion.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "3e37aec24c2dd2d9ee2df3b043de06e341f02f16b1a0f017385711820e19e90b"
     },
     "crates/codegen/pi-grok-adapter/tests/fixtures/pi_render_tools.ts": {
       "reason": "Register a local synthetic provider and actual Pi tool returning text/image/resource/nested output; append actual tool execute params only to an explicitly provided temporary trace so native source text cannot satisfy exactly-once runtime proof. Scoped native dialog fixture exercises signal/timeout/EOF without real accounts (FR-02/05/06).",
@@ -13252,14 +13386,37 @@
       "sha256": "4f066e5f04ac29838b90e14e4f053ff5130acaf25e1d39cb4855d3c4a7c8091c"
     },
     "crates/codegen/pi-grok-adapter/tests/mock_pi_contract.py": {
-      "reason": "Headless adapter, recursive syntax/contract checks, and exact layered Git-source identity; isolated Pi 1.0 RPC fixtures (FR-01/02/03/11).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "75f02298ed8bcd8b3166733e1be81d84a384377d1968cca7c2f845b5fa9b5139"
+      "reason": "DA-02/09: retain deterministic mock transport and additionally validate the production dynamic retry/compaction command generator against installed Pi declarations.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "ea8a5d3f82fbe01ffbae4910796029cb29dd0a11b6d67551a2b5e4c500315205",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/tests/pi_dependency_profile.py": {
       "reason": "Assert the real grok-pi production normal/build dependency graph with jemalloc and sandbox-enforce rejects seven unused stock runtimes; failures remain visible until actual dependency edges are removed, and dev/test graphs never substitute for production proof (FR-09). Inspect the real grok-pi production normal/build Cargo graph with jemalloc and sandbox-enforce and reject all seven stock execution crates; test graphs cannot hide a normal dependency leak (FR-09).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "22ce662f658c23198b78159c959892dc511496387b6fdef58219d0843788fe44"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_disposition.rs": {
+      "reason": "DA-01/02: fake disposition and actual installed-Pi input-handler/queue/runtime fixtures; isolated state, no real-provider claims.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "134315a8d47d9cdfffecb41b4414837d2fa97cfefd175e2a44fecdec8d2e56dc"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_lifecycle.rs": {
+      "reason": "DA-01/02: fake disposition and actual installed-Pi input-handler/queue/runtime fixtures; isolated state, no real-provider claims.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "fb9deadeda227037de9f0b9e6de894901ed5a33b313425005bc07f551e4cd896"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_model_projection.rs": {
+      "reason": "DA-05/06: synthetic official image/classifier/virtual ModelRuntime, actual RPC-to-ACP model/context/usage/image proof with isolated state.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "f34d80540e031f5fbf6943f5d4e5da4463726f8599be9886777176762b21463b"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_model_rpc_smoke.py": {
+      "reason": "DA-05/06: synthetic official image/classifier/virtual ModelRuntime, actual RPC-to-ACP model/context/usage/image proof with isolated state.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "e717e786f96f9937013a0224a8ac94b1317c31dd2bd5c483bf8327f28779892e"
     },
     "crates/codegen/pi-grok-adapter/tests/pi_native_projection.rs": {
       "reason": "Keep complete persisted tool-result envelopes and use the live ACP normalization/content path on replay; actual installed-Pi synthetic-provider ACP and dialog teardown checks (FR-05/06/11). Installed Pi synthetic-provider child fixture uses actual production subagent SDK/socket transport and official load replay, then production adapter ACP and native receiver/open/close. Require one child body/terminal/id and preservation of rendered history; raw entries alone are not presentation proof. Isolated temporary home/session/provider roots avoid real models and credentials (FR-03/06/09).",
@@ -13267,14 +13424,47 @@
       "sha256": "35ab2da8d22f9101a505cd2b5b63d20af726198ddbcb2dde53855ba2e556df41"
     },
     "crates/codegen/pi-grok-adapter/tests/pi_native_pty_smoke.ts": {
-      "reason": "Exercise the same actual grok-pi binary with installed Pi in an isolated xterm PTY: native Eval/Codemode output, exact-once fixture execution trace, auth scope teardown, native Minimal shrink/grow without duplicate history, and F2 save/reopen/failed-save rollback. Explicit Eval-only config respects disabled normal Eval; native Minimal prompt markers and credential/pasteboard isolation keep proof exact (FR-02/05/06/08/10). F2 uses native /new to enter the active session and waits for search focus plus the actual selected row before toggling.",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "afd812463ddda1e4f1064074ae7dfab6c8708a19c19a7816b7e895ca86b27a0e"
+      "reason": "DA-01/02/03/04/07/08: persistent PTY readiness/paste/history/factory/registry/leaf/model cases and exact visible Load unverified boundary; preserve failed captures and immutable binary SHA.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "0d547f73d3ac211d491e38e424f6e983411b58f52a8f59f4d40bc3e266c4242e",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/pi-grok-adapter/tests/pi_native_rpc_smoke.py": {
       "reason": "Headless adapter, recursive syntax/contract checks, and exact layered Git-source identity; isolated Pi 1.0 RPC fixtures (FR-01/02/03/11). Actual installed-Pi official executeTool fixtures cover real AbortSignal/drain, explicit parallel/sequential modes, managed background output and durable new/switch/load sessions with Eval-only declaration/callable/CLI exclusions. Native host-call mode metadata comes from official ExtensionToolContext.tools; retain captured/fallback paths when no official context exists. Temporary roots and scrubbed keys/tokens prevent real model/credential/user-data use (FR-02/04).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "be6f50d6cb29fbf0a223cc6c895b17ea770bd433e928e153709e2226460f59a2"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_packages_contract.py": {
+      "reason": "DA-03/04: actual installed-Pi temporary local package lifecycle, filters/unknown fields, project precedence, local source preservation and hidden-loader-error boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "03727bc4868f0a333421f1523fc31d72c9d7ed36613d6be67f1cc1e28896cc12"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_real_chat_smoke.mjs": {
+      "reason": "DA-10 partial: standalone official Pi ModelRuntime single real configured-default chat, memory-only fresh credentials with no refresh/login/commands/persistent writes; SSE/no retries/20s/short-text abort, safe usage and file-byte proof; no native/OAuth/image/human-terminal claim.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "ecf680fb0c04f95c215469439facbbfbb97c4d74f4c0d8944836f6a2f026ef7c"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_reload_ack.rs": {
+      "reason": "DA-04: adapter business-ACK contract regression; reject missing/false ACK without claiming resources loaded.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "e8084afaf16e1537457166f5195f50ce00fd95d5748e4c737256b30fb45df53b"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_reload_ack.test.ts": {
+      "reason": "DA-04: injected official reload handler writes success/failure ACK through isolated temporary files and preserves load-status boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "bddf77fb18626c987f10bfe05123cf69282a80eb16eb5fd98d9f1d9d68d72d43"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_resource_restore.rs": {
+      "reason": "DA-04: actual Pi persistent context/new factory restore and non-destructive memory/user-leaf defer; production package_action install and SDK relative declaration remove retain local directory/sessionId/file/leaf/model/thinking.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "52ad2ea72eee73811c188c65eefbc06d028444088d0c73e3245a01f123621f06"
+    },
+    "crates/codegen/pi-grok-adapter/tests/pi_rpc_resource_restart.rs": {
+      "reason": "DA-04: isolated transport verifies graceful EOF scope disposal before new args, intentional generation events and failed disposal rejection; keep original readiness failure trace.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "52a09ee33dc9a61bf9569d2c02714195202bb5fe34bf3417ffb3977023d079a2"
     },
     "crates/codegen/pi-grok-adapter/tests/pi_subagent_sdk_smoke.py": {
       "reason": "Installed Pi synthetic-provider child fixture uses actual production subagent SDK/socket transport and official load replay, then production adapter ACP and native receiver/open/close. Require one child body/terminal/id and preservation of rendered history; raw entries alone are not presentation proof. Isolated temporary home/session/provider roots avoid real models and credentials (FR-03/06/09).",
@@ -13619,9 +13809,12 @@
       "sha256": "21d0e01bff4275c897f8f9bc796e2f24207feac95336ada72f418ed9020e1e4e"
     },
     "crates/codegen/xai-grok-pager-bin/src/bin/grok-pi.rs": {
-      "reason": "Pi 1.0 host/version, complete extension bundles, MCP opt-in and auth/dialog composition; no renderer ownership (FR-01/03/06/08).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "ac35150a12fa6984e4050d22df37aa44b6b95e85fb60a2edaaa0988205aeccb6"
+      "reason": "DA-02/03/04/08: composition of native Pi runtime command and component-scoped resize while preserving the isolated production profile.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "fba78489be34eaf08100d5601829b8cbaae7364e74353ff2ad592e4ca5661a40",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/auth_extension.rs": {
       "reason": "Pi 1.0 host/version, complete extension bundles, MCP opt-in and auth/dialog composition; no renderer ownership (FR-01/03/06/08).",
@@ -13638,10 +13831,31 @@
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "105baabf7d35ff3c8644d144a29295377a4ee3eeb6bb48d213374471cee74dd1"
     },
+    "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/remote_tui_extension.rs": {
+      "reason": "DA-07/08: materialize complete relative UI modules and pin scoped runtime compatibility contracts; no Pi source edits.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "52dc7c9baafd23e624b5e3cbad63c1235f39dc2655b5e715053e8d239c082348"
+    },
+    "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/resource_refresh.rs": {
+      "reason": "DA-03/04: SDK resolved resource admission with exact Package/Auto/Settings origin and precedence; preserve user-explicit args/no-* and native startup caps, recompute product policy at real cwd; pure metadata regression reads no HOME.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "ea364733792b69cf83ca4657a26798c9275358706cf4c03ab5b81ba9478b9903"
+    },
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/rollback_extension.rs": {
       "reason": "Pi 1.0 host/version, complete extension bundles, MCP opt-in and auth/dialog composition; no renderer ownership (FR-01/03/06/08).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "132cdb291b354fdca7254deade69099fab147c406e5b95104e0deba9178871c2"
+    },
+    "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/rpc_compat_extension.rs": {
+      "reason": "DA-07/08: materialize complete relative UI modules and pin scoped runtime compatibility contracts; no Pi source edits.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "bfb41cb02be734158022fe71636b85e45010b4bf71499ab943cb2eca6df0aaf4"
     },
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/runtime_config.rs": {
       "reason": "Pi 1.0 host/version, complete extension bundles, MCP opt-in and auth/dialog composition; no renderer ownership (FR-01/03/06/08).",
@@ -13652,6 +13866,14 @@
       "reason": "Pi 1.0 host/version, complete extension bundles, MCP opt-in and auth/dialog composition; no renderer ownership (FR-01/03/06/08).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "5b53833c9f73df71e61c0568ffc701b7c9a63337746d7f65c5e0596f572d8aad"
+    },
+    "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/tree_bridge.rs": {
+      "reason": "DA-02/03/04: public SDK settings/package/resolved-path snapshot, CONFIG_DIR_NAME-derived settings bases and actual registry; business reload ACK and explicit loader-unverified status, no second loader or Pi source edits.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "e09aaa550692cf09f50b80bb4aa949456907c45e6088e7132068b40e6f6005b2"
     },
     "crates/codegen/xai-grok-pager-bin/src/main.rs": {
       "reason": "Pi 1.0 host/version, complete extension bundles, MCP opt-in and auth/dialog composition; no renderer ownership (FR-01/03/06/08).",
@@ -13984,12 +14206,13 @@
       "sha256": "7e3ee783fcf0b62e73354ac4a57081e5105726662b675f2c7f7d606dede82c50"
     },
     "crates/codegen/xai-grok-pager/src/app/acp_handler/mod.rs": {
-      "reason": "Complete canonical ContextInfo/TokenUsageCategory/Todo/config DTOs and existing pure conversions replace indirect Shell/Tools paths; mutable execution and persistence stay in their original producer (FR-08/09). Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: accept actual external context-window metadata and refresh native context state without replacing selected virtual-model identity.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "5e91ba017c97df5722abf8a0b85e39cfcf849df43951ec706682ff1190c7cfbf"
+      "sha256": "5498ba886acb3edbfcf43e8fb7c450b55abf97a6fde7da5f5399cf0df6186077"
     },
     "crates/codegen/xai-grok-pager/src/app/acp_handler/permissions.rs": {
       "reason": "Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09). Original truncate formatter/soft-wrap/PartialOutput, BashToolInput/real lenient-serde/default timeout, original producer tool-name constants and reminder framing/footer become canonical pure APIs; execution and original tests are retained by their true producers (FR-09).",
@@ -14008,12 +14231,13 @@
       "sha256": "63c2e8a4b5cba300e9703b6328d04f63f1325301e5ccfabce68a4f055128d6d2"
     },
     "crates/codegen/xai-grok-pager/src/app/acp_handler/session_notification.rs": {
-      "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Native interaction/task/skill consumers use complete canonical contracts and existing pure validators/helpers; execution remains in original producers with compatible exports (FR-09). Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only Grok disk/materialization/presandbox/preflight operations at stock-runtime ownership. Pi composition/catalog/id/worktree/live UI remain real: official subagent load/recovery bridge delivers persisted child ACP content, AdapterManaged transcript state prevents Grok updates.jsonl hydration/detach/eviction even in a stock-enabled External profile (FR-08/09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: accept actual external context-window metadata and refresh native context state without replacing selected virtual-model identity.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "2621b2a4414f52d378b7e96150fe4bb610e4006f25004777acbc74ac23a4a47f"
+      "sha256": "b3b8f1cf85168fa46b1802451bcff66cf92747b81d1642efe7662954082eedd3"
     },
     "crates/codegen/xai-grok-pager/src/app/acp_handler/settings.rs": {
       "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Native consumers use complete canonical ToolKind/ToolNamespace/taxonomy/home exports; preserve tracker mapping/replay/image behavior while cutting stock tool-runtime edges (FR-09). Complete canonical ContextInfo/TokenUsageCategory/Todo/config DTOs and existing pure conversions replace indirect Shell/Tools paths; mutable execution and persistence stay in their original producer (FR-08/09). Native readers use canonical session-detail DTOs and existing config disk loaders; campaign-cached load_effective_config behavior stays in its original producer (FR-09). Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09).",
@@ -14085,12 +14309,13 @@
       "sha256": "6e0ff25f218b16ab256c445ba9c58f35b9bbde1cfd974d5f4e3ed1f712570262"
     },
     "crates/codegen/xai-grok-pager/src/app/acp_handler/tests/session_events.rs": {
-      "reason": "Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only Grok disk/materialization/presandbox/preflight operations at stock-runtime ownership. Pi composition/catalog/id/worktree/live UI remain real: official subagent load/recovery bridge delivers persisted child ACP content, AdapterManaged transcript state prevents Grok updates.jsonl hydration/detach/eviction even in a stock-enabled External profile (FR-08/09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: accept actual external context-window metadata and refresh native context state without replacing selected virtual-model identity.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "833589e3f412a6f7f88e21584034cfa0b89a8c2740cc48edea3b454f28a089c5"
+      "sha256": "ce532ed0e1314a8b10b58f2d4eac8743137d9ef2de6bba05a0ee3d50c140c7f1"
     },
     "crates/codegen/xai-grok-pager/src/app/acp_handler/tests/settings.rs": {
       "reason": "Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09).",
@@ -14114,13 +14339,14 @@
       "sha256": "06dd802dac1dfeaefd24278d93502cb603338a0a611820800e8dc4ad49e9cb4a"
     },
     "crates/codegen/xai-grok-pager/src/app/actions.rs": {
-      "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08). Also retain guarded native clipboard caption fallback and deadline/origin handling (FR-10). Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Complete canonical ContextInfo/TokenUsageCategory/Todo/config DTOs and existing pure conversions replace indirect Shell/Tools paths; mutable execution and persistence stay in their original producer (FR-08/09). Native readers use canonical session-detail DTOs and existing config disk loaders; campaign-cached load_effective_config behavior stays in its original producer (FR-09). Native interaction/task/skill consumers use complete canonical contracts and existing pure validators/helpers; execution remains in original producers with compatible exports (FR-09). Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09). Canonical ConfigTypes agent-permission/model-switch data preserves original enums and complete wire fields via producer reexports. Original external telemetry pure TOML parsing/mapping/requirements pin rules and 20 acceptance tests move into Telemetry owner; stock master-switch execution tests remain stock. Login owns original full auth alias/config parsing and Voice consumes that real parser (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
         "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
-        "482711333c7195dc16a272777f86086d615e2afb"
+        "482711333c7195dc16a272777f86086d615e2afb",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "54a879e26b8d199b43db680486ec9463a8a2525ae0a2a2cbd6d534f512bb1086"
+      "sha256": "2ab27f9139131c3d422a67b314e3c66eca50ba10ef28836c752d3e290912e48f"
     },
     "crates/codegen/xai-grok-pager/src/app/agent.rs": {
       "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Native interaction/task/skill consumers use complete canonical contracts and existing pure validators/helpers; execution remains in original producers with compatible exports (FR-09). Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only Grok disk/materialization/presandbox/preflight operations at stock-runtime ownership. Pi composition/catalog/id/worktree/live UI remain real: official subagent load/recovery bridge delivers persisted child ACP content, AdapterManaged transcript state prevents Grok updates.jsonl hydration/detach/eviction even in a stock-enabled External profile (FR-08/09). Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09).",
@@ -14173,12 +14399,13 @@
       "sha256": "f4e0b15e06d54f8a4d06d7ac55f284c29d74038b01527ab80f4a56a61b9f15ad"
     },
     "crates/codegen/xai-grok-pager/src/app/agent_view/mod.rs": {
-      "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08). Native consumers use complete canonical ToolKind/ToolNamespace/taxonomy/home exports; preserve tracker mapping/replay/image behavior while cutting stock tool-runtime edges (FR-09). Complete canonical ContextInfo/TokenUsageCategory/Todo/config DTOs and existing pure conversions replace indirect Shell/Tools paths; mutable execution and persistence stay in their original producer (FR-08/09). Native interaction/task/skill consumers use complete canonical contracts and existing pure validators/helpers; execution remains in original producers with compatible exports (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: accept actual external context-window metadata and refresh native context state without replacing selected virtual-model identity.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "f590f0e31db2475a96baf28b14a51c22a83c9d5ba8edf0cee1d88e9f85be9d24"
+      "sha256": "5e83fb4fbebd2e0db666783d7a830735c2a5d9b2e0dc18b94bbd21fbc527ccbe"
     },
     "crates/codegen/xai-grok-pager/src/app/agent_view/modals.rs": {
       "reason": "Native interaction/task/skill consumers use complete canonical contracts and existing pure validators/helpers; execution remains in original producers with compatible exports (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09).",
@@ -14218,29 +14445,32 @@
       "sha256": "6d9a627dfbfddcb11a63d6f3b3edb73203ed920ef1a1be8bcd1942a4359ffc64"
     },
     "crates/codegen/xai-grok-pager/src/app/agent_view/session.rs": {
-      "reason": "Complete canonical ContextInfo/TokenUsageCategory/Todo/config DTOs and existing pure conversions replace indirect Shell/Tools paths; mutable execution and persistence stay in their original producer (FR-08/09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
-      ],
-      "sha256": "e99f8464f165be2f6b46a9cd823e99c327408674e2741d5800c350541f2379fb"
-    },
-    "crates/codegen/xai-grok-pager/src/app/app_view.rs": {
-      "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08). Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Complete canonical ContextInfo/TokenUsageCategory/Todo/config DTOs and existing pure conversions replace indirect Shell/Tools paths; mutable execution and persistence stay in their original producer (FR-08/09). Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09). Move complete original Tools argument-schema helper and all 49 tests to canonical owner, preserving original string/f64 precision/range/whitespace boundaries for Bash while other lenient consumers stay unchanged; canonical plugin CTA dismissal uses original locked read/mutation/atomic persistence and original tests. Stock palette components remain real and native draw occupancy snapshots compiled state before mutable frame borrows (FR-09). Upstream native Minimal reprint/width-shrink and semantic-row emission closure (Source-Revision 036a5d8348cd744767cd0b08518ab17bf608fa7f, including a28 emission): original 120ms/4000-row state/history/reprint and renderer dependencies; retain current protocol/status and canonical DTO paths, existing 3-arg draw API and terminal writer/tests, add original context policy/cursor tracking/soft-wrap metadata. Native Codemode OpenImage paint/click geometry and probe/pop/restore behavior are unchanged (P5).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: accept actual external context-window metadata and refresh native context state without replacing selected virtual-model identity.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
         "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
-        "f0e3be1100ef5252488e3be8bb0e91cf68d8c305"
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "067ff8fa67f290595d8dd0724f5678c74e00a98699a1ed4d24276e5acec11b74"
+      "sha256": "44a1a1bc66a8b6d7364460a4ed06b124774f87058c69644e3dfd1d342cb61024"
+    },
+    "crates/codegen/xai-grok-pager/src/app/app_view.rs": {
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "f0e3be1100ef5252488e3be8bb0e91cf68d8c305",
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "18e892949e586a96362d8733cb16b57b3f2a7e623f799507dbeb7565e9e4ab1f"
     },
     "crates/codegen/xai-grok-pager/src/app/app_view_tests.rs": {
-      "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08). Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09). Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "faba205db20ca101de2c909939235666827ab7e8dbcbed10c7739c0361269530"
+      "sha256": "f7cf5e094df54441f7f5c321861e239c8c8e150033b08f8b25fcc1cb97bca6e2"
     },
     "crates/codegen/xai-grok-pager/src/app/cli.rs": {
       "reason": "Explicit stock-runtime module/dependency gates keep native composition interfaces available and preserve stock defaults; pure export Args stay available while only Grok-session execution is gated (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only Grok disk/materialization/presandbox/preflight operations at stock-runtime ownership. Pi composition/catalog/id/worktree/live UI remain real: official subagent load/recovery bridge delivers persisted child ACP content, AdapterManaged transcript state prevents Grok updates.jsonl hydration/detach/eviction even in a stock-enabled External profile (FR-08/09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09). Canonical ConfigTypes agent-permission/model-switch data preserves original enums and complete wire fields via producer reexports. Original external telemetry pure TOML parsing/mapping/requirements pin rules and 20 acceptance tests move into Telemetry owner; stock master-switch execution tests remain stock. Login owns original full auth alias/config parsing and Voice consumes that real parser (FR-09).",
@@ -14359,12 +14589,13 @@
       "sha256": "d045e1715fd8e5c1e9ec0bd02e18177e8a98819e4c246705fcc221e8bc653761"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/router.rs": {
-      "reason": "Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "02e626bb8a94ae16ded905d25888a93fef7b4e99b06c2172c2288cbc1c9b4fda"
+      "sha256": "1bda7d3bc0704011ee6c7cdaa8e0526bceea7821ad3b0fe44e89c4aa6a86af23"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/session/foreign.rs": {
       "reason": "Native consumers use complete canonical ToolKind/ToolNamespace/taxonomy/home exports; preserve tracker mapping/replay/image behavior while cutting stock tool-runtime edges (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09).",
@@ -14406,6 +14637,14 @@
       ],
       "sha256": "3b0eac7905e5884be749d8aa597088a100cd79b277b68ad5225cbf8566c128c4"
     },
+    "crates/codegen/xai-grok-pager/src/app/dispatch/session/pi_fork.rs": {
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "f82bc3ca427225614d50a364c0d0d8d85408858f7e9ce619a79e64bc0f4628b4"
+    },
     "crates/codegen/xai-grok-pager/src/app/dispatch/session/picker_routing.rs": {
       "reason": "Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
@@ -14423,9 +14662,12 @@
       "sha256": "9577f55d4b26a0435215160e1e40cb35945a415cbe5f93080c73dcdf4782bab8"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs": {
-      "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08). Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "efd07ded44860d2bd9e2d5b6af35f5433f0a72c8f3f2cf7688c4ed12d0be2c6d"
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "19edceac15337bf9579cab230d94947e83d5240fec9850e1f5c5e6f60fd8de9f",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/status.rs": {
       "reason": "Native readers use canonical session-detail DTOs and existing config disk loaders; campaign-cached load_effective_config behavior stays in its original producer (FR-09).",
@@ -14433,12 +14675,13 @@
       "sha256": "1cafffb5e5493003cf39852bf10f4a44106e5b620ce14a8ef22182752b25d43e"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/task_result.rs": {
-      "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Native consumers use complete canonical ToolKind/ToolNamespace/taxonomy/home exports; preserve tracker mapping/replay/image behavior while cutting stock tool-runtime edges (FR-09). Native readers use canonical session-detail DTOs and existing config disk loaders; campaign-cached load_effective_config behavior stays in its original producer (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "312c1e3a6cae19f647aab8302183cf3481ff72ba4653a9f5a63321ced570573a"
+      "sha256": "9531b708a6e07da6173d42cbb219643f5e2c20f457b7a4f025b14f7065934e74"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/tests/auth.rs": {
       "reason": "Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09).",
@@ -14470,12 +14713,13 @@
       "sha256": "bbe9786bda1516e8d60c308e656cbe746d1cfc767b032a3fd7656036aa5f2f50"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs": {
-      "reason": "Restore existing lib fixtures to current attempt/DTO/RowStyle/hint and silent-success hook semantics; production APIs unchanged (P6). Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09). Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "7ad896337d74676d122c1bd143d02fd2b8554af1b9cd5f5e7126428c5d964fee"
+      "sha256": "839506343eb7baa22e3692c5f42102ffbb1f84554e6f3c9cab7b0c1a01ee7ecb"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/tests/modes.rs": {
       "reason": "Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09).",
@@ -14500,6 +14744,11 @@
         "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
       ],
       "sha256": "77e6a889766195427fdc47923bfc9454040d41b99db087a7a4303299db059e28"
+    },
+    "crates/codegen/xai-grok-pager/src/app/dispatch/tests/pi_controls.rs": {
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "f7d7b7dee897ae4d9d951b829f448aac03988ead8f702ad192a974fe128ce8b1"
     },
     "crates/codegen/xai-grok-pager/src/app/dispatch/tests/prompt.rs": {
       "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08).",
@@ -14625,14 +14874,15 @@
       "sha256": "f0d9fb2be88697345d111f0704023cbab51cec122a79c7da62c6da08fec220db"
     },
     "crates/codegen/xai-grok-pager/src/app/effects/mod.rs": {
-      "reason": "Selective guarded clipboard protocol read/deadline and origin-aware text fallback; preserve legacy public Option API and native consumers (FR-10). Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Native readers use canonical session-detail DTOs and existing config disk loaders; campaign-cached load_effective_config behavior stays in its original producer (FR-09). Native interaction/task/skill consumers use complete canonical contracts and existing pure validators/helpers; execution remains in original producers with compatible exports (FR-09). Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only Grok disk/materialization/presandbox/preflight operations at stock-runtime ownership. Pi composition/catalog/id/worktree/live UI remain real: official subagent load/recovery bridge delivers persisted child ACP content, AdapterManaged transcript state prevents Grok updates.jsonl hydration/detach/eviction even in a stock-enabled External profile (FR-08/09). Move complete original Tools argument-schema helper and all 49 tests to canonical owner, preserving original string/f64 precision/range/whitespace boundaries for Bash while other lenient consumers stay unchanged; canonical plugin CTA dismissal uses original locked read/mutation/atomic persistence and original tests. Stock palette components remain real and native draw occupancy snapshots compiled state before mutable frame borrows (FR-09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09). Canonical ConfigTypes agent-permission/model-switch data preserves original enums and complete wire fields via producer reexports. Original external telemetry pure TOML parsing/mapping/requirements pin rules and 20 acceptance tests move into Telemetry owner; stock master-switch execution tests remain stock. Login owns original full auth alias/config parsing and Voice consumes that real parser (FR-09).",
-      "source": "docs/upstream/TUI_BACKPORTS.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
         "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
         "482711333c7195dc16a272777f86086d615e2afb",
-        "f0e3be1100ef5252488e3be8bb0e91cf68d8c305"
+        "f0e3be1100ef5252488e3be8bb0e91cf68d8c305",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "fbade524aae4054871f5cdc506b0e8e80b756bfb689cb7943e540713699550de"
+      "sha256": "8b392737ba2e707244d7f7140ac5e96d725a72eb6f9cefe332e984a74e870462"
     },
     "crates/codegen/xai-grok-pager/src/app/effects/session_list.rs": {
       "reason": "Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Gate only Grok disk/materialization/presandbox/preflight operations at stock-runtime ownership. Pi composition/catalog/id/worktree/live UI remain real: official subagent load/recovery bridge delivers persisted child ACP content, AdapterManaged transcript state prevents Grok updates.jsonl hydration/detach/eviction even in a stock-enabled External profile (FR-08/09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09).",
@@ -14648,12 +14898,13 @@
       "sha256": "7d6ef2a0a6bf748f0a9e334ab18085a789f05e6a7c36511e744a1b77b123ab69"
     },
     "crates/codegen/xai-grok-pager/src/app/effects/tests.rs": {
-      "reason": "Restore existing lib fixtures to current attempt/DTO/RowStyle/hint and silent-success hook semantics; production APIs unchanged (P6). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Move original complete permission/bash-pattern/scope/MCP-name/exec-risk safety contracts and envrc budget into canonical Shared/ToolProtocol; preserve original validation and tests, lawful Git/worktree type-owner conversions, and exact native consumers. Ambient operations/folder-trust remain stock owned; External profile does not execute Grok MCP/config/permission runtime (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "e8bec5334a87c298f23e606aa81b78144e40392eca7dd92c04129aa15774fab0"
+      "sha256": "0d9da8f25f11f1dc41b4fd94d7b68d74407ff97163bf3e12aacfb6bb613dcd8d"
     },
     "crates/codegen/xai-grok-pager/src/app/error_display.rs": {
       "reason": "Native consumers use the exact canonical full session notification/origin/chunk wire APIs; runtime producer/replay/storage paths are not broadly rewritten (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09).",
@@ -14690,12 +14941,13 @@
       "sha256": "a6fbd54d79d77e4fe98815b4cdd3a603d106af178524f2f250f223a6c3c9ee1e"
     },
     "crates/codegen/xai-grok-pager/src/app/modals.rs": {
-      "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Native consumers reference the same complete canonical session/update/origin/catalog/title/feedback/task/MCP/billing/usage/response definitions; preserve serde, control/size/rating validation, actual rich parsers and original UI behavior while removing the indirect Shell runtime type dependency (FR-09). Move complete original Tools argument-schema helper and all 49 tests to canonical owner, preserving original string/f64 precision/range/whitespace boundaries for Bash while other lenient consumers stay unchanged; canonical plugin CTA dismissal uses original locked read/mutation/atomic persistence and original tests. Stock palette components remain real and native draw occupancy snapshots compiled state before mutable frame borrows (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02/03/04/08: fixed typed native control effects/results, async modal snapshot/reload feedback, scoped cancellation and resize; retain native UI ownership.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "ec6272dfd2366df306eaff868e36de133f34eac90e28aefac7f026f65d828e19"
+      "sha256": "428b49baa0c9eaf653bc560d800cdf0e8a0630b34a0ab2b9b1587c3dded57b49"
     },
     "crates/codegen/xai-grok-pager/src/app/mode_switch.rs": {
       "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09). Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09).",
@@ -14963,10 +15215,21 @@
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "37c8a0440611f933bb3ea800ce0cb80e136f7eac073f140e9fc8b6ef7eef4cd0"
     },
+    "crates/codegen/xai-grok-pager/src/pi_resource_config.rs": {
+      "reason": "DA-03/04: expose the existing resource precedence/order normalization for SDK-resolved admission replacements; preserve native discovery and enable/override persistence.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "45a5f4cdf21ce243acfb43040d601a9bb85f726829e5e12c3a2a5ceb4f68bd7a"
+    },
     "crates/codegen/xai-grok-pager/src/pi_resource_policy.rs": {
-      "reason": "Native consumers use complete canonical ToolKind/ToolNamespace/taxonomy/home exports; preserve tracker mapping/replay/image behavior while cutting stock tool-runtime edges (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "11d1e93cdf1162602065096b6bf1c854a2b886b3bc603e1992a13d64b0b19860"
+      "reason": "DA-03/04: evaluate fresh product-isolated resource policy at the authoritative RPC cwd instead of assuming process current_dir; retain existing allow/block/native conflict behavior.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "4b6118c8dba41a2b1e492e662743ebc23ffd8593d29a160315819c216e3c0dcd",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/xai-grok-pager/src/plugin_cmd.rs": {
       "reason": "Move original complete native config DTO/defaults/compat/permission policies and disk-load/parser/locked atomic F2 writers into existing canonical ConfigTypes/Shared; stock facades re-export identical implementations and retain their original remote settings; Rust conversions stay in a local type owner. Source: original Shell util/config, Agent config and Tools compat implementations (FR-09). Move original complete Marketplace wire helpers/matcher and unchanged tests into existing HooksPluginTypes leaf; all filesystem/network execution stays stock producer owned and native matcher behavior is unchanged (FR-09).",
@@ -15111,17 +15374,23 @@
       "sha256": "dbbd6081d26251d3036e4862cf252286f91430df6f95b8bb454e0d06fac428fe"
     },
     "crates/codegen/xai-grok-pager/src/slash/commands/mod.rs": {
-      "reason": "Gate only real stock AgentsConfig/discovery, Claude import, Imagine and Loop execution components and their routes. Original native components are preserved as stock implementations, UI enums remain canonical and occupancy reads compiled components; Pi resource/role/settings/subagent surfaces remain genuine without substitute runtime models (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-02: expose fixed native pi-runtime arguments/completions and external-profile registration; official control requests only.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "3bb38670134deb2e7949a164168909d14b16929d2a0fbea1fea419b84c0ec4bb"
+      "sha256": "9f878cf5225a982316fa742bfd522a9aeb9a2ffcc09b15ab12a9e794cf5561da"
     },
     "crates/codegen/xai-grok-pager/src/slash/commands/model.rs": {
       "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "e551f21a2dcf1c5d9aa6c76d8581a2e3ecf7e1a9acff4ad563fcf378435aa1e4"
+    },
+    "crates/codegen/xai-grok-pager/src/slash/commands/pi_runtime.rs": {
+      "reason": "DA-02: expose fixed native pi-runtime arguments/completions and external-profile registration; official control requests only.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "ba1ac546724e680ba980a0a5f52f524f9748b65cb48e79da3e306311410bab48"
     },
     "crates/codegen/xai-grok-pager/src/slash/commands/release_notes.rs": {
       "reason": "Native production consumers use canonical UiConfig/sampling/TTY/home/model helpers; exact symbol relocation preserves data and behavior while removing stock-runtime dependencies (FR-09).",
@@ -15314,6 +15583,14 @@
         "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
       ],
       "sha256": "d17dc23e64b7ac719eea080486728c6e9684c436ce53964ffb40feb6153cc20a"
+    },
+    "crates/codegen/xai-grok-pager/src/views/pi_config.rs": {
+      "reason": "DA-03/04: native package/busy/cancel/trust/reload controls; inherited update captures selected resource actual source scope while install/remove retain target view scope; Load unverified precedes counters to survive clipping.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "690218baa2f47674209e4d3f1b4adce700af62ec8b318e07b2583add10fe0189"
     },
     "crates/codegen/xai-grok-pager/src/views/pi_settings/actions.rs": {
       "reason": "Existing native ACP/UI surfaces project Pi auth, callable tools, queue and replay/image semantics; neutral config DTO imports (FR-03/05/06/07/08).",
@@ -15856,9 +16133,12 @@
       "sha256": "39e945bba8c530791e10427bda8e0ca3a52154032251e2838d2583728bab202b"
     },
     "crates/codegen/xai-grok-shared/src/session/details.rs": {
-      "reason": "Move complete original session-info/usage/cache/token/feedback DTOs, serde and model display helper into shared/session; Shell keeps the identical canonical type via re-export (FR-08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "9f5276125f479029cdb34389b0f226e61e66cc2c52b7ac6e0957471ab3930082"
+      "reason": "DA-05: canonical neutral actual-model usage DTO and stock compatibility re-exports; preserve unattributed usage and existing session fields.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "f29833ac15c6502929484b5389a9ac3ea6700492afd5c8fe0b04705e22e4aa92",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "crates/codegen/xai-grok-shared/src/session/feedback.rs": {
       "reason": "Move complete existing pure session ACP wire DTOs, defaults, helpers, policy and tests from original Shell notification/session/commands/extensions into canonical Shared ownership. Ledger conversions alone remain stock optional; runtime storage/network/sampling/artifact execution stays producer-owned. Original title bounds, bool-only meta flags, feedback image/rating/drain rules and typed error discriminators are preserved (FR-09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09).",
@@ -15869,12 +16149,13 @@
       "sha256": "180cdef71d268eff185531aeb5cb8dbd0a36652dc3706f72a2e6d98c8df07436"
     },
     "crates/codegen/xai-grok-shared/src/session/mod.rs": {
-      "reason": "Reuse full pure Context/Todo/auth-method classification APIs and the canonical 85-percent compaction threshold; legacy producer paths keep compatible re-exports (FR-08/09). Move complete original session-info/usage/cache/token/feedback DTOs, serde and model display helper into shared/session; Shell keeps the identical canonical type via re-export (FR-08/09). Move complete original session notification/background/origin/pending/scheduler wire data and pure serde/helpers to canonical Shared/tool-types; retain producer sampling artifacts and local-source conversions, while only stock explicitly enables the original chat-state Ledger From APIs in their legal type owner (FR-09). Wire modules use existing true leaf dependencies; original Ledger conversions alone enable the optional stock chat-state dependency forwarded by Shell. No runtime executor is introduced into native Shared (FR-09). Keep actual Grok list/restore/memory/disk-metadata/usage execution stock owned with honest unavailable errors, never an empty successful catalogue. Pi catalogue/dashboard/load remain genuine ACP paths; native recent directories derive from loaded Pi rows and real timestamps, /info uses Pi session_name rather than Grok summary. Original Share DTO/memory meta key/feedback ClientType are canonical; nested child lifecycle forwards actual External ownership and metadata to the existing native renderer (FR-08/09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: canonical neutral actual-model usage DTO and stock compatibility re-exports; preserve unattributed usage and existing session fields.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "f8ea4d3b8b233c1dddc039696f9af55acd4bf663876410cf7cd293d572f46839"
+      "sha256": "c51ecf9aaa8d8f6c7070639926770fa916a8765658a8076d2bc23bd91ea68eb4"
     },
     "crates/codegen/xai-grok-shared/src/session/notification.rs": {
       "reason": "Move complete original session notification/background/origin/pending/scheduler wire data and pure serde/helpers to canonical Shared/tool-types; retain producer sampling artifacts and local-source conversions, while only stock explicitly enables the original chat-state Ledger From APIs in their legal type owner (FR-09). Move complete existing pure session ACP wire DTOs, defaults, helpers, policy and tests from original Shell notification/session/commands/extensions into canonical Shared ownership. Ledger conversions alone remain stock optional; runtime storage/network/sampling/artifact execution stays producer-owned. Original title bounds, bool-only meta flags, feedback image/rating/drain rules and typed error discriminators are preserved (FR-09). Preserve exact original exhaustive goal telemetry mapping and structured TerminalExtError code/message/terminalId payload with producer-local free converters and their actual single callers; move the complete existing pure canonical WorkflowUpdate From into Shared-owned SessionUpdate without CoreEngine dependency or orphan impl (FR-09).",
@@ -16113,12 +16394,13 @@
       "sha256": "2ab42d439bb28b1c95bb083559c82d76986679d96317d7a75c6407c818421c6c"
     },
     "crates/codegen/xai-grok-shell/src/session/acp_types.rs": {
-      "reason": "Move complete original session-info/usage/cache/token/feedback DTOs, serde and model display helper into shared/session; Shell keeps the identical canonical type via re-export (FR-08/09). Original Shell producers re-export the complete canonical session wire/helpers. Local-source conversions and runtime sampling/storage/network remain in their lawful original owner; original Summary admission match is retained as RecentSessionSelectionExt for the canonical enum without a Shared-to-Shell cycle (FR-09).",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+      "reason": "DA-05: canonical neutral actual-model usage DTO and stock compatibility re-exports; preserve unattributed usage and existing session fields.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
       "sourceCommits": [
-        "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
+        "222d614d9f12cc8fcd408d59419c7d4d197d1be3",
+        "84174917511690447ba32915571e9748b5e10ad4"
       ],
-      "sha256": "cff80659521da99786caa8767e931e80387ea5a719ff8fdf8f2a537decd0c044"
+      "sha256": "839e09ba54abe24d545987857ee9f40a7ffc7b5e63e2f09dca4d40afd4086617"
     },
     "crates/codegen/xai-grok-shell/src/session/commands.rs": {
       "reason": "Original Shell producers re-export the complete canonical session wire/helpers. Local-source conversions and runtime sampling/storage/network remain in their lawful original owner; original Summary admission match is retained as RecentSessionSelectionExt for the canonical enum without a Shared-to-Shell cycle (FR-09).",
@@ -17402,29 +17684,52 @@
       "sha256": "77e38ffb57b7f82bf7266d8e81cd1da79a257ac4bd5f48b3042d25bb48a5c646"
     },
     "docs/FEATURE_MATRIX.md": {
-      "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "8c5e2e0c8eb1cc676b5dde66fe20652745a2bfcc5d0f0160acfe150ca677363c"
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "601af0c5733be834e946ae7606268bc0f70995f86d5d8bd82b5e3ad46b9d2778",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "docs/FEATURE_MATRIX.zh-CN.md": {
-      "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "20ff3ad5846be7e25beb100bca126efff24d5381a3c292fe1ee4969f3625d26b"
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "d32c0a250a8b89068ffb1b25d76edce22f77c7d27ae9fe200ca8437df54d56e9",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "docs/NATIVE_GROK_TUI_ALIGNMENT.md": {
-      "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "c276c676565e56d82d5df8fc184ddbb7e31468f3970bf32db12cdd119d38fbbd"
+      "reason": "DA-09: separate the completed 84174917 Pi-first architecture evidence from current 806-package graph and pending corrected resource-reload/build/PTY acceptance; retain original architecture inventory.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "2536be9fda26efb988cd0f2de252ef6ecde94717ab0f2ef24999ffbda0fc8f1f",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "docs/README.zh-CN.md": {
-      "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "98e8e98f8a5ee1f81e8552bb08b3b48f01d8b3dfc5667d4795ac1d0bade24c09"
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "91817820ae6aad072e75768602db9a5e95eb93d45f9bbfe10b1947874e433e62",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
     },
     "docs/VERIFICATION.md": {
-      "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
-      "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
-      "sha256": "8cd157825bc938739dc14bdd6082085404d11b09e7fb9b93cc1e587d4402d365"
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "360942a3eac694d06f806b1f386bdd59522dc2dddfdedea87e07a5ed126f8b68",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ]
+    },
+    "docs/VERIFICATION.zh-CN.md": {
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "942cd6ec3222c393270854770ab89c041cd2e2200d0681ed6427ca8213d8469c"
     },
     "docs/issues/架构/20261002-pi-first-tui-PLAN.md": {
       "reason": "Accepted scope and phase-by-phase evidence; committed task record.",
@@ -17441,6 +17746,21 @@
         "c18e161a"
       ],
       "sha256": "68f5e4c98b57c67d64707810f42f8c1db2631e3df960e25d17ae18c0e1b52029"
+    },
+    "docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md": {
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "9997a8fc13136968e466fc97a501079583da40539035ae485fc363975a89d96b"
+    },
+    "docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md": {
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "cb677bc5bebfc18cbdafc72b28dd26b92d477f4dbcd4ce2514fd2accf374f392"
+    },
+    "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md": {
+      "reason": "DA-09/10: bilingual product/matrix/current-proof documentation; preserve earlier checkpoint evidence and separate real provider/OAuth/terminal acceptance.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "b166a1aeb186908620302db1c9f555d9ce18a796013202a253c80f137e4860d1"
     },
     "docs/upstream/TUI_BACKPORTS.md": {
       "reason": "Document actual Pi semantics, selective upstream provenance, and verified versus pending acceptance.",
@@ -17522,6 +17842,82 @@
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
       "sha256": "bad04e57fb8ffd482dcd1a43f3d91cdf9487e3f2fd6003538675a355a2aaf06a"
     },
+    "extensions/pi-grok-remote-tui/host.ts": {
+      "reason": "DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "6d7b859861c5e57cb646decb4fae730aa7a9a36133161e3402a267fe093eb8ff"
+    },
+    "extensions/pi-grok-remote-tui/index.test.ts": {
+      "reason": "DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "4d18262e929fe73d97ff90dfc394548c14dbd7bfc5a7dcd4a4edf776b8775f4f"
+    },
+    "extensions/pi-grok-remote-tui/index.ts": {
+      "reason": "DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "3c8648b124d535ce66246660ea8260087c1d6ab833c92a3a84317973334ca612"
+    },
+    "extensions/pi-grok-remote-tui/shared.ts": {
+      "reason": "DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "f193c374e27ac104f6dfc2be0894a8cf70f4d77a143d3968b6bc09596c8c2a72"
+    },
+    "extensions/pi-grok-remote-tui/transport.test.ts": {
+      "reason": "DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "e23adbf0489ed070e250be26855b5f61062a022115abe70f59fc47285bdaa86c"
+    },
+    "extensions/pi-grok-remote-tui/transport.ts": {
+      "reason": "DA-08: actual-host mode gate, per-component resize, stale input and shutdown/reload dispose contracts; retain experimental custom compatibility.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "777884ecbb4d4d30e09e954065ac7c9505e845920fc25212dc243dbc8451d815"
+    },
+    "extensions/pi-grok-rpc-compat/index.test.ts": {
+      "reason": "DA-07/08: standard/mapped/degraded/unsupported UI diagnostics and working-status projection through one scoped Runner hook; official RPC fallbacks remain.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "2df818a1fee99a9b3e12aa9de047f5aeafd4528820c9e2483029278d1ec03c35"
+    },
+    "extensions/pi-grok-rpc-compat/index.ts": {
+      "reason": "DA-07/08: standard/mapped/degraded/unsupported UI diagnostics and working-status projection through one scoped Runner hook; official RPC fallbacks remain.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "c7008ef1060b356e02fcb405be31faca01c7a817f65f7fc0b1f9a609a74bd996"
+    },
+    "extensions/pi-grok-rpc-compat/rpc.test.py": {
+      "reason": "DA-07/08: standard/mapped/degraded/unsupported UI diagnostics and working-status projection through one scoped Runner hook; official RPC fallbacks remain.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "80fee1b916b913b6633b3052d811c9bbbaad423790e96b4770ecda09a84cb73d"
+    },
+    "extensions/pi-grok-rpc-compat/ui.test.ts": {
+      "reason": "DA-07/08: standard/mapped/degraded/unsupported UI diagnostics and working-status projection through one scoped Runner hook; official RPC fallbacks remain.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "174a860beaf9cf0004333e20aa3013158801d8ed9cae26ed35d7eff974c83861"
+    },
+    "extensions/pi-grok-rpc-compat/ui.ts": {
+      "reason": "DA-07/08: standard/mapped/degraded/unsupported UI diagnostics and working-status projection through one scoped Runner hook; official RPC fallbacks remain.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "b9d51494c0e7d394fc1e2e294082ebb9b896ff6ca1231cc577d49dd02fa4265f"
+    },
     "extensions/pi-grok-subagents/runtime.ts": {
       "reason": "Pi 1.0 createAgentSession receives canonical ModelRuntime with the parent public native/provider registrations, using the existing Workflow SDK pattern. Actual isolated root-only registered synthetic provider reproduced missing-key child failure and verifies fixed child live plus official persisted replay; no Pi source or extra runtime layer changes (FR-03/09).",
       "source": "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
@@ -17529,6 +17925,67 @@
         "222d614d9f12cc8fcd408d59419c7d4d197d1be3"
       ],
       "sha256": "f7a50de36df6cbe58f2027a90919c8a1888111e9d927792f8cb7878948c39650"
+    },
+    "extensions/pi-grok-web-config/config-store.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "fde52779f1e477f56fdaf0977a3d9013453dad3c868d08bd39934b5853e1a5ee"
+    },
+    "extensions/pi-grok-web-config/index.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "c966256f0083709428635fcecbd44230592489b7146f66601105c7c4157fc44e"
+    },
+    "extensions/pi-grok-web-config/server.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "92b60c8b4ebcd4f86e24a9921a19dadd20006ddf9bb8a5ea11fe4479d509aceb"
+    },
+    "extensions/pi-grok-web-config/shared.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "2bf59f024b5e1ab73129f1a3e6ae91040c17935ef2162cd7e6b83006e9443176"
+    },
+    "extensions/pi-grok-web-config/tests/config-store.test.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "c88bb50851ad8945af12fcec986e5b993d1377ad879300521990542a7cde8958"
+    },
+    "extensions/pi-grok-web-config/tests/fixture.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "e16c837c58d4480b55c868064e047b34dff556070b9410620eb45473e53fcbd8"
+    },
+    "extensions/pi-grok-web-config/tests/settings-conflict.test.ts": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sha256": "d04d9c32103bb926f9e019509af579df8cca45eb04c6211f905f78de3effe5dc"
+    },
+    "extensions/pi-grok-web-config/web/models.js": {
+      "reason": "DA-04: retain Web preflight; server revision/If-Match conditional settings save, stale-write rejection and unknown-field preservation; explicit external compare/rename boundary.",
+      "source": "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
+      "sourceCommits": [
+        "84174917511690447ba32915571e9748b5e10ad4"
+      ],
+      "sha256": "341eaeea3f4c39d4c48a6a19ea425550ca9d4c8948706725e157e8ebce23d16d"
     },
     "extensions/pi-grok-workflows/index.test.ts": {
       "reason": "Validate official Pi 1.0 Workflow modelRuntime SDK and trust-probe bridge without user data (FR-08/09).",
@@ -18275,14 +18732,18 @@
     "crates/codegen/pi-grok-adapter/src/lib.rs",
     "crates/codegen/pi-grok-adapter/src/loop_host.rs",
     "crates/codegen/pi-grok-adapter/src/model.rs",
+    "crates/codegen/pi-grok-adapter/src/model/routing.rs",
     "crates/codegen/pi-grok-adapter/src/model/tests.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/agent.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/events.rs",
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/handled_response_tests.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/notifications.rs",
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/packages.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/queue_runtime.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/recovery.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/replay.rs",
+    "crates/codegen/pi-grok-adapter/src/pi_adapter/runtime.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/session.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/tests.rs",
     "crates/codegen/pi-grok-adapter/src/pi_adapter/tools.rs",
@@ -18300,7 +18761,13 @@
     "crates/codegen/pi-grok-adapter/src/tool_projection/tests.rs",
     "crates/codegen/pi-grok-adapter/src/workflow_host.rs",
     "crates/codegen/pi-grok-adapter/tests/fixtures/local_mcp.py",
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_disposition_rpc.py",
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_lifecycle.ts",
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_models.ts",
     "crates/codegen/pi-grok-adapter/tests/fixtures/pi_native_tools.ts",
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_pty_controls.ts",
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_pty_package_cli.py",
+    "crates/codegen/pi-grok-adapter/tests/fixtures/pi_reload_ack_rpc.py",
     "crates/codegen/pi-grok-adapter/tests/fixtures/pi_render_tools.ts",
     "crates/codegen/pi-grok-adapter/tests/fixtures/pi_subagent_provider.ts",
     "crates/codegen/pi-grok-adapter/tests/fixtures/pi_workflow_scope.ts",
@@ -18308,9 +18775,19 @@
     "crates/codegen/pi-grok-adapter/tests/mock_pi_contract.py",
     "crates/codegen/pi-grok-adapter/tests/mock_pi_rpc.py",
     "crates/codegen/pi-grok-adapter/tests/pi_dependency_profile.py",
+    "crates/codegen/pi-grok-adapter/tests/pi_disposition.rs",
+    "crates/codegen/pi-grok-adapter/tests/pi_lifecycle.rs",
+    "crates/codegen/pi-grok-adapter/tests/pi_model_projection.rs",
+    "crates/codegen/pi-grok-adapter/tests/pi_model_rpc_smoke.py",
     "crates/codegen/pi-grok-adapter/tests/pi_native_projection.rs",
     "crates/codegen/pi-grok-adapter/tests/pi_native_pty_smoke.ts",
     "crates/codegen/pi-grok-adapter/tests/pi_native_rpc_smoke.py",
+    "crates/codegen/pi-grok-adapter/tests/pi_packages_contract.py",
+    "crates/codegen/pi-grok-adapter/tests/pi_real_chat_smoke.mjs",
+    "crates/codegen/pi-grok-adapter/tests/pi_reload_ack.rs",
+    "crates/codegen/pi-grok-adapter/tests/pi_reload_ack.test.ts",
+    "crates/codegen/pi-grok-adapter/tests/pi_resource_restore.rs",
+    "crates/codegen/pi-grok-adapter/tests/pi_rpc_resource_restart.rs",
     "crates/codegen/pi-grok-adapter/tests/pi_subagent_sdk_smoke.py",
     "crates/codegen/pi-grok-adapter/tests/pi_workflow_scope.rs",
     "crates/codegen/xai-acp-lib/src/connection_status.rs",
@@ -18346,6 +18823,7 @@
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/plan_mode_extension.rs",
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/recap_extension.rs",
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/remote_tui_extension.rs",
+    "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/resource_refresh.rs",
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/rollback_extension.rs",
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/rpc_compat_extension.rs",
     "crates/codegen/xai-grok-pager-bin/src/bin/grok_pi/runtime_config.rs",
@@ -18502,6 +18980,7 @@
     "crates/codegen/xai-grok-pager/src/app/dispatch/review.rs",
     "crates/codegen/xai-grok-pager/src/app/dispatch/session/pi_fork.rs",
     "crates/codegen/xai-grok-pager/src/app/dispatch/session/tree.rs",
+    "crates/codegen/xai-grok-pager/src/app/dispatch/tests/pi_controls.rs",
     "crates/codegen/xai-grok-pager/src/app/effects/clipboard_backport_tests.rs",
     "crates/codegen/xai-grok-pager/src/app/extension_shortcuts.rs",
     "crates/codegen/xai-grok-pager/src/app/reader_thread.rs",
@@ -18531,6 +19010,7 @@
     "crates/codegen/xai-grok-pager/src/slash/commands/notify.rs",
     "crates/codegen/xai-grok-pager/src/slash/commands/pi_config.rs",
     "crates/codegen/xai-grok-pager/src/slash/commands/pi_models.rs",
+    "crates/codegen/xai-grok-pager/src/slash/commands/pi_runtime.rs",
     "crates/codegen/xai-grok-pager/src/slash/commands/pi_shortcut_manager.rs",
     "crates/codegen/xai-grok-pager/src/slash/commands/plan_mode.rs",
     "crates/codegen/xai-grok-pager/src/slash/commands/reload.rs",
@@ -18825,6 +19305,9 @@
     "docs/issues/架构/20260912-斜杠命令使用统计与智能排序可配置.md",
     "docs/issues/架构/20261002-pi-first-tui-PLAN.md",
     "docs/issues/架构/20261002-pi-first-tui-SPEC.md",
+    "docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md",
+    "docs/issues/架构/20261003-pi-deep-adaptation-SOURCE.md",
+    "docs/issues/架构/20261003-pi-deep-adaptation-SPEC.md",
     "docs/issues/模型/20260725-移植模型管理中心与热更新.md",
     "docs/pr/adapter/20260720-资源准入策略与启动诊断.md",
     "docs/pr/adapter/20260730-拆分 pi-grok-adapter 长文件.md",
@@ -18925,7 +19408,11 @@
     "extensions/pi-grok-rollback/shared.ts",
     "extensions/pi-grok-rollback/store.ts",
     "extensions/pi-grok-rollback/tsconfig.json",
+    "extensions/pi-grok-rpc-compat/index.test.ts",
     "extensions/pi-grok-rpc-compat/index.ts",
+    "extensions/pi-grok-rpc-compat/rpc.test.py",
+    "extensions/pi-grok-rpc-compat/ui.test.ts",
+    "extensions/pi-grok-rpc-compat/ui.ts",
     "extensions/pi-grok-rust-tui-bridge/index.ts",
     "extensions/pi-grok-shortcut-manager/commands.ts",
     "extensions/pi-grok-shortcut-manager/config.ts",
@@ -18971,6 +19458,7 @@
     "extensions/pi-grok-web-config/tests/browser-regression.ts",
     "extensions/pi-grok-web-config/tests/config-store.test.ts",
     "extensions/pi-grok-web-config/tests/fixture.ts",
+    "extensions/pi-grok-web-config/tests/settings-conflict.test.ts",
     "extensions/pi-grok-web-config/tsconfig.json",
     "extensions/pi-grok-web-config/web/app.js",
     "extensions/pi-grok-web-config/web/host.js",
@@ -19096,5 +19584,9 @@
     "crates/codegen/xai-grok-pager-pty-harness/tests/pty_e2e_minimal.rs",
     "crates/codegen/xai-grok-pager/src/scrollback/blocks/tool/snapshots/xai_grok_pager__scrollback__blocks__tool__edit__tests__diff_merged_hunks_gap_markers.snap"
   ],
-  "allowedAddedPrefixes": []
+  "allowedAddedPrefixes": [],
+  "phaseReviewBaseSource": {
+    "commit": "84174917511690447ba32915571e9748b5e10ad4",
+    "tree": "e3166ec8e9883542ac5e4e9aa5a3edf8f8a2b8f7"
+  }
 }

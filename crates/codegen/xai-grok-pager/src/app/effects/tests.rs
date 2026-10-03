@@ -2513,6 +2513,22 @@ fn format_session_info_session_auth_ignores_api_key_env() {
     assert!(!text.contains("console.x.ai"), "{text}");
     assert!(!text.contains("grok login"), "{text}");
 }
+
+#[test]
+fn session_info_renders_physical_model_and_unattributed_costs() {
+    let mut info = make_session_info("auto", None, 1000, 10000);
+    info.session_stats = Some(serde_json::from_value(serde_json::json!({
+        "cost":0.0004,
+        "modelUsage":[
+            {"provider":"local","model":"physical","cost":0.00007},
+            {"provider":null,"model":null,"cost":0.00033}
+        ]})).unwrap());
+    let fields = session_info_fields(&info, None, false);
+    let costs: Vec<_> = fields.iter().filter(|field| field.label == "Cost — Model").collect();
+    assert_eq!(costs.len(), 2);
+    assert_eq!(costs[0].value, "$0.000070 · local/physical");
+    assert_eq!(costs[1].value, "$0.000330 · Unattributed usage");
+}
 #[test]
 fn format_session_info_api_key_without_env() {
     let info = make_session_info("auto", None, 1000, 10000);

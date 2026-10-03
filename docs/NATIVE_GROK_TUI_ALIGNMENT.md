@@ -1,6 +1,12 @@
 # Native Grok TUI Alignment
 
-## 2026-10-03 current evidence
+## 2026-10-03 deep adaptation automatic evidence
+
+The current increment follows [deep adaptation SPEC](issues/架构/20261003-pi-deep-adaptation-SPEC.md), [PLAN](issues/架构/20261003-pi-deep-adaptation-PLAN.md) and [exact source review](issues/架构/20261003-pi-deep-adaptation-SOURCE.md). The latest measured production dependency graph has **806** packages with all seven prohibited stock runtimes absent. Final corrected-source build, four native PTYs and combined verification pass; the preceding 805-package result and completed verify below certify the Pi-first checkpoint at `84174917` only.
+
+Fresh native package PTY exposed fixed startup resource admission: installing a declaration did not load its new extension during the old reload path. The correction recomputes policy admission from official SDK-resolved resources, retains user CLI restrictions/trust, and uses official child shutdown/restart with public session/leaf/model/thinking restoration when startup inputs change. Unsafe in-memory restoration is deferred rather than rewriting Pi session JSONL. Actual restore/build/PTY proof now passes the named paths; public-API restoration boundaries remain saved/deferred and DA-10 human acceptance stays pending. Hidden loader errors and simultaneous external Web writes remain explicit boundaries in [VERIFICATION](VERIFICATION.md).
+
+## 2026-10-03 Pi-first checkpoint at 84174917
 
 The accepted [SPEC](issues/架构/20261002-pi-first-tui-SPEC.md) keeps Grok native TUI and Pi 1.0 as the only agent core. Question/Workflow contracts, host-feature metadata, complete configuration/session DTOs and pure permission helpers have canonical neutral owners with stock compatibility re-exports. The production Pi profile uses `--no-default-features --features jemalloc,sandbox-enforce`; its `normal,build` graph has 805 unique packages and none of the seven prohibited stock execution runtimes. Both the isolated Pi and default stock profiles compile.
 

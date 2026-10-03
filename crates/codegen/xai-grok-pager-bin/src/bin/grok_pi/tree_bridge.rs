@@ -12,7 +12,50 @@ pub(super) fn write_navigate_tree_extension() -> Result<NamedTempFile> {
         .tempfile()
         .context("create tree bridge extension tempfile")?;
     // Official ExtensionCommandContext: navigateTree + setLabel (rpc-mode).
-    const SOURCE: &str = r#"export default function (pi) {
+    const SOURCE: &str = r#"import { writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { CONFIG_DIR_NAME, DefaultPackageManager, SettingsManager, getAgentDir } from "@earendil-works/pi-coding-agent";
+
+export default function (pi) {
+  // Read declarations freshly; the registry below belongs to this running Pi,
+  // rather than to a second resource loader that would execute extensions again.
+  pi.registerCommand("__pi_package_snapshot", {
+    description: "Internal Pi-Grok bridge: package declarations and live registry",
+    handler: async (args, ctx) => {
+      const { responsePath } = JSON.parse(args);
+      if (typeof responsePath !== "string" || !responsePath) throw new Error("responsePath required");
+      const agentDir = getAgentDir();
+      const projectTrusted = ctx.isProjectTrusted();
+      const settingsManager = SettingsManager.create(ctx.cwd, agentDir, { projectTrusted });
+      const packageManager = new DefaultPackageManager({ cwd: ctx.cwd, agentDir, settingsManager });
+      const packages = packageManager.listConfiguredPackages();
+      let resolvedPaths;
+      const resolutionErrors = [];
+      try {
+        // Never install a missing declaration while inspecting admission.
+        resolvedPaths = await packageManager.resolve(async () => "skip");
+      } catch (error) {
+        resolutionErrors.push(String(error));
+      }
+      writeFileSync(responsePath, JSON.stringify({
+        cwd: ctx.cwd, agentDir, projectTrusted,
+        sessionId: ctx.sessionManager.getSessionId(),
+        // Fresh effective settings, not getters for the live runtime switches.
+        retryConfiguredEnabled: settingsManager.getRetryEnabled(),
+        autoCompactionConfiguredEnabled: settingsManager.getCompactionEnabled(),
+        settingsErrors: settingsManager.drainErrors().map(({ scope, path, error }) => ({ scope, path, error: error.message })),
+        packages,
+        packageSettingsBases: { user: resolve(ctx.cwd, agentDir), project: join(ctx.cwd, CONFIG_DIR_NAME) },
+        resolvedPaths, resolutionErrors,
+        commands: pi.getCommands(),
+        tools: pi.getAllTools().map(({ name, source }) => ({ name, source })),
+        // RPC does not expose the current resource loader's errors. Registry
+        // entries above are live facts; their absence cannot prove load success.
+        loaded: null, loadStatus: "unverified",
+      }), { mode: 0o600 });
+    },
+  });
+
   pi.registerCommand("__pi_navigate_tree", {
     description: "Internal Pi-Grok bridge: navigate session tree leaf",
     handler: async (args, ctx) => {
@@ -56,8 +99,15 @@ pub(super) fn write_navigate_tree_extension() -> Result<NamedTempFile> {
   // Official ExtensionAPI: ctx.reload() reloads settings/resources/extensions.
   pi.registerCommand("__pi_reload", {
     description: "Internal Pi-Grok bridge: reload settings, extensions, skills, prompts, themes, context",
-    handler: async (_args, ctx) => {
-      await ctx.reload();
+    handler: async (args, ctx) => {
+      const { responsePath } = JSON.parse(args || "{}");
+      try {
+        await ctx.reload();
+        if (responsePath) writeFileSync(responsePath, JSON.stringify({ ok: true }));
+      } catch (error) {
+        if (!responsePath) throw error;
+        writeFileSync(responsePath, JSON.stringify({ ok: false, error: String(error) }));
+      }
     },
   });
 }
@@ -81,6 +131,10 @@ mod tests {
         assert!(source.contains("registerCommand(\"__pi_navigate_tree\""));
         assert!(source.contains("registerCommand(\"__pi_tree_label\""));
         assert!(source.contains("registerCommand(\"__pi_reload\""));
+        assert!(source.contains("registerCommand(\"__pi_package_snapshot\""));
+        assert!(source.contains("listConfiguredPackages()"));
+        assert!(source.contains("ctx.isProjectTrusted()"));
+        assert!(source.contains("pi.getCommands()"));
         assert!(source.contains("ctx.navigateTree"));
         assert!(source.contains("ctx.setLabel"));
         assert!(source.contains("ctx.reload"));

@@ -119,10 +119,19 @@ Update channels are product-local and persisted in `~/.grok-pi/config.toml` unde
 | Parallel work | Pi sub-agents with foreground/background execution and native task views; `/subagents` exposes built-ins plus product-isolated project/global overrides. Optional Subagents V2 (F2 → Agent → "Pi subagents V2", or `PI_GROK_SUBAGENTS_V2=1`) adds root-session-scoped stable `/root/...` agent paths, parent/child + peer messaging, nested spawn, and external team presets under `.grok-pi/teams` / `~/.grok-pi/teams` |
 | Rhai workflows | Upstream `xai-workflow` host (F2 **Pi workflows**); `/workflow`, `/workflows`, `/create-workflow`; scripts under `~/.grok-pi/workflows` and `<repo>/.grok-pi/workflows` |
 | Session workflow | Resume, tree navigation, labels, recap, context inspection, and session picker |
-| Resource management | Native manager for Pi extensions, skills, prompts, and themes |
+| Resource management | `/pi-config` manages Pi resources and package install/remove/update through the selected official Pi CLI, then reloads and shows the live registry. Global/Project trust, filters and pins remain Pi-owned; local removal retains source directories. |
+| Pi runtime controls | `/pi-runtime` inspects runtime status, configures automatic retry/compaction, and cancels a retry delay. Live compaction and configured retry policy are identified separately. |
 | Updates | Isolated `stable` / `beta` GitHub Release channels, persisted under `~/.grok-pi/config.toml`; channel-aware background checks, `grok-pi update`, `--check --json`, and target-tag installer downloads |
 
+The final automatic build/verify and four native PTYs pass. One configured-default real SDK chat returned OK with unchanged credential/config bytes; real-provider native UI, human OAuth, real image generation and target-terminal acceptance remain separate pending layers.
+
 For field-level behavior and intentional omissions, see the [feature matrix](docs/FEATURE_MATRIX.md).
+
+Native package changes recompute policy-controlled startup admission. Unchanged inputs use official Pi reload; changed inputs restart after official disposal and restore the public session, leaf, model and thinking state. Without a persistent session file or when a user-message leaf cannot be safely restored, changes stay saved/deferred until the response finishes or the user restarts. The final native package fixture verifies the composed install/remove loop and history preservation.
+
+Package command completion, Pi reload and verified live command/tool registry entries are separate states. Pi 1.0 RPC does not expose the resource loader's complete errors, so grok-pi reports package load status as unverified. The Web settings editor retains its current-state preflight and requires a server revision (`If-Match`); an external change already present at save time is rejected. Its short compare/replace interval does not exclude simultaneous writes by external editors.
+
+Virtual model selection stays in `/model`; a separate native status shows the dispatched physical model and thinking level when Pi reports them. Image/classifier models use Pi's official model runtime and stay outside the chat picker. Synthetic SDK/RPC checks are separate from real provider, OAuth and terminal acceptance; see the [deep-adaptation record](docs/issues/架构/20261003-pi-deep-adaptation-PLAN.md).
 
 ## Architecture
 
@@ -141,6 +150,8 @@ The integration has three boundaries:
 - **`pi-grok-adapter`** is a headless JSONL RPC ↔ ACP bridge. It does not own a terminal or render a second UI.
 
 Pi source is not modified. The Remote TUI bridge connects capabilities unavailable in Pi RPC through the official extension API and projects them onto native Pager surfaces.
+
+`/pi-ui-capabilities` lists standard native mappings, limited mappings, experimental Remote TUI and unsupported methods. Working-message visibility/indicator changes map to the native status surface; animated indicators, persistent header/footer/widget factories and raw input/editor replacement remain bounded by Pi RPC. The experimental mode facade only activates with the actual Remote TUI host; it does not establish compatibility with every third-party component.
 
 Custom components own keyboard input until they close, including letter actions,
 paste, and ordinary `Esc` (handled by the component). Native Pi input/confirmation

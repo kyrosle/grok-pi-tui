@@ -194,8 +194,18 @@ impl QueueMirror {
         });
     }
 
-    pub(crate) fn release_reservation(&mut self, id: &str) {
+    pub(crate) fn release_reservation(&mut self, id: &str) -> bool {
+        let before = self.reserved.len();
         self.reserved.retain(|item| item.id != id);
+        self.reserved.len() != before
+    }
+
+    pub(crate) fn take_running_if(&mut self, id: &str) -> Option<QueueEntry> {
+        if self.running.as_ref().is_some_and(|entry| entry.id == id) {
+            self.running.take()
+        } else {
+            None
+        }
     }
 
     pub(crate) fn set_running(&mut self, entry: QueueEntry) {

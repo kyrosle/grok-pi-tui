@@ -164,7 +164,7 @@
 			const latest = await api("/api/state");
 			if (latest.settingsError) throw new Error(t("banner_settings",{error:latest.settingsError}));
 			if (!equal(latest.settings,base)) throw new Error(t("conflict"));
-			await api("/api/settings",{method:"PUT",body:JSON.stringify(doc)});
+			await api("/api/settings",{method:"PUT",headers:{"if-match":`"${latest.settingsVersion}"`},body:JSON.stringify(doc)});
 			await refresh();
 		});
 	}

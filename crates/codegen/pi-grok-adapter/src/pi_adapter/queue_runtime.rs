@@ -1,6 +1,88 @@
 use super::*;
 
 impl PiAgent {
+    /// Pi 1.0 tells us whether an input started work, was queued, or was
+    /// consumed by a command/input handler. Only old/malformed responses need
+    /// the compatibility idle probe. A handled input completes its own waiter
+    /// without completing unrelated work started by the extension.
+    pub(super) async fn apply_prompt_response(
+        &self,
+        response: &Value,
+        operation_id: Option<u64>,
+        entry: Option<&QueueEntry>,
+        owns_run: bool,
+    ) -> bool {
+        match pi_input_disposition(response) {
+            Some(PiInputDisposition::Started | PiInputDisposition::Queued) => false,
+            None => {
+                let probe = self.clone();
+                let entry = entry.cloned();
+                tokio::task::spawn_local(async move {
+                    probe
+                        .probe_prompt_without_agent(operation_id, entry, owns_run)
+                        .await;
+                });
+                false
+            }
+            Some(PiInputDisposition::Handled) => {
+                let active = operation_id.and_then(|id| self.take_active_prompt(id));
+                let client_id = entry.map(|entry| entry.id.as_str()).or_else(|| {
+                    active
+                        .as_ref()
+                        .and_then(|active| active.client_prompt_id.as_deref())
+                });
+                let completed_entry = {
+                    let mut state = self.state.borrow_mut();
+                    let mut completed_entry = false;
+                    let owns_slot = state
+                        .queue_mirror
+                        .running()
+                        .is_some_and(|running| client_id == Some(running.id.as_str()));
+                    if let Some(client_id) = client_id {
+                        completed_entry = state.queue_mirror.release_reservation(client_id);
+                        if owns_slot {
+                            completed_entry |=
+                                state.queue_mirror.take_running_if(client_id).is_some();
+                        }
+                        if state.live_prompt_id.as_deref() == Some(client_id) {
+                            state.live_prompt_id = None;
+                        }
+                    }
+                    let observed_work = active.as_ref().is_some_and(|active| active.agent_started)
+                        || state.turn_start_ms.is_some();
+                    if owns_run
+                        && (active.is_some() || owns_slot)
+                        && !observed_work
+                        && state.active_prompts.is_empty()
+                        && state.queue_mirror.running().is_none()
+                    {
+                        state.agent_running = false;
+                    }
+                    completed_entry
+                };
+                if let Some(active) = active {
+                    let _ = active.completion.send(PromptCompletion {
+                        reason: if active.cancelled {
+                            acp::StopReason::Cancelled
+                        } else {
+                            acp::StopReason::EndTurn
+                        },
+                        client_prompt_id: active.client_prompt_id,
+                    });
+                }
+                if let Some(entry) = entry
+                    && entry.origin != QueueOrigin::Client
+                    && completed_entry
+                {
+                    self.send_server_prompt_complete(entry, acp::StopReason::EndTurn)
+                        .await;
+                }
+                self.publish_queue_snapshot().await;
+                true
+            }
+        }
+    }
+
     /// Publish Pi's authoritative queue as Grok's native shared-queue surface.
     pub(super) async fn publish_queue_snapshot(&self) {
         let (session_id, snapshot) = {
@@ -37,6 +119,7 @@ impl PiAgent {
 
     pub(super) fn adapter_busy(state: &AdapterState) -> bool {
         state.agent_running
+            || state.reload_in_flight
             || state.cancelling
             || state.bash_running
             || !state.active_prompts.is_empty()
@@ -152,16 +235,13 @@ impl PiAgent {
                 request["images"] = Value::Array(entry.images.clone());
             }
             match self.rpc.request(request).await {
-                Ok(_) => {
-                    // Extension-owned rows have no ACP completion waiter, but
-                    // they still need the same idle probe. Another input
-                    // handler may consume the promoted RPC prompt without
-                    // producing agent_start/agent_settled; without this probe
-                    // the native queue would remain pinned to a ghost run.
-                    let probe = self.clone();
-                    tokio::task::spawn_local(async move {
-                        probe.probe_prompt_without_agent().await;
-                    });
+                Ok(response) => {
+                    if self
+                        .apply_prompt_response(&response, active_id, Some(&entry), true)
+                        .await
+                    {
+                        continue;
+                    }
                     return true;
                 }
                 Err(error) => {
@@ -286,26 +366,31 @@ impl PiAgent {
         if !entry.images.is_empty() {
             request["images"] = Value::Array(entry.images.clone());
         }
-        if let Err(error) = self.rpc.request(request).await {
-            tracing::warn!(%error, prompt_id = %entry.id, "queued interject failed");
-            self.state
-                .borrow_mut()
-                .queue_mirror
-                .release_reservation(&entry.id);
-            if let Some(active) = active_id.and_then(|id| self.take_active_prompt(id)) {
-                let _ = active.completion.send(PromptCompletion {
-                    reason: acp::StopReason::Cancelled,
-                    client_prompt_id: active.client_prompt_id,
-                });
+        let response = match self.rpc.request(request).await {
+            Ok(response) => response,
+            Err(error) => {
+                tracing::warn!(%error, prompt_id = %entry.id, "queued interject failed");
+                self.state
+                    .borrow_mut()
+                    .queue_mirror
+                    .release_reservation(&entry.id);
+                if let Some(active) = active_id.and_then(|id| self.take_active_prompt(id)) {
+                    let _ = active.completion.send(PromptCompletion {
+                        reason: acp::StopReason::Cancelled,
+                        client_prompt_id: active.client_prompt_id,
+                    });
+                }
+                self.send_ui_notification(
+                    &format!("Pi queue interject failed: {error}"),
+                    Some("error"),
+                )
+                .await;
+                self.publish_queue_snapshot().await;
+                return false;
             }
-            self.send_ui_notification(
-                &format!("Pi queue interject failed: {error}"),
-                Some("error"),
-            )
+        };
+        self.apply_prompt_response(&response, active_id, Some(&entry), false)
             .await;
-            self.publish_queue_snapshot().await;
-            return false;
-        }
         true
     }
 

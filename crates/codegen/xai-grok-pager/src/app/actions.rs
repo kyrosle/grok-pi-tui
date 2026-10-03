@@ -120,9 +120,31 @@ pub enum PiBuiltinTool {
 /// Synchronous, side-effect-free user intent.
 /// Produced by [`super::input`] from key/mouse events.
 /// Consumed by [`super::dispatch::dispatch`] to mutate state and return effects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PiControlMethod {
+    PackagesList,
+    PackagesAction,
+    PackagesCancel,
+    ResourcesReload,
+    RuntimeControl,
+}
+
+impl PiControlMethod {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::PackagesList => "pi/packages/list",
+            Self::PackagesAction => "pi/packages/action",
+            Self::PackagesCancel => "pi/packages/cancel",
+            Self::ResourcesReload => "pi/session/reload",
+            Self::RuntimeControl => "pi/runtime/control",
+        }
+    }
+}
+
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Action {
+    PiControlRequest { method: PiControlMethod, params: serde_json::Value },
     /// Quit the application.
     Quit,
     /// Restart the binary to pick up a downloaded update.
@@ -1663,6 +1685,12 @@ pub enum AfterSessionDelete {
 /// The event loop spawns these into a `JoinSet`; completions come back through [`TaskResult`] as `Action::TaskComplete`.
 #[derive(Debug)]
 pub enum Effect {
+    PiControlRequest {
+        agent_id: AgentId,
+        session_id: acp::SessionId,
+        method: PiControlMethod,
+        params: serde_json::Value,
+    },
     /// Run a `command` status line.
     RunStatusLineCommand(StatusLineRun),
     /// Create a new ACP session.
@@ -2419,6 +2447,7 @@ pub enum Effect {
     RemoteTuiInput { id: String, data: String },
     /// Experimental Remote TUI: cancel the active remote component session.
     RemoteTuiCancel { id: String },
+    RemoteTuiResize { id: String, columns: u16, rows: u16 },
     /// Extension shortcut matched: dispatch to Pi extension handler via RPC.
     ShortcutDispatch { key: String },
     /// Quit the application.
@@ -2720,6 +2749,12 @@ pub enum WorkspaceWriteCompletion {
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum TaskResult {
+    PiControlComplete {
+        agent_id: AgentId,
+        session_id: acp::SessionId,
+        method: PiControlMethod,
+        result: Result<serde_json::Value, String>,
+    },
     /// Session lifecycle result paired with the memory mode pinned by the
     /// actor that produced it. The wrapper lets all lifecycle variants share
     /// one typed metadata path.

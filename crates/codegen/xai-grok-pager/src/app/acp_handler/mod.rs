@@ -6,12 +6,12 @@ use agent_client_protocol as acp;
 use xai_acp_lib::AcpClientMessage;
 
 use super::actions::Effect;
-use xai_grok_shared::session::todo::todo_item_from_plan_entry;
+use xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights;
 use xai_grok_shared::session::notification::{
     SessionNotification, SessionUpdate as XaiSessionUpdate, is_reauthable_failure,
 };
+use xai_grok_shared::session::todo::todo_item_from_plan_entry;
 use xai_tool_types::scheduled_task::ScheduledTaskRemovedReason;
-use xai_grok_shared::permissions::bash_command_splitting::BashCommandHighlights;
 
 use crate::acp::meta::NotificationMeta;
 use crate::acp::tracker::AcpUpdateTracker;
@@ -79,8 +79,8 @@ pub(crate) use session_notification::apply_child_view_session_event;
 pub(crate) use session_notification::apply_session_event_for_test;
 pub(crate) use session_notification::drop_unexpected_replay;
 use session_notification::{
-    PlanModeTransition, advance_reconnect_cursor, confirm_context_used, detect_plan_mode_change,
-    handle_session_notification, handle_session_notification_with_origin,
+    PlanModeTransition, advance_reconnect_cursor, confirm_context_used, confirm_context_window,
+    detect_plan_mode_change, handle_session_notification, handle_session_notification_with_origin,
 };
 
 pub(crate) use queue::PendingRunningAdoption;
@@ -208,6 +208,15 @@ pub(crate) fn handle(msg: AcpClientMessage, app: &mut AppView) -> bool {
                     }
 
                     if !dedup_drop {
+                        if let Some(window) = notif
+                            .request
+                            .meta
+                            .as_ref()
+                            .and_then(|meta| meta.get("totalContextTokens"))
+                            .and_then(serde_json::Value::as_u64)
+                        {
+                            confirm_context_window(agent, window);
+                        }
                         if let Some(tokens) = meta.total_tokens {
                             confirm_context_used(agent, tokens);
                         }
@@ -422,6 +431,15 @@ pub(crate) fn handle(msg: AcpClientMessage, app: &mut AppView) -> bool {
                             );
                         // An overlay prompt arms the watch on this child, so the child's own updates must disarm it
                         ack_prompt_from_update(child_view, &meta);
+                        if let Some(window) = notif
+                            .request
+                            .meta
+                            .as_ref()
+                            .and_then(|meta| meta.get("totalContextTokens"))
+                            .and_then(serde_json::Value::as_u64)
+                        {
+                            confirm_context_window(child_view, window);
+                        }
                         if let Some(tokens) = meta.total_tokens {
                             confirm_context_used(child_view, tokens);
                         }

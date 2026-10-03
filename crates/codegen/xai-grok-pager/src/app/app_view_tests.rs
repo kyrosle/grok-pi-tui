@@ -539,6 +539,61 @@ fn remote_tui_forwards_key_release_to_component() {
 }
 
 #[test]
+fn remote_tui_resize_is_scoped_to_the_active_component_and_cleared_on_reload() {
+    use crate::app::actions::Effect;
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    app.handle_input(&Event::Resize(80, 24));
+    assert!(
+        !app.pending_effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::RemoteTuiResize { .. }))
+    );
+    app.set_external_widget(
+        "__pi_grok_remote_tui_session__".into(),
+        Some(vec![
+            serde_json::json!({"op":"open","id":"current"}).to_string(),
+        ]),
+        ExternalWidgetPlacement::AboveEditor,
+    );
+    app.pending_effects.clear();
+    app.handle_input(&Event::Resize(120, 40));
+    assert!(app.pending_effects.iter().any(|effect| matches!(effect,
+        Effect::RemoteTuiResize { id, columns:120, rows:40 } if id == "current")));
+    assert_eq!(app.last_known_terminal_rows, 40);
+    app.pending_effects.clear();
+    let agent_id = super::super::agent::AgentId(0);
+    app.agents.get_mut(&agent_id).unwrap().pi_shortcut_manager =
+        Some(crate::views::shortcut_manager::ShortcutManagerModal::new(
+            &app.external_ui.extension_shortcuts,
+        ));
+    app.handle_input(&Event::Resize(140, 45));
+    assert!(app.pending_effects.iter().any(|effect| matches!(effect,
+        Effect::RemoteTuiResize { id, columns:140, rows:45 } if id == "current")));
+    app.agents.get_mut(&agent_id).unwrap().pi_shortcut_manager = None;
+    app.pending_effects.clear();
+    app.handle_input(&Event::Resize(0, 40));
+    assert!(
+        !app.pending_effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::RemoteTuiResize { .. }))
+    );
+    app.handle_input(&Event::Resize(100, 30));
+    app.reset_external_extension_ui();
+    assert!(
+        !app.pending_effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::RemoteTuiResize { .. }))
+    );
+    app.handle_input(&Event::Resize(90, 25));
+    assert!(
+        !app.pending_effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::RemoteTuiResize { .. }))
+    );
+}
+
+#[test]
 fn remote_tui_lifecycle_owns_letters_before_frame_and_ignores_stale_close() {
     use crate::app::actions::Effect;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

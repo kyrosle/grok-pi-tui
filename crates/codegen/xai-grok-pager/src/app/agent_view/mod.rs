@@ -889,6 +889,8 @@ pub struct AgentView {
     pub(crate) modal_hovered_key: Option<char>,
     /// Cached server-reported context state.
     pub context_state: Option<xai_grok_shared::session::ContextInfo>,
+    /// External host's effective request window, independent of model selection.
+    pub external_context_window: Option<u64>,
     pub status_context: Option<xai_grok_status_line::StatusLineContext>,
     /// Held across a frame that clamps the row away, so a script keeps the size
     /// it last painted at.

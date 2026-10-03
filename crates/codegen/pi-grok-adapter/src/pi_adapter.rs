@@ -24,8 +24,8 @@ use crate::{
         WORKFLOW_TRUST_COMMAND,
     },
     prompt_bridge::{
-        direct_bash_command, format_bash_result, prompt_response, prompt_streaming_behavior,
-        prompt_to_pi, queue_lane_for_behavior,
+        PiInputDisposition, direct_bash_command, format_bash_result, pi_input_disposition,
+        prompt_response, prompt_streaming_behavior, prompt_to_pi, queue_lane_for_behavior,
     },
     queue_bridge::{
         QueueEntry, QueueLane, QueueMirror, QueueOrigin, queue_changed_params, string_list,
@@ -61,11 +61,17 @@ use xai_acp_lib::{AcpClientMessage, acp_send};
 mod agent;
 mod events;
 mod notifications;
+mod packages;
 mod queue_runtime;
 mod recovery;
 mod replay;
+mod runtime;
 mod session;
 mod tools;
+
+/// Composition-owned resource policy. Input is the official Pi resource
+/// snapshot; output replaces the complete Pi argv while the adapter stays headless.
+pub type ResourceAdmissionPlanner = Rc<dyn Fn(&Value) -> Result<Vec<String>>>;
 
 #[derive(Debug, Clone)]
 pub struct PiBootstrap {
@@ -293,6 +299,9 @@ pub struct PiAgent {
     /// Lazy session-scoped upstream workflow host (xai-workflow + Pi spawn).
     workflow_host: Rc<RefCell<Option<std::sync::Arc<WorkflowHost>>>>,
     workflow_project_trust: Rc<RefCell<Option<WorkflowProjectTrust>>>,
+    /// Package subprocess cancellation is independent of agent turn abort.
+    package_cancel: Rc<RefCell<Option<tokio_util::sync::CancellationToken>>>,
+    resource_admission_planner: Option<ResourceAdmissionPlanner>,
     /// F2 pi_goal control file + GoalHost (None when feature off).
     goal_host: Rc<RefCell<Option<GoalHost>>>,
     /// Process-private path-based local IPC emitted by the Pi subagent extension.
@@ -338,6 +347,8 @@ impl PiAgent {
             workflow_bridge_rx: Rc::new(RefCell::new(Some(workflow_bridge_rx))),
             workflow_host: Rc::new(RefCell::new(None)),
             workflow_project_trust: Rc::new(RefCell::new(None)),
+            package_cancel: Rc::new(RefCell::new(None)),
+            resource_admission_planner: None,
             goal_host: Rc::new(RefCell::new(goal_control.map(GoalHost::new))),
             subagent_transport: subagent_transport.map(Rc::new),
             workflows_enabled,
@@ -379,6 +390,11 @@ impl PiAgent {
                 rpc_recovery: recovery::RpcRecoveryTracker::default(),
             })),
         })
+    }
+
+    pub fn with_resource_admission_planner(mut self, planner: ResourceAdmissionPlanner) -> Self {
+        self.resource_admission_planner = Some(planner);
+        self
     }
 
     pub async fn run_events(self: Rc<Self>, mut events: mpsc::UnboundedReceiver<Value>) {
@@ -1769,6 +1785,9 @@ fn utc_now_ms() -> i64 {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod handled_response_tests;
 
 #[cfg(test)]
 mod ask_user_response_file_tests {

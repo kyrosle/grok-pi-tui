@@ -4,7 +4,7 @@ mod context;
 mod details;
 pub use details::{
     AssistantUsageMetric, CacheSessionMetrics, CacheUsageTotals, FeedbackOutcome, FeedbackResponse,
-    SessionInfoData, SessionInfoResponse, SessionTokenTotals, SessionUsageStats,
+    SessionInfoData, SessionInfoResponse, SessionModelUsage, SessionTokenTotals, SessionUsageStats,
     model_display_name,
 };
 pub mod info;

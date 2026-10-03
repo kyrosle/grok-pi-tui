@@ -14,6 +14,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Line;
+use serde_json::{Value, json};
 
 use crate::pi_resource_config::{
     PiProjectOverride, PiResource, PiResourceCatalog, PiResourceOrigin, PiResourceScope,
@@ -63,7 +64,7 @@ impl ResourceFilter {
     }
 }
 
-const SHORTCUTS: [Shortcut<'static>; 9] = [
+const SHORTCUTS: [Shortcut<'static>; 13] = [
     Shortcut {
         label: "↑/↓ navigate",
         clickable: false,
@@ -106,6 +107,26 @@ const SHORTCUTS: [Shortcut<'static>; 9] = [
     },
     Shortcut {
         label: "Esc close",
+        clickable: false,
+        id: 0,
+    },
+    Shortcut {
+        label: "i install",
+        clickable: false,
+        id: 0,
+    },
+    Shortcut {
+        label: "d remove",
+        clickable: false,
+        id: 0,
+    },
+    Shortcut {
+        label: "u update package",
+        clickable: false,
+        id: 0,
+    },
+    Shortcut {
+        label: "U update all packages",
         clickable: false,
         id: 0,
     },
@@ -240,6 +261,13 @@ struct PackagePreview {
     readme: String,
 }
 
+struct PackageDraft {
+    operation: &'static str,
+    source: String,
+    confirm: bool,
+    source_scope: PiResourceScope,
+}
+
 pub struct PiConfigModalState {
     pub window: ModalWindowState,
     catalog: PiResourceCatalog,
@@ -259,12 +287,18 @@ pub struct PiConfigModalState {
     preview: PackagePreview,
     notice: Option<String>,
     picker: Option<PiResourcePickerState>,
+    package_draft: Option<PackageDraft>,
+    operation_running: bool,
+    pending_reload: bool,
 }
 
 pub enum PiConfigOutcome {
     Close,
     PickerSubmit,
     Changed,
+    PackageAction(Value),
+    CancelPackage,
+    Reload,
 }
 
 impl PiConfigModalState {
@@ -290,6 +324,9 @@ impl PiConfigModalState {
             preview: PackagePreview::default(),
             notice: None,
             picker: None,
+            package_draft: None,
+            operation_running: false,
+            pending_reload: false,
         };
         state.fold_all_sources();
         state.refresh_preview();
@@ -385,6 +422,20 @@ impl PiConfigModalState {
         {
             return PiConfigOutcome::Changed;
         }
+        if self.operation_running {
+            if self.pending_reload {
+                return PiConfigOutcome::Changed;
+            }
+            return if matches!(key.code, KeyCode::Esc | KeyCode::F(2)) {
+                self.notice = Some("Cancelling package operation…".to_owned());
+                PiConfigOutcome::CancelPackage
+            } else {
+                PiConfigOutcome::Changed
+            };
+        }
+        if self.package_draft.is_some() {
+            return self.handle_package_draft_key(key);
+        }
         if self.search_active {
             return self.handle_search_key(key);
         }
@@ -443,6 +494,28 @@ impl PiConfigModalState {
             }
             KeyCode::Char(' ') | KeyCode::Enter if key.modifiers.is_empty() => {
                 self.activate_selected();
+                self.mutation_outcome()
+            }
+            KeyCode::Char('i') if key.modifiers.is_empty() && !self.is_picker() => {
+                self.open_package_draft("install");
+                PiConfigOutcome::Changed
+            }
+            KeyCode::Char('d') if key.modifiers.is_empty() && !self.is_picker() => {
+                self.open_package_draft("remove");
+                PiConfigOutcome::Changed
+            }
+            KeyCode::Char('u') if key.modifiers.is_empty() && !self.is_picker() => {
+                self.open_package_draft("update");
+                PiConfigOutcome::Changed
+            }
+            KeyCode::Char('U') if key.modifiers.is_empty() && !self.is_picker() => {
+                self.package_draft = Some(PackageDraft {
+                    operation: "update_all",
+                    source: String::new(),
+                    confirm: true,
+                    source_scope: self.scope,
+                });
+                self.notice = Some("Update all configured packages across Global and trusted Project · Enter confirm · Esc cancel".to_owned());
                 PiConfigOutcome::Changed
             }
             KeyCode::Char('r') if key.modifiers.is_empty() => {
@@ -471,6 +544,9 @@ impl PiConfigModalState {
     }
 
     pub fn handle_mouse(&mut self, mouse: &MouseEvent) -> PiConfigOutcome {
+        if self.operation_running || self.package_draft.is_some() {
+            return PiConfigOutcome::Changed;
+        }
         let in_preview = self
             .preview_rect
             .is_some_and(|rect| rect.contains((mouse.column, mouse.row).into()));
@@ -521,10 +597,216 @@ impl PiConfigModalState {
                 } else {
                     self.refresh_preview();
                 }
-                PiConfigOutcome::Changed
+                self.mutation_outcome()
             }
             _ => PiConfigOutcome::Changed,
         }
+    }
+
+    pub fn is_operation_running(&self) -> bool {
+        self.operation_running
+    }
+
+    pub fn begin_snapshot_load(&mut self) {
+        self.operation_running = true;
+        // The live-state probe has no package subprocess to cancel.
+        self.pending_reload = true;
+        self.notice = Some("Checking live Pi resources…".to_owned());
+    }
+
+    pub fn finish_snapshot(&mut self, result: Result<Value, String>) {
+        self.operation_running = false;
+        self.pending_reload = false;
+        match result {
+            Ok(snapshot) => {
+                self.apply_snapshot(&snapshot);
+                let commands = snapshot
+                    .get("commands")
+                    .and_then(Value::as_array)
+                    .map_or(0, Vec::len);
+                let tools = snapshot
+                    .get("tools")
+                    .and_then(Value::as_array)
+                    .map_or(0, Vec::len);
+                self.notice = Some(format!(
+                    "Live Pi registry: {commands} commands, {tools} tools"
+                ));
+            }
+            Err(error) => {
+                self.catalog.project_trusted = false;
+                self.scope = PiResourceScope::User;
+                self.notice = Some(format!("Cannot verify live Pi resources · {error}"));
+            }
+        }
+    }
+
+    pub fn begin_reload(&mut self) {
+        self.operation_running = true;
+        self.pending_reload = true;
+        self.notice = Some("Saved to Pi settings · reloading Pi resources…".to_owned());
+    }
+
+    /// Only a verified Pi response can settle saved/installed state into a
+    /// reloaded runtime. Failed/cancelled commands may still have changed disk.
+    pub fn finish_operation(&mut self, result: Result<Value, String>) {
+        self.operation_running = false;
+        self.pending_reload = false;
+        if let Ok(value) = &result
+            && let Some(snapshot) = value.get("snapshot")
+        {
+            self.apply_snapshot(snapshot);
+        }
+        self.refresh();
+        self.notice = Some(match result {
+            Err(error) => format!("Pi operation failed · {error}"),
+            Ok(value) => {
+                let status = value.get("status").and_then(Value::as_str).unwrap_or(
+                    if value.get("ok").and_then(Value::as_bool) == Some(true) {
+                        "reloaded"
+                    } else {
+                        "saved"
+                    },
+                );
+                let error = value.get("error").and_then(Value::as_str).unwrap_or("");
+                match status {
+                    "registry_refreshed" | "reloaded" => {
+                        if let Some(snapshot) = value.get("snapshot") {
+                            let commands = snapshot
+                                .get("commands")
+                                .and_then(Value::as_array)
+                                .map_or(0, Vec::len);
+                            let tools = snapshot
+                                .get("tools")
+                                .and_then(Value::as_array)
+                                .map_or(0, Vec::len);
+                            format!("Load unverified · registry: {commands} commands/{tools} tools")
+                        } else {
+                            "Load unverified · Pi reload completed".to_owned()
+                        }
+                    }
+                    "cancelled" => format!("Cancelled · {error}"),
+                    "failed" => format!("Package operation failed · {error}"),
+                    _ => format!("Pi command completed · reload pending · {error}"),
+                }
+            }
+        });
+    }
+
+    pub fn apply_snapshot(&mut self, snapshot: &Value) {
+        if let Some(trusted) = snapshot.get("projectTrusted").and_then(Value::as_bool)
+            && let Ok(catalog) =
+                PiResourceCatalog::load_with_trust(self.catalog.cwd.clone(), Some(trusted))
+        {
+            self.catalog = catalog;
+            self.merge_picker_resources();
+            if !trusted && self.scope == PiResourceScope::Project {
+                self.scope = PiResourceScope::User;
+            }
+            self.fold_all_sources();
+            self.refresh_preview();
+        }
+    }
+
+    pub fn paste_package_source(&mut self, text: &str) -> bool {
+        if let Some(draft) = &mut self.package_draft
+            && !draft.confirm
+        {
+            draft
+                .source
+                .extend(text.chars().filter(|character| !character.is_control()));
+            return true;
+        }
+        false
+    }
+
+    fn mutation_outcome(&mut self) -> PiConfigOutcome {
+        if std::mem::take(&mut self.pending_reload) {
+            self.begin_reload();
+            PiConfigOutcome::Reload
+        } else {
+            PiConfigOutcome::Changed
+        }
+    }
+
+    fn open_package_draft(&mut self, operation: &'static str) {
+        let (source, source_scope) = if operation == "install" {
+            (String::new(), self.scope)
+        } else {
+            self.visible_rows()
+                .get(self.selected)
+                .map(PiConfigRow::preview_resource)
+                .filter(|resource| resource.origin == PiResourceOrigin::Package)
+                .map(|resource| {
+                    (
+                        resource.source.clone(),
+                        if operation == "update" {
+                            resource.scope
+                        } else {
+                            self.scope
+                        },
+                    )
+                })
+                .unwrap_or_else(|| (String::new(), self.scope))
+        };
+        self.package_draft = Some(PackageDraft {
+            operation,
+            source,
+            confirm: false,
+            source_scope,
+        });
+        self.search_active = false;
+        self.notice = Some(match operation {
+            "install" => format!("Install in {} · npm:, git:, or local source · Enter apply · Esc cancel", self.scope.label()),
+            "remove" => "Remove declaration and Pi-managed installation · local source directories are kept · Enter review · Esc cancel".to_owned(),
+            _ => "Update this package identity across Global and trusted Project · version pins are kept · Enter apply · Esc cancel".to_owned(),
+        });
+    }
+
+    fn handle_package_draft_key(&mut self, key: &KeyEvent) -> PiConfigOutcome {
+        let draft = self.package_draft.as_mut().expect("package draft");
+        match key.code {
+            KeyCode::Esc | KeyCode::F(2) => {
+                self.package_draft = None;
+                self.notice = Some("Package operation cancelled".to_owned());
+            }
+            KeyCode::Enter if key.modifiers.is_empty() => {
+                if draft.operation != "update_all" && draft.source.trim().is_empty() {
+                    self.notice = Some("Enter a package source".to_owned());
+                    return PiConfigOutcome::Changed;
+                }
+                if draft.operation == "remove" && !draft.confirm {
+                    draft.confirm = true;
+                    self.notice = Some(format!(
+                        "Remove {} from {} · Enter confirm · Esc cancel",
+                        draft.source,
+                        draft.source_scope.label()
+                    ));
+                    return PiConfigOutcome::Changed;
+                }
+                let draft = self.package_draft.take().expect("package draft");
+                self.operation_running = true;
+                self.notice = Some("Running official Pi package command · Esc cancel…".to_owned());
+                return PiConfigOutcome::PackageAction(json!({
+                    "operation": draft.operation,
+                    "scope": if draft.source_scope == PiResourceScope::Project { "project" } else { "user" },
+                    "source": if draft.operation == "update_all" { None } else { Some(draft.source.trim()) },
+                }));
+            }
+            KeyCode::Backspace if !draft.confirm => {
+                draft.source.pop();
+            }
+            KeyCode::Char(character)
+                if key
+                    .modifiers
+                    .difference(crossterm::event::KeyModifiers::SHIFT)
+                    .is_empty()
+                    && !draft.confirm =>
+            {
+                draft.source.push(character);
+            }
+            _ => {}
+        }
+        PiConfigOutcome::Changed
     }
 
     fn handle_search_key(&mut self, key: &KeyEvent) -> PiConfigOutcome {
@@ -815,8 +1097,8 @@ impl PiConfigModalState {
         };
         match result {
             Ok(()) => {
-                self.notice =
-                    Some("Saved to Pi settings · restart grok-pi or use Pi /reload".to_owned());
+                self.pending_reload = true;
+                self.notice = Some("Saved to Pi settings · reload pending".to_owned());
                 self.refresh();
             }
             Err(error) => self.notice = Some(format!("Pi config: {error:#}")),
@@ -919,7 +1201,10 @@ impl PiConfigModalState {
 
     fn refresh(&mut self) {
         self.policy = ResourcePolicy::load_from_config();
-        match PiResourceCatalog::load(self.catalog.cwd.clone()) {
+        match PiResourceCatalog::load_with_trust(
+            self.catalog.cwd.clone(),
+            Some(self.catalog.project_trusted),
+        ) {
             Ok(catalog) => {
                 self.catalog = catalog;
                 self.merge_picker_resources();
@@ -1245,19 +1530,34 @@ fn render_resource_tree(
         "{scope_description} · {} · {matching_resources}/{scope_resources} resources",
         state.filter.label(),
     );
-    let search_label = if state.search_query.is_empty() {
+    let package_label = state.package_draft.as_ref().map(|draft| {
+        format!(
+            "{} [{}]: {}",
+            draft.operation,
+            state.scope.label(),
+            draft.source
+        )
+    });
+    let search_label = if let Some(label) = &package_label {
+        label.as_str()
+    } else if state.search_query.is_empty() {
         "Search resources…"
     } else {
         state.search_query.as_str()
     };
-    let cursor = state.search_active.then_some("▌").unwrap_or("");
+    let editing = state.search_active || state.package_draft.is_some();
+    let cursor = editing.then_some("▌").unwrap_or("");
     write_line(
         buf,
         x,
         y,
         width,
-        &format!("/ [{}] {search_label}{cursor}", state.filter.label()),
-        if state.search_active {
+        &if state.package_draft.is_some() {
+            format!("{search_label}{cursor}")
+        } else {
+            format!("/ [{}] {search_label}{cursor}", state.filter.label())
+        },
+        if editing {
             Style::default().fg(theme.fuzzy_accent)
         } else {
             Style::default().fg(theme.gray_dim)
@@ -1627,10 +1927,124 @@ mod tests {
             preview: PackagePreview::default(),
             notice: None,
             picker: None,
+            package_draft: None,
+            operation_running: false,
+            pending_reload: false,
         };
         state.fold_all_sources();
         state.refresh_preview();
         state
+    }
+
+    #[test]
+    fn package_install_requires_source_and_busy_escape_requests_cancel() {
+        let mut state = state();
+        let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
+        assert!(matches!(
+            state.handle_key(&key(KeyCode::Char('i'))),
+            PiConfigOutcome::Changed
+        ));
+        assert!(matches!(
+            state.handle_key(&key(KeyCode::Enter)),
+            PiConfigOutcome::Changed
+        ));
+        assert!(!state.is_operation_running());
+        assert!(state.paste_package_source("npm:@example/pi-tools@1.0.0"));
+        let PiConfigOutcome::PackageAction(action) = state.handle_key(&key(KeyCode::Enter)) else {
+            panic!("package action");
+        };
+        assert_eq!(
+            action,
+            json!({"operation":"install","scope":"user","source":"npm:@example/pi-tools@1.0.0"})
+        );
+        assert!(state.is_operation_running());
+        assert!(matches!(
+            state.handle_key(&key(KeyCode::Enter)),
+            PiConfigOutcome::Changed
+        ));
+        assert!(matches!(
+            state.handle_key(&key(KeyCode::Esc)),
+            PiConfigOutcome::CancelPackage
+        ));
+        assert!(state.is_operation_running());
+    }
+
+    #[test]
+    fn package_remove_reviews_source_and_update_all_never_implies_one_scope() {
+        let mut state = state();
+        for resource in &mut state.catalog.resources {
+            resource.origin = PiResourceOrigin::Package;
+            resource.source = "./local-package".to_owned();
+        }
+        state.fold_all_sources();
+        let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
+        state.handle_key(&key(KeyCode::Char('d')));
+        assert!(matches!(
+            state.handle_key(&key(KeyCode::Enter)),
+            PiConfigOutcome::Changed
+        ));
+        assert!(!state.is_operation_running());
+        let PiConfigOutcome::PackageAction(action) = state.handle_key(&key(KeyCode::Enter)) else {
+            panic!("remove action");
+        };
+        assert_eq!(action["operation"], "remove");
+        assert_eq!(action["source"], "./local-package");
+        state.operation_running = false;
+        state.handle_key(&key(KeyCode::Char('U')));
+        assert!(state.notice.as_ref().unwrap().contains("across Global"));
+        let PiConfigOutcome::PackageAction(action) = state.handle_key(&key(KeyCode::Enter)) else {
+            panic!("update all action");
+        };
+        assert_eq!(action["operation"], "update_all");
+        assert!(action["source"].is_null());
+    }
+
+    #[test]
+    fn reload_pending_cannot_be_cancelled_as_a_package_subprocess() {
+        let mut state = state();
+        state.pending_reload = true;
+        assert!(matches!(state.mutation_outcome(), PiConfigOutcome::Reload));
+        assert!(state.is_operation_running());
+        let key = KeyEvent::new(KeyCode::Esc, crossterm::event::KeyModifiers::NONE);
+        assert!(matches!(state.handle_key(&key), PiConfigOutcome::Changed));
+        assert!(state.is_operation_running());
+    }
+
+    #[test]
+    fn project_pane_updates_inherited_package_using_its_actual_declaration_scope() {
+        let mut state = state();
+        state.scope = PiResourceScope::Project;
+        state.catalog.project_trusted = true;
+        state
+            .catalog
+            .resources
+            .retain(|resource| resource.scope == PiResourceScope::User);
+        for resource in &mut state.catalog.resources {
+            resource.origin = PiResourceOrigin::Package;
+            resource.source = "../global-package".to_owned();
+        }
+        let key = |code| KeyEvent::new(code, crossterm::event::KeyModifiers::NONE);
+        state.handle_key(&key(KeyCode::Char('u')));
+        let PiConfigOutcome::PackageAction(action) = state.handle_key(&key(KeyCode::Enter)) else {
+            panic!("inherited package update");
+        };
+        assert_eq!(action["operation"], "update");
+        assert_eq!(action["source"], "../global-package");
+        assert_eq!(action["scope"], "user");
+    }
+
+    #[test]
+    fn snapshot_probe_blocks_mutations_and_failure_closes_project_scope() {
+        let mut state = state();
+        state.scope = PiResourceScope::Project;
+        state.begin_snapshot_load();
+        let key = KeyEvent::new(KeyCode::Char('i'), crossterm::event::KeyModifiers::NONE);
+        assert!(matches!(state.handle_key(&key), PiConfigOutcome::Changed));
+        assert!(state.package_draft.is_none());
+        state.finish_snapshot(Err("snapshot unavailable".into()));
+        assert!(!state.is_operation_running());
+        assert!(!state.catalog.project_trusted);
+        assert_eq!(state.scope, PiResourceScope::User);
     }
 
     #[test]

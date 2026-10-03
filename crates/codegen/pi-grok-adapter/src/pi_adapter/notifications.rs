@@ -2,6 +2,14 @@ use super::*;
 
 impl PiAgent {
     pub(super) async fn send_update(&self, update: acp::SessionUpdate) {
+        self.send_update_with_context_window(update, None).await;
+    }
+
+    async fn send_update_with_context_window(
+        &self,
+        update: acp::SessionUpdate,
+        window: Option<u64>,
+    ) {
         let mut notification = acp::SessionNotification::new(self.session_id(), update);
         // Stamp the same live timing fields stock Grok shell puts on every
         // SessionNotification. Without streamStartMs the pager never pre-creates
@@ -26,6 +34,9 @@ impl PiAgent {
             }
         }
         meta.insert("agentTimestampMs".into(), json!(utc_now_ms()));
+        if let Some(window) = window {
+            meta.insert("totalContextTokens".into(), json!(window));
+        }
         notification = notification.meta(Some(meta));
         if let Err(error) = acp_send(notification, &self.client_tx).await {
             tracing::debug!(%error, "Grok pager closed while sending Pi session update");
@@ -200,6 +211,10 @@ impl PiAgent {
     /// model window (`totalContextTokens`). Pi owns the estimate via
     /// `get_session_stats.contextUsage`.
     pub(super) async fn refresh_context_usage(&self) {
+        let _ = self.refresh_context_usage_with_window().await;
+    }
+
+    async fn refresh_context_usage_with_window(&self) -> Option<u64> {
         let data = match self
             .rpc
             .request(json!({ "type": "get_session_stats" }))
@@ -208,27 +223,59 @@ impl PiAgent {
             Ok(data) => data,
             Err(error) => {
                 tracing::debug!(%error, "failed to fetch Pi session stats for context bar");
-                return;
+                return None;
             }
         };
-        let Some(tokens) = context_tokens_from_stats(&data) else {
-            return;
-        };
+        let window = data
+            .get("contextUsage")
+            .and_then(|usage| usage.get("contextWindow"))
+            .and_then(Value::as_u64)
+            .filter(|window| *window > 0);
+        let tokens = context_tokens_from_stats(&data);
         let changed = {
             let mut state = self.state.borrow_mut();
-            if state.last_context_tokens == Some(tokens) {
+            if tokens.is_none() || state.last_context_tokens == tokens {
                 false
             } else {
-                state.last_context_tokens = Some(tokens);
+                state.last_context_tokens = tokens;
                 true
             }
         };
-        if changed {
+        if changed || window.is_some() {
             // Empty chunk is a no-op in the tracker but still carries
             // `_meta.totalTokens` for confirm_context_used.
-            self.send_update(acp::SessionUpdate::AgentMessageChunk(text_chunk("")))
-                .await;
+            self.send_update_with_context_window(
+                acp::SessionUpdate::AgentMessageChunk(text_chunk("")),
+                window,
+            )
+            .await;
         }
+        window
+    }
+
+    /// Rebuild the native sticky status from live dispatch or Pi's active branch.
+    pub(super) async fn publish_model_route(&self, message: Option<&Value>) {
+        if message.is_none() {
+            // Bootstrap/reload may follow live turns whose append-log cache is older.
+            // Use Pi's incremental entries rather than resurrecting a cached route.
+            if let Err(error) = self.refresh_entry_replay_cache().await {
+                tracing::debug!(%error, "failed to refresh Pi model route");
+                self.send_status("model_route", None).await;
+                return;
+            }
+        }
+        let text = {
+            let state = self.state.borrow();
+            let dispatched = message
+                .and_then(crate::model::PiDispatchedModel::from_message)
+                .or_else(|| state.entry_replay_cache.latest_dispatched_model());
+            crate::model::model_route_status(
+                state.bootstrap.state.model.as_ref(),
+                &state.bootstrap.state.thinking_level,
+                dispatched.as_ref(),
+            )
+        };
+        self.send_status("model_route", text.as_deref()).await;
     }
 
     pub(super) fn note_context_tokens(&self, tokens: u64) {
@@ -257,17 +304,20 @@ impl PiAgent {
     }
 
     pub(super) async fn handle_compaction_start(&self, event: &Value) {
-        self.refresh_context_usage().await;
+        let actual_window = self.refresh_context_usage_with_window().await;
         let notification = (|| {
             let mut state = self.state.borrow_mut();
             state.compaction_started_at = Some(Instant::now());
             let tokens_used = state.last_context_tokens?;
-            let context_window = state
-                .bootstrap
-                .state
-                .model
-                .as_ref()
-                .and_then(|model| model.context_window)
+            let context_window = actual_window
+                .or_else(|| {
+                    state
+                        .bootstrap
+                        .state
+                        .model
+                        .as_ref()
+                        .and_then(|model| model.context_window)
+                })
                 .filter(|window| *window > 0)?;
             Some(compaction_start_notification(
                 &state.acp_session_id,
@@ -374,6 +424,7 @@ impl PiAgent {
             session_name.as_deref(),
         );
         if let Some(entries) = entries_for_cache.as_ref() {
+            response["sessionStats"]["modelUsage"] = crate::model::session_model_usage(entries);
             let metrics = crate::cache_metrics::collect_cache_session_metrics(entries);
             response = crate::context_projection::attach_cache_metrics(response, metrics);
         }

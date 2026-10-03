@@ -229,7 +229,19 @@ impl PiResourceCatalog {
             }
         }
 
-        resources.sort_by(|left, right| {
+        let mut catalog = Self {
+            resources,
+            project_trusted,
+            agent_dir,
+            cwd,
+        };
+        catalog.normalize_resource_order();
+        Ok(catalog)
+    }
+
+    /// Keep SDK-resolved replacements in the same precedence/order used at startup.
+    pub fn normalize_resource_order(&mut self) {
+        self.resources.sort_by(|left, right| {
             (
                 resource_precedence(left),
                 left.source.as_str(),
@@ -243,14 +255,8 @@ impl PiResourceCatalog {
                     &right.path,
                 ))
         });
-        resources.dedup_by(|left, right| left.identity() == right.identity());
-
-        Ok(Self {
-            resources,
-            project_trusted,
-            agent_dir,
-            cwd,
-        })
+        self.resources
+            .dedup_by(|left, right| left.identity() == right.identity());
     }
 
     pub fn resources_for_scope(&self, scope: PiResourceScope) -> Vec<&PiResource> {

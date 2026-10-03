@@ -128,11 +128,28 @@ pub(crate) fn execute(
     let external_agent = session_flags.external_agent;
     let effect_is_send_now = matches!(effect, Effect::SendPromptNow { .. });
     match effect {
+        Effect::PiControlRequest { agent_id, session_id, method, params } => {
+            let tx = acp_tx.clone();
+            tasks.spawn(async move {
+                let request = acp::ExtRequest::new(method.as_str(),
+                    serde_json::value::to_raw_value(&params).expect("Pi control params").into());
+                let result = match acp_send(request, &tx).await {
+                    Ok(response) => serde_json::from_str::<serde_json::Value>(response.0.get())
+                        .map(|body| body.get("result").unwrap_or(&body).clone())
+                        .map_err(|error| format!("Invalid Pi control response: {error}")),
+                    Err(error) => Err(sanitize_user_error(&error.to_string())),
+                };
+                TaskResult::PiControlComplete { agent_id, session_id, method, result }
+            });
+        }
         Effect::RemoteTuiInput { id, data } => {
             enqueue_remote_tui(acp_tx, "pi/ui/remote_tui/input", serde_json::json!({ "id": id, "data": data }));
         }
         Effect::RemoteTuiCancel { id } => {
             enqueue_remote_tui(acp_tx, "pi/ui/remote_tui/cancel", serde_json::json!({ "id": id }));
+        }
+        Effect::RemoteTuiResize { id, columns, rows } => {
+            enqueue_remote_tui(acp_tx, "pi/ui/remote_tui/resize", serde_json::json!({"id":id,"columns":columns,"rows":rows}));
         }
         Effect::ShortcutDispatch { key } => {
             let tx = acp_tx.clone();
@@ -6241,6 +6258,14 @@ pub(crate) fn session_info_fields(
         push("Tokens — Output", format_session_k(tokens.output), false);
         push("Tokens — Total", format_session_k(tokens.total), false);
         push("Cost — Total", format!("${:.3}", stats.cost), false);
+        for usage in &stats.model_usage {
+            let identity = match (usage.provider.as_deref(), usage.model.as_deref()) {
+                (Some(provider), Some(model)) => format!("{provider}/{model}"),
+                (_, Some(model)) => model.to_owned(),
+                _ => "Unattributed usage".to_owned(),
+            };
+            push("Cost — Model", format!("${:.6} · {identity}", usage.cost), false);
+        }
     } else if ctx.message_count > 0 || ctx.tool_call_count > 0 || ctx.turn_count > 0 {
         // Older agents lack `sessionStats`; keep their compact count surface.
         push(

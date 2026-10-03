@@ -172,6 +172,10 @@ impl acp::Agent for PiAgent {
         &self,
         arguments: acp::PromptRequest,
     ) -> Result<acp::PromptResponse, acp::Error> {
+        if self.state.borrow().reload_in_flight {
+            return Err(acp::Error::internal_error()
+                .data("Pi resource reload or package operation is in progress"));
+        }
         if let Some(command) = direct_bash_command(&arguments.prompt) {
             return self.execute_bash(command, arguments.meta.as_ref()).await;
         }
@@ -312,30 +316,35 @@ impl acp::Agent for PiAgent {
                 if let Some(streaming_behavior) = streaming_behavior {
                     request["streamingBehavior"] = Value::String(streaming_behavior.to_string());
                 }
-                if let Err(error) = self.rpc.request(request).await {
-                    if let Some(client_id) = client_prompt_id.as_deref() {
-                        self.state
-                            .borrow_mut()
-                            .queue_mirror
-                            .release_reservation(client_id);
+                let response = match self.rpc.request(request).await {
+                    Ok(response) => response,
+                    Err(error) => {
+                        if let Some(client_id) = client_prompt_id.as_deref() {
+                            self.state
+                                .borrow_mut()
+                                .queue_mirror
+                                .release_reservation(client_id);
+                        }
+                        self.remove_prompt(operation_id);
+                        if pin_primary_running {
+                            let mut state = self.state.borrow_mut();
+                            state.agent_running = false;
+                            state.live_prompt_id = None;
+                            state.queue_mirror.clear_running();
+                        }
+                        self.publish_queue_snapshot().await;
+                        return Err(acp_internal(error));
                     }
-                    self.remove_prompt(operation_id);
-                    if pin_primary_running {
-                        let mut state = self.state.borrow_mut();
-                        state.agent_running = false;
-                        state.live_prompt_id = None;
-                        state.queue_mirror.clear_running();
-                    }
-                    self.publish_queue_snapshot().await;
-                    return Err(acp_internal(error));
-                }
+                };
                 if pin_primary_running {
                     self.rebroadcast_queue_mirror().await;
                 }
-                let probe = self.clone();
-                tokio::task::spawn_local(async move {
-                    probe.probe_prompt_without_agent().await;
-                });
+                if self
+                    .apply_prompt_response(&response, Some(operation_id), None, true)
+                    .await
+                {
+                    self.dispatch_next_queued().await;
+                }
                 let completion = completion_rx.await.unwrap_or(PromptCompletion {
                     reason: acp::StopReason::Cancelled,
                     client_prompt_id: client_prompt_id.clone(),
@@ -494,6 +503,49 @@ impl acp::Agent for PiAgent {
                 }
                 let data = self.rpc.request(request).await.map_err(acp_internal)?;
                 ext_response(data).map_err(acp_internal)
+            }
+            "pi/runtime/control" => {
+                let params: Value =
+                    serde_json::from_str(arguments.params.get()).map_err(acp_internal)?;
+                if let Some(session_id) = string(&params, &["sessionId"])
+                    && session_id != self.session_id().0.as_ref()
+                {
+                    return Err(acp::Error::invalid_params().data("Pi session changed"));
+                }
+                ext_response(self.runtime_control(&params).await?).map_err(acp_internal)
+            }
+            "pi/packages/list" => {
+                let params: Value =
+                    serde_json::from_str(arguments.params.get()).map_err(acp_internal)?;
+                if let Some(session_id) = string(&params, &["sessionId"])
+                    && session_id != self.session_id().0.as_ref()
+                {
+                    return Err(acp::Error::invalid_params().data("Pi session changed"));
+                }
+                ext_response(self.package_snapshot().await?).map_err(acp_internal)
+            }
+            "pi/packages/action" => {
+                let mut params: Value =
+                    serde_json::from_str(arguments.params.get()).map_err(acp_internal)?;
+                if let Some(session_id) = string(&params, &["sessionId"])
+                    && session_id != self.session_id().0.as_ref()
+                {
+                    return Err(acp::Error::invalid_params().data("Pi session changed"));
+                }
+                if let Some(params) = params.as_object_mut() {
+                    params.remove("sessionId");
+                }
+                ext_response(self.package_action(&params).await?).map_err(acp_internal)
+            }
+            "pi/packages/cancel" => {
+                let params: Value =
+                    serde_json::from_str(arguments.params.get()).map_err(acp_internal)?;
+                if let Some(session_id) = string(&params, &["sessionId"])
+                    && session_id != self.session_id().0.as_ref()
+                {
+                    return Err(acp::Error::invalid_params().data("Pi session changed"));
+                }
+                ext_response(self.cancel_package_action()).map_err(acp_internal)
             }
             "pi/session/list" => {
                 let params: Value =
@@ -877,6 +929,23 @@ impl acp::Agent for PiAgent {
                     append_remote_tui_key_event(json!({ "id": params.get("id"), "op": "cancel" }))
                 {
                     tracing::debug!(%error, "remote_tui keyfile cancel failed");
+                }
+                Ok(())
+            }
+            "pi/ui/remote_tui/resize" => {
+                let params: Value =
+                    serde_json::from_str(arguments.params.get()).unwrap_or_default();
+                if let (Some(columns), Some(rows)) = (
+                    params.get("columns").and_then(Value::as_u64),
+                    params.get("rows").and_then(Value::as_u64),
+                ) && (1..=u16::MAX as u64).contains(&columns)
+                    && (1..=u16::MAX as u64).contains(&rows)
+                {
+                    if let Err(error) = append_remote_tui_key_event(json!({
+                        "id": params.get("id"), "op": "resize", "columns": columns, "rows": rows,
+                    })) {
+                        tracing::debug!(%error, "remote_tui keyfile resize failed");
+                    }
                 }
                 Ok(())
             }

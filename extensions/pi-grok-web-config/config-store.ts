@@ -7,6 +7,7 @@
  * `PI_CODING_AGENT_DIR`.
  */
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
@@ -31,7 +32,11 @@ import {
 	type WebConfigState,
 } from "./shared.ts";
 
-type LoadedFile = { value: unknown; error?: string };
+type LoadedFile = { value: unknown; error?: string; version: string };
+
+function fileVersion(source: string | undefined): string {
+	return createHash("sha256").update(source === undefined ? "missing\0" : `file\0${source}`).digest("hex");
+}
 
 type ModelRuntimeLike = {
 	getProviders?: () => Array<{ id: string; name: string }>;
@@ -85,12 +90,15 @@ export function stripJsonComments(input: string): string {
 }
 
 function readJsonFile(path: string): LoadedFile {
-	if (!existsSync(path)) return { value: undefined };
+	if (!existsSync(path)) return { value: undefined, version: fileVersion(undefined) };
+	let source: string | undefined;
 	try {
-		return { value: JSON.parse(stripJsonComments(readFileSync(path, "utf8"))) };
+		source = readFileSync(path, "utf8");
+		return { value: JSON.parse(stripJsonComments(source)), version: fileVersion(source) };
 	} catch (error) {
 		return {
 			value: undefined,
+			version: fileVersion(source),
 			error: error instanceof Error ? error.message : String(error),
 		};
 	}
@@ -314,6 +322,7 @@ export async function collectState(
 		models: models.doc,
 		modelsError: models.error,
 		settings,
+		settingsVersion: settingsFile.version,
 		settingsError: settingsFile.error || (settingsFile.value !== undefined && !isJsonObject(settingsFile.value) ? "settings.json must be a JSON object" : undefined),
 		current: ctx?.model
 			? {
@@ -338,7 +347,15 @@ export function saveModelsDoc(path: string, doc: unknown): void {
 	writeJsonFile(path, doc);
 }
 
-export function saveSettingsDoc(path: string, doc: unknown): void {
+export function saveSettingsDoc(path: string, doc: unknown, expectedVersion: string): void {
+	// Synchronous compare/write prevents overlapping web saves and rejects an
+	// external change already present at save time. The public Pi SDK does not
+	// export its FileSettingsStorage transaction; simultaneous external editors
+	// that bypass this server can still race this short compare/replace interval.
+	const current = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+	if (fileVersion(current) !== expectedVersion) {
+		throw Object.assign(new Error("settings.json changed outside this draft; refresh before saving"), { statusCode: 409 });
+	}
 	writeJsonFile(path, doc);
 }
 

@@ -27,7 +27,7 @@ export type RemoteTuiLayout = {
   offsetY?: number;
 };
 
-export type ComponentLike = Component & { dispose?(): void };
+export type ComponentLike = Component & { dispose?(): void; width?: unknown };
 
 export type RemoteTuiDemoUi = {
   setWidget: (key: string, lines: string[] | undefined, options?: { placement?: string }) => void;
@@ -47,4 +47,5 @@ export type ActiveHost = {
   close: (result: unknown) => void;
   pushFrame: () => void;
   handleInput: (data: string) => void;
+  resize: (columns: number, rows: number) => void;
 };

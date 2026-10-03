@@ -3,8 +3,41 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from pathlib import Path
+
+
+RUNTIME_RPC_COMMANDS = frozenset({"set_auto_retry", "set_auto_compaction", "abort_retry"})
+
+
+def runtime_rpc_commands(source: str) -> tuple[set[str], list[str]]:
+    """Audit the explicit production generator that request(command) hides.
+
+    This is a narrow contract for runtime.rs, not a general Rust parser or a
+    claim that arbitrary computed request types have been discovered.
+    """
+    production = source.split("#[cfg(test)]", 1)[0]
+    function = re.search(r"fn runtime_command\b[\s\S]+?\n}\s*(?=impl PiAgent)", production)
+    if not function:
+        return set(), ["production runtime_command generator is missing"]
+    generator = function.group()
+    direct = re.findall(r'"type"\s*:\s*"([a-zA-Z0-9_]+)"', generator)
+    conditional = re.findall(
+        r'"type"\s*:\s*if\s+operation\s*==\s*"retry"\s*\{\s*"([a-zA-Z0-9_]+)"\s*}\s*else\s*\{\s*"([a-zA-Z0-9_]+)"\s*}',
+        generator,
+    )
+    commands = set(direct) | {command for pair in conditional for command in pair}
+    errors = []
+    if commands != RUNTIME_RPC_COMMANDS:
+        errors.append(f"runtime generator command declarations differ: {sorted(commands)}")
+    if len(direct) != 1 or conditional != [("set_auto_retry", "set_auto_compaction")]:
+        errors.append("explicit retry/compaction/cancel generation mapping changed")
+    if len(re.findall(r'"type"\s*:', generator)) != len(direct) + len(conditional):
+        errors.append("unrecognized computed runtime RPC command type")
+    if not re.search(r"let\s+command\s*=\s*runtime_command\(params\)\?\s*;", production) or not re.search(r"\.request\(command\)", production):
+        errors.append("runtime_control no longer dispatches the audited generator")
+    return commands, errors
 
 
 def load_pi_contract(preferred: Path | None) -> tuple[dict[str, str], str, str, str]:

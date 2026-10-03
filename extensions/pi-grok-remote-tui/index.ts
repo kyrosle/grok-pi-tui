@@ -22,7 +22,7 @@
  * - `index.ts`     — entry point: session_start hook + /remote-tui command
  */
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { ensureRemoteTuiHost, installCustomPatch } from "./host.ts";
+import { closeRemoteTuiHost, ensureRemoteTuiHost, installCustomPatch } from "./host.ts";
 import { shouldInstallRemoteHost } from "./env.ts";
 import type { RemoteTuiDemoUi } from "./shared.ts";
 import { applyDemoCapabilities, createDemoSelector } from "./demo.ts";
@@ -33,7 +33,9 @@ export { DEMO_ITEMS, applyDemoCapabilities, createDemoSelector } from "./demo.ts
 export type { DemoKey } from "./demo.ts";
 
 export default function (pi: ExtensionAPI) {
+  pi.on("session_shutdown", () => { closeRemoteTuiHost(); });
   pi.on("session_start", (_event, ctx) => {
+    closeRemoteTuiHost();
     ensureRemoteTuiHost(ctx.ui as Parameters<typeof installCustomPatch>[0]);
   });
 

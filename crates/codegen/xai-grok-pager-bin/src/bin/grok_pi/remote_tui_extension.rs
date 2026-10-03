@@ -121,6 +121,8 @@ mod tests {
         let (extension, bundle) = write_bundle();
         // Entry registers the session_start hook and /remote-tui command.
         assert!(bundle.index.contains("session_start"));
+        assert!(bundle.index.contains("session_shutdown"));
+        assert!(bundle.index.contains("closeRemoteTuiHost"));
         assert!(bundle.index.contains("registerCommand(\"remote-tui\""));
         assert!(bundle.index.contains("createDemoSelector"));
         assert!(bundle.index.contains("applyDemoCapabilities"));
@@ -146,8 +148,16 @@ mod tests {
         assert!(bundle.shared.contains("pi-grok-remote-tui-active.json"));
         assert!(bundle.transport.contains("writeMeta"));
         assert!(bundle.transport.contains("drainKeys"));
+        assert!(bundle.transport.contains("msg.op === \"resize\""));
+        assert!(
+            bundle
+                .shared
+                .contains("resize: (columns: number, rows: number)")
+        );
         assert!(bundle.host.contains("__piGrokEnsureRemoteTuiHost"));
         assert!(bundle.host.contains("installCustomPatch"));
+        assert!(bundle.host.contains("ui[HOST_MARK] = true"));
+        assert!(bundle.host.contains("tuiStub.terminal.columns = columns"));
         assert!(bundle.demo.contains("SettingsList"));
         assert_eq!(
             extension

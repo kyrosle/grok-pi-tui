@@ -112,10 +112,19 @@ grok-pi update --channel stable  # 切回 stable；默认即 stable
 | 并行工作 | Pi 子代理，支持前台/后台执行和原生任务视图；`/subagents` 维护产品隔离的项目/全局 agent 定义。可选 Subagents V2（F2 → Agent →「Pi subagents V2」开关，或 `PI_GROK_SUBAGENTS_V2=1`）增加在当前 root session 内稳定的 `/root/...` agent path、主/子与子/子消息、嵌套 spawn，以及 `.grok-pi/teams` / `~/.grok-pi/teams` 外置 team preset |
 | Rhai Workflow | 上游 `xai-workflow` 宿主（F2 **Pi workflows**）；`/workflow`、`/workflows`、`/create-workflow`；脚本目录 `~/.grok-pi/workflows` 与 `<repo>/.grok-pi/workflows` |
 | 会话流程 | Resume、树导航、标签、回顾、上下文查看和会话选择器 |
-| 资源管理 | Pi 扩展、skills、prompt 和主题的原生管理器 |
+| 资源管理 | `/pi-config` 管理 Pi 资源并通过当前 Pi 官方 CLI 安装、移除和更新 package，随后重载并显示实际运行 registry。Global/Project 信任、filters 和 pins 保持 Pi 所有；移除 local 声明不删源目录。 |
+| Pi 运行控制 | `/pi-runtime` 查看运行状态、切换自动 retry/compaction，并取消 retry 等待；实际 compaction 状态与配置中的 retry policy 分开标注。 |
 | 更新 | 产品隔离的 `stable` / `beta` GitHub Release 通道；持久化到 `~/.grok-pi/config.toml`，后台检查、`grok-pi update`、`--check --json` 与目标 tag 安装器下载均感知通道 |
 
+最终自动build/verify与4nativePTY通过；一次配置default的真实SDKchat返回OK且credential/config字节未改。真人provider的nativeUI、OAuth、真实图片及目标终端体验仍独立pending。
+
 详细行为和有意边界见[功能矩阵（中文）](FEATURE_MATRIX.zh-CN.md) / [English](FEATURE_MATRIX.md)。
+
+Package 变更重算policy控制的startup admission；输入不变走官方Pi重载，输入改变则official dispose后重启并用公开API恢复session、leaf、model、thinking。没有persistent sessionFile或user-message leaf无法安全恢复时，保持saved/deferred，待完成响应或用户重启；最终nativefixture验证了组合install/remove闭环与history保全。
+
+Package 命令完成、Pi 已重载、实际 command/tool registry 条目属于不同状态。Pi 1.0 RPC 未暴露 resource loader 的完整 errors，因此界面保留 package load status 未验证。Web 设置编辑器保留保存前重读，并要求服务端 revision（`If-Match`）；保存时已发生的外部变化会被拒绝。短暂 compare/replace 窗口仍不能排除外部编辑器同时写入。
+
+`/model` 保持虚拟模型选择；Pi 报告实际派发模型和 thinking level 时，原生状态单独显示。图像和 classifier 模型走 Pi 官方 ModelRuntime，聊天选择器仅接受 chat 模型。合成 SDK/RPC 检查与真实 provider、OAuth、终端验收分开记录，见[深度适配执行记录](issues/架构/20261003-pi-deep-adaptation-PLAN.md)。
 
 ## 架构
 
@@ -134,6 +143,8 @@ flowchart LR
 - **`pi-grok-adapter`** 是 headless JSONL RPC ↔ ACP 桥接层，不拥有终端，也不渲染第二套 UI。
 
 不修改 Pi 源码。Remote TUI 通过官方扩展 API 接入 Pi RPC 未暴露的能力，并将其投影到原生 Pager 承载面。
+
+`/pi-ui-capabilities` 列出标准原生映射、有界映射、实验 Remote TUI 与 unsupported 方法。Working message/visibility/indicator 映射到原生 status；动画 indicator、持久 header/footer/widget factory 和 raw input/editor replacement 仍受 Pi RPC 边界限制。实验 mode facade 仅在实际 Remote TUI host 存在时启用，不保证全部第三方组件兼容。
 
 自定义组件打开期间独占键盘输入，包括字母操作、粘贴和普通 `Esc`（由组件处理）。
 组件打开的原生 Pi 输入框或确认框临时优先接收输入。终端能够区分该组合键时，

@@ -31,6 +31,7 @@ export const HOST_MARK = "__piGrokRemoteTuiHost";
 
 type PatchableUi = RemoteTuiDemoUi & {
   custom: ((...args: unknown[]) => unknown) & { [HOST_MARK]?: boolean };
+  [HOST_MARK]?: boolean;
 };
 
 /** Mirror Pi TUI's focused-component dispatch semantics for remote input. */
@@ -42,7 +43,7 @@ export function dispatchComponentInput(target: ComponentLike | null | undefined,
 
 export function installCustomPatch(ui: PatchableUi): void {
   // Pi may rebind uiContext after session_start (noOp → RPC). Patch every new object.
-  if (patchedUIs.has(ui as object) || ui.custom?.[HOST_MARK]) {
+  if (patchedUIs.has(ui as object) || ui[HOST_MARK] || ui.custom?.[HOST_MARK]) {
     return;
   }
   const original = typeof ui.custom === "function" ? ui.custom.bind(ui) : async () => undefined;
@@ -59,6 +60,7 @@ export function installCustomPatch(ui: PatchableUi): void {
 
     const id = randomUUID();
     const { width, rows, terminalWidth, layout } = resolveViewport(_options);
+    let terminalColumns = terminalWidth;
     let baseLayout: RemoteTuiLayout = layout;
     publishRemoteTuiLayout(ui, layout);
     const keysPath = join(tmpdir(), `pi-grok-remote-tui-keys-${id}.jsonl`);
@@ -86,6 +88,7 @@ export function installCustomPatch(ui: PatchableUi): void {
 
       const setLayout = (next: RemoteTuiLayout) => {
         frameWidth = next.width;
+        host.width = next.width;
         publishRemoteTuiLayout(ui, next);
       };
 
@@ -164,6 +167,28 @@ export function installCustomPatch(ui: PatchableUi): void {
         pushFrame();
       };
 
+      const resize = (columns: number, rows: number) => {
+        if (closed) return;
+        try {
+          terminalColumns = columns;
+          tuiStub.terminal.columns = columns;
+          tuiStub.terminal.rows = rows;
+          baseLayout = resolveRemoteTuiLayout(_options, columns, (previousComponent ?? component)?.width);
+          setLayout(previousComponent
+            ? resolveRemoteTuiLayout({ overlay: true }, columns, component?.width)
+            : baseLayout);
+          previousComponent?.invalidate();
+          component?.invalidate();
+          if (focused && focused !== component && focused !== previousComponent) focused.invalidate();
+          pushFrame();
+        } catch (error) {
+          closed = true;
+          host.closed = true;
+          cleanup();
+          reject(error instanceof Error ? error : new Error(String(error)));
+        }
+      };
+
       const tuiStub = {
         terminal: { columns: terminalWidth, rows },
         requestRender: () => {
@@ -179,7 +204,7 @@ export function installCustomPatch(ui: PatchableUi): void {
             previousComponent = component;
             previousFocus = focused;
           }
-          setLayout(resolveRemoteTuiLayout({ overlay: true }, terminalWidth));
+          setLayout(resolveRemoteTuiLayout({ overlay: true }, terminalColumns));
           component = overlay as ComponentLike;
           setFocus(overlay);
           pushFrame();
@@ -235,6 +260,7 @@ export function installCustomPatch(ui: PatchableUi): void {
         close,
         pushFrame,
         handleInput,
+        resize,
       };
       active = host;
 
@@ -305,7 +331,7 @@ export function installCustomPatch(ui: PatchableUi): void {
           setFocus(focused ?? component);
           baseLayout = resolveRemoteTuiLayout(
             _options,
-            terminalWidth,
+            terminalColumns,
             (component as ComponentLike & { width?: unknown }).width,
           );
           setLayout(baseLayout);
@@ -325,6 +351,9 @@ export function installCustomPatch(ui: PatchableUi): void {
 
   (hostCustom as typeof hostCustom & { [HOST_MARK]?: boolean })[HOST_MARK] = true;
   ui.custom = hostCustom as typeof ui.custom;
+  // Pi wraps dialog methods in a shallow UI-context copy; the function marker
+  // alone is lost when it wraps custom(). Preserve host capability metadata.
+  ui[HOST_MARK] = true;
   patchedUIs.add(ui as object);
 }
 
@@ -332,6 +361,11 @@ export function installCustomPatch(ui: PatchableUi): void {
 export function ensureRemoteTuiHost(ui: Parameters<typeof installCustomPatch>[0]): void {
   if (!shouldInstallRemoteHost()) return;
   installCustomPatch(ui);
+}
+
+/** Release the component, key transport and focus when Pi disposes its session. */
+export function closeRemoteTuiHost(): void {
+  active?.close(undefined);
 }
 
 (globalThis as typeof globalThis & {

@@ -2565,8 +2565,13 @@ impl AppView {
         self.external_ui.remote_tui_id = None;
         self.external_ui.remote_tui_overlays.clear();
         self.external_ui.extension_shortcuts = Default::default();
-        self.pending_effects
-            .retain(|effect| !matches!(effect, crate::app::actions::Effect::RemoteTuiInput { .. }));
+        self.pending_effects.retain(|effect| {
+            !matches!(
+                effect,
+                crate::app::actions::Effect::RemoteTuiInput { .. }
+                    | crate::app::actions::Effect::RemoteTuiResize { .. }
+            )
+        });
         for agent in self.agents.values_mut() {
             agent.pi_shortcut_manager = None;
         }
@@ -3402,6 +3407,21 @@ impl AppView {
             Event::Key(k) => Some(k),
             _ => None,
         };
+        // Layout events reach the component even while a native dialog owns
+        // keys. The component id rejects events queued for a replaced host.
+        if let Event::Resize(columns, rows) = ev
+            && self.external_agent
+            && *columns > 0
+            && *rows > 0
+            && let Some(id) = self.external_ui.remote_tui_id.clone()
+        {
+            self.pending_effects
+                .push(crate::app::actions::Effect::RemoteTuiResize {
+                    id,
+                    columns: *columns,
+                    rows: *rows,
+                });
+        }
         // Native `/pi-shortcut-manager` modal owns keys while open (before
         // extension shortcut dispatch and remote-tui). Does not replace remote-tui.
         if let ActiveView::Agent(id) = self.active_view {

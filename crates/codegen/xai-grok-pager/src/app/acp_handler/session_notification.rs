@@ -37,7 +37,10 @@ fn is_foreign_hook_batch(agent: &AgentView, batch_prompt_id: Option<&str>) -> bo
     )
 }
 pub(super) fn refresh_context_used(view: &mut AgentView, used: u64) {
-    let total = view.session.models.get_context_window().unwrap_or(0);
+    let total = view
+        .external_context_window
+        .or_else(|| view.session.models.get_context_window())
+        .unwrap_or(0);
     view.apply_context_used(used, total);
 }
 /// Context-bar refresh carried by a compaction lifecycle update, if any.
@@ -54,6 +57,19 @@ pub(super) fn compaction_context_refresh(update: &XaiSessionUpdate) -> Option<u6
 pub(super) fn confirm_context_used(view: &mut AgentView, used: u64) {
     refresh_context_used(view, used);
     view.session.note_context_used(used);
+}
+
+pub(super) fn confirm_context_window(view: &mut AgentView, window: u64) {
+    if window == 0 {
+        return;
+    }
+    view.external_context_window = Some(window);
+    let used = view
+        .context_state
+        .as_ref()
+        .map(|context| context.used)
+        .unwrap_or(0);
+    refresh_context_used(view, used);
 }
 /// Replay gate shared by the ACP and xAI session-update paths. Returns `true` when the update must be dropped.
 /// Replay is only expected while a `session/load` is in flight for this agent (fresh-view load or reconnect reload window).

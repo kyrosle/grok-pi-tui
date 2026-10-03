@@ -133,6 +133,18 @@ pub struct SessionUsageStats {
     pub tool_results: u64,
     pub tokens: SessionTokenTotals,
     pub cost: f64,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub model_usage: Vec<SessionModelUsage>,
+}
+
+/// Physical-model attribution when the host supplies it; None retains unattributed usage.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SessionModelUsage {
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub tokens: SessionTokenTotals,
+    pub cost: f64,
 }
 
 /// Full wire response for `x.ai/session/info`.
