@@ -2,7 +2,7 @@
 
 ## v0.1.10 macOS release
 
-The [release record](issues/grok-pi/20261005-v0.1.10-macos-release.md) records production-feature builds, macOS dylib relocation/signing, focused update tests, native PTY, local `pig` installation and the public installer round trip. Scoped checks pass: updater 12/0, production binary 98/0, production-feature release build, real package first install/reinstall and 6 native PTY cases. The package loads its relocated libiconv/zlib and passes strict ad-hoc signature verification; it is not notarized. Distribution is limited to macOS 14+ Apple Silicon at `kyrosle/grok-pi-tui`; this platform release does not close the master native TUI architecture plan.
+The [release record](issues/grok-pi/20261005-v0.1.10-macos-release.md) records production-feature builds, macOS dylib relocation/signing, focused update tests, native PTY, local `pig` installation and the public installer round trip. Scoped checks pass: updater 12/0, production binary 98/0, production-feature release build, real package first install/reinstall and 6 native PTY cases. The package loads its relocated libiconv/zlib and passes strict ad-hoc signature verification; it is not notarized. Distribution is limited to macOS 14+ Apple Silicon at `kyrosle/grok-pi-tui`; this platform release does not close the master native TUI architecture plan. The stable [v0.1.10 Release](https://github.com/kyrosle/grok-pi-tui/releases/tag/v0.1.10) is published with checksums and library source archives. The public latest installer round trip, update discovery and 6 installed-`pig` PTY cases pass; existing user settings remain byte-identical.
 
 
 ## 2026-10-05 bilingual settings increment
