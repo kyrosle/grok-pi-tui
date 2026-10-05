@@ -1,10 +1,9 @@
 //! `grok-pi` update discovery and install.
 //!
-//! Read `Dwsy/grok-pi` release metadata and install via the published
+//! Read `kyrosle/grok-pi-tui` release metadata and install via the published
 //! `install.sh` / `install.ps1`. Release discovery prefers the official
-//! GitHub API, then the official scoped npm package, and only then uses the
-//! JSP proxy. The unscoped `grok-pi` npm package is a foreign package and is
-//! intentionally never used.
+//! GitHub API, then the release page, and only then uses the JSP proxy.
+//! npm packages from other projects are never used for this fork.
 
 use std::{str::FromStr, time::Duration};
 
@@ -45,15 +44,14 @@ impl FromStr for PiUpdateChannel {
 
 /// GitHub Releases "latest" API for stable published binaries.
 pub const PI_GH_RELEASES_LATEST_URL: &str =
-    "https://api.github.com/repos/Dwsy/grok-pi/releases/latest";
+    "https://api.github.com/repos/kyrosle/grok-pi-tui/releases/latest";
 /// GitHub Releases list used by the beta channel.
-const PI_GH_RELEASES_URL: &str = "https://api.github.com/repos/Dwsy/grok-pi/releases?per_page=100";
+const PI_GH_RELEASES_URL: &str =
+    "https://api.github.com/repos/kyrosle/grok-pi-tui/releases?per_page=100";
 /// Official GitHub Releases page. Unlike the API, this is not subject to the
 /// unauthenticated API rate limit and redirects to the canonical stable tag.
-const PI_GH_RELEASES_PAGE_LATEST_URL: &str = "https://github.com/Dwsy/grok-pi/releases/latest";
-/// Official npm package metadata. Do not use the unscoped `grok-pi` package:
-/// it belongs to another project. This is a stable-only fallback.
-const PI_NPM_PACKAGE_METADATA_URL: &str = "https://registry.npmjs.org/@dwsy%2Fgrok-pi";
+const PI_GH_RELEASES_PAGE_LATEST_URL: &str =
+    "https://github.com/kyrosle/grok-pi-tui/releases/latest";
 /// JSP proxy route for the GitHub API. Only the proxy prefix is encoded so
 /// the upstream host and repository remain visible in the source.
 const JSP_PROXY_PREFIX_B64: &str =
@@ -95,16 +93,8 @@ async fn fetch_release_latest_stable() -> Result<(String, &'static str)> {
         Err(error) => errors.push(format!("github-releases-page: {error}")),
     }
 
-    match fetch_npm_release_latest(&client)
-        .await
-        .and_then(require_stable_version)
-    {
-        Ok(version) => return Ok((version, "npm")),
-        Err(error) => errors.push(format!("npm: {error}")),
-    }
-
     let proxy_url = format!(
-        "{}Dwsy/grok-pi/releases/latest",
+        "{}kyrosle/grok-pi-tui/releases/latest",
         decode_proxy_part(JSP_PROXY_PREFIX_B64)
     );
     match fetch_release_from_url(&client, &proxy_url, "jsp-proxy")
@@ -134,7 +124,7 @@ async fn fetch_release_latest_beta() -> Result<(String, &'static str)> {
     }
 
     let proxy_url = format!(
-        "{}Dwsy/grok-pi/releases?per_page=100",
+        "{}kyrosle/grok-pi-tui/releases?per_page=100",
         decode_proxy_part(JSP_PROXY_PREFIX_B64)
     );
     match fetch_release_list_from_url(&client, &proxy_url, "jsp-proxy").await {
@@ -178,37 +168,6 @@ fn normalize_github_release_page_url(url: &url::Url) -> Result<String> {
         })
         .ok_or_else(|| anyhow!("GitHub Releases page did not redirect to a tag"))?;
     normalize_version(tag)
-}
-
-async fn fetch_npm_release_latest(client: &reqwest::Client) -> Result<String> {
-    let resp = client
-        .get(PI_NPM_PACKAGE_METADATA_URL)
-        .header("Accept", "application/json")
-        .header("User-Agent", "grok-pi-update")
-        .send()
-        .await
-        .context("GET npm package metadata")?;
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        anyhow::bail!(
-            "npm package metadata HTTP {status}: {}",
-            body.chars().take(200).collect::<String>().trim()
-        );
-    }
-
-    let value: Value = resp.json().await.context("decode npm package metadata")?;
-    parse_npm_release_metadata(&value)
-}
-
-fn parse_npm_release_metadata(value: &Value) -> Result<String> {
-    let version = value
-        .get("dist-tags")
-        .and_then(|tags| tags.get("latest"))
-        .and_then(Value::as_str)
-        .or_else(|| value.get("version").and_then(Value::as_str))
-        .ok_or_else(|| anyhow!("npm package metadata missing dist-tags.latest"))?;
-    normalize_version(version)
 }
 
 async fn fetch_release_from_url(
@@ -542,7 +501,7 @@ fn print_pi_update_status(
     let update_available = is_remote_newer(latest, current);
     if json {
         let sources: &[&str] = match channel {
-            PiUpdateChannel::Stable => &["github-api", "github-releases-page", "npm", "jsp-proxy"],
+            PiUpdateChannel::Stable => &["github-api", "github-releases-page", "jsp-proxy"],
             PiUpdateChannel::Beta => &["github-api", "jsp-proxy"],
         };
         let payload = serde_json::json!({
@@ -599,7 +558,8 @@ async fn install_pi_from_github(version: &str) -> Result<()> {
 
 #[cfg(not(windows))]
 async fn install_pi_unix_sh(tag: &str) -> Result<()> {
-    let script_url = format!("https://github.com/Dwsy/grok-pi/releases/download/{tag}/install.sh");
+    let script_url =
+        format!("https://github.com/kyrosle/grok-pi-tui/releases/download/{tag}/install.sh");
     let mut cmd = tokio::process::Command::new("sh");
     cmd.arg("-c").arg(format!(
         "curl -fsSL {script_url} | GROK_PI_VERSION={tag} sh"
@@ -617,7 +577,7 @@ async fn install_pi_unix_sh(tag: &str) -> Result<()> {
 #[cfg(windows)]
 async fn install_pi_windows_ps1(tag: &str) -> Result<()> {
     let script = format!(
-        "$env:GROK_PI_VERSION='{tag}'; irm https://github.com/Dwsy/grok-pi/releases/download/{tag}/install.ps1 | iex"
+        "$env:GROK_PI_VERSION='{tag}'; irm https://github.com/kyrosle/grok-pi-tui/releases/download/{tag}/install.ps1 | iex"
     );
     let mut cmd = tokio::process::Command::new("powershell");
     cmd.args([
@@ -653,29 +613,10 @@ mod tests {
     }
 
     #[test]
-    fn official_npm_metadata_uses_latest_dist_tag() {
-        let value = serde_json::json!({
-            "dist-tags": { "latest": "v0.2.3" },
-            "version": "0.2.2"
-        });
-        assert_eq!(parse_npm_release_metadata(&value).unwrap(), "0.2.3");
-    }
-
-    #[test]
     fn official_release_page_extracts_redirected_tag() {
-        let url = url::Url::parse("https://github.com/Dwsy/grok-pi/releases/tag/v0.1.0").unwrap();
+        let url =
+            url::Url::parse("https://github.com/kyrosle/grok-pi-tui/releases/tag/v0.1.0").unwrap();
         assert_eq!(normalize_github_release_page_url(&url).unwrap(), "0.1.0");
-    }
-
-    #[test]
-    fn update_source_order_keeps_proxy_last() {
-        // Keep this contract next to the source implementation: the official
-        // GitHub API and scoped npm package must get a chance before JSP.
-        let source_order = ["github-api", "github-releases-page", "npm", "jsp-proxy"];
-        assert_eq!(
-            source_order,
-            ["github-api", "github-releases-page", "npm", "jsp-proxy"]
-        );
     }
 
     #[test]

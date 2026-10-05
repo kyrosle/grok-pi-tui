@@ -13,81 +13,47 @@ See the [verification report](docs/VERIFICATION.md) for current pending work.
 
 > Pi models, tools and sessions in Grok Pager's native terminal UI.
 
-[Download latest release](https://github.com/Dwsy/grok-pi/releases/latest) · [ZH](docs/README.zh-CN.md) · [Feature matrix](docs/FEATURE_MATRIX.md) · [Architecture](docs/NATIVE_GROK_TUI_ALIGNMENT.md) · [Verification](docs/VERIFICATION.md) · [Changelog](CHANGELOG.MD) · [更新日志](docs/CHANGELOG.zh-CN.md)
+[Download latest release](https://github.com/kyrosle/grok-pi-tui/releases/latest) · [ZH](docs/README.zh-CN.md) · [Feature matrix](docs/FEATURE_MATRIX.md) · [Architecture](docs/NATIVE_GROK_TUI_ALIGNMENT.md) · [Verification](docs/VERIFICATION.md) · [Changelog](CHANGELOG.MD) · [更新日志](docs/CHANGELOG.zh-CN.md)
 
 > **Pi core, native Pager UI, configurable extensions.** Grok Pager supplies the terminal experience; Pi supplies models, provider authentication, tools, sessions and runtime controls. Bundled Pi extensions add features such as Todo and Subagents, with their own defaults and capability boundaries.
 
 `grok-pi` connects Pi's agent runtime to Grok Pager. The external product surface excludes Grok voice/STT/TTS, account/billing, training/retention and stock agent/plugin/MCP controls. F2, the command palette and the Web host-settings catalog share that boundary. Provider authentication uses Pi's `/login` and `/logout`; no Grok account is required.
 
-## Install
+## Install (macOS Apple Silicon)
 
-### macOS / Linux
+**v0.1.10** ships a prebuilt macOS Apple Silicon (M1/M2/M3/M4 and later) binary. Rust, this source checkout and MacPorts are not required. Intel Mac, Linux and Windows binary releases are not provided yet.
 
-```bash
-curl -fsSL https://github.com/Dwsy/grok-pi/releases/latest/download/install.sh | sh
-```
-
-### Windows
-
-```powershell
-irm https://github.com/Dwsy/grok-pi/releases/latest/download/install.ps1 | iex
-```
-
-The installer picks the matching release asset and installs `grok-pi`:
-
-| Platform | Asset |
-|---|---|
-| macOS Apple Silicon | `grok-pi-macos-aarch64.tar.gz` |
-| macOS Intel | `grok-pi-macos-x86_64.tar.gz` |
-| Linux x86_64 | `grok-pi-linux-x86_64.tar.gz` |
-| Linux ARM64 | `grok-pi-linux-aarch64.tar.gz` |
-| Windows x64 | `grok-pi-windows-x86_64.zip` |
-| Windows ARM64 | `grok-pi-windows-aarch64.zip` |
-
-Defaults: Unix → `~/.local/bin`; Windows → `%LOCALAPPDATA%\grok-pi\bin`. Override with `GROK_PI_INSTALL_DIR`. To install a specific stable or beta release, use `GROK_PI_VERSION=vX.Y.Z` or `GROK_PI_VERSION=vX.Y.Z-beta.N` with the installer from that same release tag.
+Install [Pi](https://pi.dev) **1.0.0 or newer** first (Node.js **22.19.0+** is required by the npm installation), then install grok-pi:
 
 ```bash
-# Example: install a specific beta on macOS / Linux
-curl -fsSL https://github.com/Dwsy/grok-pi/releases/download/v1.2.0-beta.1/install.sh | \
-  GROK_PI_VERSION=v1.2.0-beta.1 sh
-```
-
-The installer also creates `pig` and `pi-grok` aliases (Unix symlinks; Windows `pig.exe` / `pi-grok.exe` hardlinks with copy fallback):
-
-```bash
-pig --help       # short alias
-grok-pi --help   # original name
-pi-grok --help   # alias
-```
-
-`grok-pi` requires [Pi](https://pi.dev) **1.0.0 or newer** (system `pi` / pi.dev installer):
-
-```bash
-# recommended
-curl -fsSL https://pi.dev/install.sh | sh
-# Windows:
-# powershell -c "irm https://pi.dev/install.ps1 | iex"
-# or npm:
 npm install --global @earendil-works/pi-coding-agent
+curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/latest/download/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+pig
 ```
 
-On Windows, if an older `grok-pi.exe` cannot find bare `pi`, point it at the shim:
+The installer installs `grok-pi` and its bundled libraries into `~/.local/bin`, and creates `pig` and `pi-grok` symlinks. Use `pig` as the short command; no `tpig` launcher is needed. To keep the default install directory on PATH in macOS's default zsh, add this once to `~/.zshrc`:
 
-```powershell
-$env:PI_BIN = "$env:LOCALAPPDATA\pi-node\current\pi.cmd"
-grok-pi --pi-bin $env:PI_BIN
+```bash
+export PATH="$HOME/.local/bin:$PATH"
 ```
+
+Override the destination with `GROK_PI_INSTALL_DIR`. To pin this release:
+
+```bash
+curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/install.sh | \
+  GROK_PI_VERSION=v0.1.10 sh
+```
+
+Download asset: [`grok-pi-macos-aarch64.tar.gz`](https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/grok-pi-macos-aarch64.tar.gz). Release assets also include SHA-256 checksums and the bundled libraries' licenses and source archives. Provider authentication uses Pi's `/login` after launch. Settings use `~/.grok-pi` and project `.grok-pi`; previous `~/.tpig` test settings are not automatically migrated.
 
 ## Start
 
 From any project directory:
 
 ```bash
-grok-pi
-# or
 pig
-# or
-pi-grok
+# also available: grok-pi, pi-grok
 ```
 
 Defaults: system `pi` on PATH, current working directory as the project. Continue the previous session with `grok-pi --continue`.

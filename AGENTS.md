@@ -5,7 +5,7 @@
 This repository root (`grok-pi-tui/`) is the primary project checkout. Do not treat a parent directory as the project. Linked Git worktrees, when explicitly requested, share this checkout's Git common directory.
 
 ```text
-origin   https://github.com/Dwsy/grok-pi-tui.git
+origin   https://github.com/kyrosle/grok-pi-tui.git
 grok-build https://github.com/xai-org/grok-build.git (reference; push disabled)
 ```
 

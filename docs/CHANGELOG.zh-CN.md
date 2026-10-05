@@ -9,6 +9,19 @@
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-10-05
+
+### 新增
+
+- 原生与 Web 设置共享中英文标签、搜索和持久化语言选择；功能名称按实际行为命名。
+- `kyrosle/grok-pi-tui` 首个 macOS Apple Silicon 正式包，包含重定位的非系统动态库、许可证、源码归档与 SHA-256 校验文件。安装后直接运行 `pig`，无需 Rust 或 MacPorts。
+
+### 变更
+
+- 安装器、自动更新和 Welcome 更新日志统一指向 `kyrosle/grok-pi-tui`；不再回退到其他项目的 npm 包。
+- 本次仅发布 macOS Apple Silicon，要求系统 Pi >= 1.0.0；生产构建显式禁用 stock runtime 默认 features。
+- Pi 产品设置和入口隐藏 stock Grok 业务控制。本次版本交付不代表总体 native TUI 架构计划完成。
+
 ### 修复
 
 - **无工具调用的 Eval cell 一律正常渲染** — 从未调用 host 工具的 Eval v2 cell 现在总是渲染为正常 Eval 卡（源码 + 输出），不受 effects-first 设置影响；在 Eval-v2-only 下也不再因没有 effect 行而整个消失。扩展在结果 details 中记录每 cell 的 host 工具调用数；旧扩展的 payload 保持原有行为。

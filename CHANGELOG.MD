@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-10-05
+
+### Added
+
+- Native and Web settings share English / Simplified Chinese labels, search and persisted language selection; feature names describe their behavior.
+- First stable macOS Apple Silicon package for `kyrosle/grok-pi-tui`, including relocated non-system dylibs, licenses, source archives and SHA-256 checksums. Run `pig` after installation; Rust and MacPorts are not required.
+
+### Changed
+
+- Installers, automatic updates and the Welcome changelog use `kyrosle/grok-pi-tui`; updates no longer fall back to the other project's npm package.
+- This release publishes macOS Apple Silicon only and requires system Pi >= 1.0.0. Production builds explicitly disable stock runtime default features.
+- Pi product settings and entry points omit stock Grok business controls. This release does not claim completion of the master native TUI architecture plan.
+
 ### Fixed
 
 - **Quiet Eval cells always render** — an Eval v2 cell that never called a host tool now renders as a normal Eval card (source + output) regardless of the effects-first setting, and stays visible under Eval-v2-only instead of vanishing behind its absent effect rows. The extension records the per-cell host tool-call count in the result details; payloads from older extensions keep the previous behavior.

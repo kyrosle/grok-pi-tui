@@ -1,15 +1,15 @@
 # grok-pi installer (Windows PowerShell)
 #
 # One-line install (latest):
-#   irm https://github.com/Dwsy/grok-pi/releases/latest/download/install.ps1 | iex
+#   irm https://github.com/kyrosle/grok-pi-tui/releases/latest/download/install.ps1 | iex
 #
 # Pin a version:
-#   $env:GROK_PI_VERSION='v0.0.1'; irm https://github.com/Dwsy/grok-pi/releases/download/v0.0.1/install.ps1 | iex
+#   $env:GROK_PI_VERSION='v0.0.1'; irm https://github.com/kyrosle/grok-pi-tui/releases/download/v0.0.1/install.ps1 | iex
 #
 # Env overrides:
 #   $env:GROK_PI_VERSION = 'v0.0.1' | 'v0.0.2-beta.1' | 'latest'
 #   $env:GROK_PI_INSTALL_DIR = "$env:LOCALAPPDATA\grok-pi\bin"
-#   $env:GROK_PI_REPO = 'Dwsy/grok-pi'
+#   $env:GROK_PI_REPO = 'kyrosle/grok-pi-tui'
 #   $env:GROK_PI_SKIP_PI_HINT = '1'
 #   $env:GROK_PI_FORCE = '1'
 #
@@ -110,7 +110,7 @@ function Write-PiHostHint {
         Write-Info "  # or: grok-pi --pi-bin `"$pi`""
         return
     }
-    Write-Info 'Pi host not found (required: Pi >= 0.99.0).'
+    Write-Info 'Pi host not found (required: Pi >= 1.0.0).'
     Write-Info 'Install Pi (recommended):'
     Write-Info '  powershell -c "irm https://pi.dev/install.ps1 | iex"'
     Write-Info 'Or:'
@@ -119,7 +119,7 @@ function Write-PiHostHint {
 
 # ── main ────────────────────────────────────────────────────────────────────
 
-$repository = if ($env:GROK_PI_REPO) { $env:GROK_PI_REPO } else { 'Dwsy/grok-pi' }
+$repository = if ($env:GROK_PI_REPO) { $env:GROK_PI_REPO } else { 'kyrosle/grok-pi-tui' }
 $version = if ($env:GROK_PI_VERSION) { $env:GROK_PI_VERSION } else { 'latest' }
 $installDir = if ($env:GROK_PI_INSTALL_DIR) {
     $env:GROK_PI_INSTALL_DIR

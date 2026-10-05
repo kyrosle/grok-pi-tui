@@ -94,16 +94,14 @@ def install_footer(repo: str, tag: str) -> str:
     return (
         "\n### Install\n\n"
         f"```bash\n"
-        f"# macOS / Linux\n"
+        f"# macOS Apple Silicon\n"
         f"curl -fsSL https://github.com/{repo}/releases/download/{tag}/install.sh | "
         f"GROK_PI_VERSION={tag} sh\n"
+        f"export PATH=\"$HOME/.local/bin:$PATH\"\n"
+        f"pig\n"
         f"```\n\n"
-        f"```powershell\n"
-        f"# Windows\n"
-        f"$env:GROK_PI_VERSION='{tag}'; "
-        f"irm https://github.com/{repo}/releases/download/{tag}/install.ps1 | iex\n"
-        f"```\n\n"
-        "Release assets: macOS aarch64/x86_64, Linux x86_64/aarch64, Windows x86_64/aarch64.\n"
+        "Requires Pi >= 1.0.0. Release asset: grok-pi-macos-aarch64.tar.gz. "
+        "Intel Mac, Linux and Windows binaries are not provided yet.\n"
     )
 
 
@@ -158,7 +156,7 @@ def main() -> int:
     p.add_argument("-o", "--output", default="-", help="Output path (default: stdout)")
     p.add_argument(
         "--repo",
-        default="Dwsy/grok-pi",
+        default="kyrosle/grok-pi-tui",
         help="GitHub repo for fallback/install links",
     )
     p.add_argument(

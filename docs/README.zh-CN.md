@@ -5,78 +5,47 @@
 
 > 在 Grok Pager 原生终端 UI 中使用 Pi 模型、工具与会话。
 
-[下载最新版本](https://github.com/Dwsy/grok-pi/releases/latest) · [English](../README.md) · [功能矩阵](FEATURE_MATRIX.md) · [架构说明](NATIVE_GROK_TUI_ALIGNMENT.md) · [验证记录](VERIFICATION.md) · [更新日志](CHANGELOG.zh-CN.md) · [Changelog (EN)](../CHANGELOG.MD)
+[下载最新版本](https://github.com/kyrosle/grok-pi-tui/releases/latest) · [English](../README.md) · [功能矩阵](FEATURE_MATRIX.md) · [架构说明](NATIVE_GROK_TUI_ALIGNMENT.md) · [验证记录](VERIFICATION.md) · [更新日志](CHANGELOG.zh-CN.md) · [Changelog (EN)](../CHANGELOG.MD)
 
 > **Pi core、原生 Pager UI、可配置扩展。** Grok Pager 提供终端体验；Pi 提供模型、Provider 鉴权、工具、会话和运行控制。Todo、Subagents 等由 bundled Pi 扩展提供，分别标注默认值与能力边界。
 
 `grok-pi` 将 Pi Agent Runtime 接入 Grok Pager。external 产品入口不提供 Grok voice/STT/TTS、账号/计费、训练/retention 或 stock agent/plugin/MCP 控制；F2、命令面板与 Web 宿主设置目录共用这一边界。Provider 鉴权使用 Pi `/login`、`/logout`，无需 Grok 账号。
 
-## 安装
+## 安装（macOS Apple Silicon）
 
-### macOS / Linux
+**v0.1.10** 提供 macOS Apple Silicon（M1/M2/M3/M4 及后续芯片）预编译包，无需 Rust、源码仓库或 MacPorts。Intel Mac、Linux 和 Windows 的二进制发布暂未提供。
 
-```bash
-curl -fsSL https://github.com/Dwsy/grok-pi/releases/latest/download/install.sh | sh
-```
-
-### Windows
-
-```powershell
-irm https://github.com/Dwsy/grok-pi/releases/latest/download/install.ps1 | iex
-```
-
-安装脚本会按平台选择 release asset：
-
-| 平台 | Asset |
-|---|---|
-| macOS Apple Silicon | `grok-pi-macos-aarch64.tar.gz` |
-| macOS Intel | `grok-pi-macos-x86_64.tar.gz` |
-| Linux x86_64 | `grok-pi-linux-x86_64.tar.gz` |
-| Linux ARM64 | `grok-pi-linux-aarch64.tar.gz` |
-| Windows x64 | `grok-pi-windows-x86_64.zip` |
-| Windows ARM64 | `grok-pi-windows-aarch64.zip` |
-
-默认路径：Unix → `~/.local/bin`；Windows → `%LOCALAPPDATA%\grok-pi\bin`。可用 `GROK_PI_INSTALL_DIR` 覆盖，安装指定 stable 或 beta 版本时，请配合对应 release tag 的安装器使用 `GROK_PI_VERSION=vX.Y.Z` 或 `GROK_PI_VERSION=vX.Y.Z-beta.N`。
+先安装 [Pi](https://pi.dev) **1.0.0 或更高版本**（使用 npm 安装需要 Node.js **22.19.0+**），再安装 grok-pi：
 
 ```bash
-# 示例：macOS / Linux 安装指定 beta
-curl -fsSL https://github.com/Dwsy/grok-pi/releases/download/v1.2.0-beta.1/install.sh | \
-  GROK_PI_VERSION=v1.2.0-beta.1 sh
-```
-
-Unix 会创建 `pi-grok` 符号链接（Windows 为 `pi-grok.exe` 硬链/副本）：
-
-```bash
-grok-pi --help   # 原始名称
-pi-grok --help   # 别名
-```
-
-`grok-pi` 需要 [Pi](https://pi.dev) **1.0.0 或更高版本**（系统 `pi` / pi.dev 安装器）：
-
-```bash
-# 推荐
-curl -fsSL https://pi.dev/install.sh | sh
-# Windows:
-# powershell -c "irm https://pi.dev/install.ps1 | iex"
-# 或 npm:
 npm install --global @earendil-works/pi-coding-agent
+curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/latest/download/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+pig
 ```
 
-Windows 上若旧版 `grok-pi.exe` 找不到裸名 `pi`，可显式指定 shim：
+安装器将 `grok-pi` 和随包动态库安装到 `~/.local/bin`，并创建 `pig`、`pi-grok` 符号链接。日常直接使用 `pig`，无需 `tpig` 启动器。macOS 默认 zsh 可在 `~/.zshrc` 中添加一次以下内容，使新终端也能找到命令：
 
-```powershell
-$env:PI_BIN = "$env:LOCALAPPDATA\pi-node\current\pi.cmd"
-grok-pi --pi-bin $env:PI_BIN
+```bash
+export PATH="$HOME/.local/bin:$PATH"
 ```
+
+可用 `GROK_PI_INSTALL_DIR` 覆盖安装目录。固定安装本次版本：
+
+```bash
+curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/install.sh | \
+  GROK_PI_VERSION=v0.1.10 sh
+```
+
+下载包：[`grok-pi-macos-aarch64.tar.gz`](https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/grok-pi-macos-aarch64.tar.gz)。Release 同时提供 SHA-256 校验文件，以及随包动态库的许可证和源码归档。启动后通过 Pi `/login` 登录 Provider。设置使用 `~/.grok-pi` 和项目 `.grok-pi`；旧 `~/.tpig` 测试设置不自动迁移。
 
 ## 启动
 
 在任意项目目录下直接运行：
 
 ```bash
-grok-pi
-# 或
-pi-grok
+pig
+# 也可使用 grok-pi、pi-grok
 ```
 
 默认使用 PATH 上的 `pi`，并以当前工作目录作为项目目录。继续上一会话：`grok-pi --continue`。

@@ -2,26 +2,23 @@
 # grok-pi installer (Unix)
 #
 # One-line install (latest):
-#   curl -fsSL https://github.com/Dwsy/grok-pi/releases/latest/download/install.sh | sh
+#   curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/latest/download/install.sh | sh
 #
 # Pin a version:
-#   curl -fsSL https://github.com/Dwsy/grok-pi/releases/download/v0.0.1/install.sh | GROK_PI_VERSION=v0.0.1 sh
+#   curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/install.sh | GROK_PI_VERSION=v0.1.10 sh
 #
 # Env overrides:
-#   GROK_PI_VERSION=v0.0.1|v0.0.2-beta.1|latest  (default: latest)
+#   GROK_PI_VERSION=v0.1.10|v0.1.11-beta.1|latest  (default: latest)
 #   GROK_PI_INSTALL_DIR=$HOME/.local/bin
-#   GROK_PI_REPO=Dwsy/grok-pi
+#   GROK_PI_REPO=kyrosle/grok-pi-tui
 #   GROK_PI_SKIP_PI_HINT=1            skip Pi host install hint
 #   GROK_PI_FORCE=1                   reinstall even if already present
 #
 # Supported release assets:
 #   grok-pi-macos-aarch64.tar.gz
-#   grok-pi-macos-x86_64.tar.gz
-#   grok-pi-linux-x86_64.tar.gz
-#   grok-pi-linux-aarch64.tar.gz
 set -eu
 
-REPOSITORY="${GROK_PI_REPO:-Dwsy/grok-pi}"
+REPOSITORY="${GROK_PI_REPO:-kyrosle/grok-pi-tui}"
 VERSION="${GROK_PI_VERSION:-latest}"
 INSTALL_DIR="${GROK_PI_INSTALL_DIR:-$HOME/.local/bin}"
 SKIP_PI_HINT="${GROK_PI_SKIP_PI_HINT:-0}"
@@ -55,13 +52,11 @@ detect_asset() {
   arch="$(normalize_arch)"
   case "$os" in
     Darwin)
+      [ "$arch" = "aarch64" ] || fail "Intel Mac binaries are not published yet. This release supports macOS Apple Silicon."
       printf '%s\n' "grok-pi-macos-${arch}.tar.gz"
       ;;
-    Linux)
-      printf '%s\n' "grok-pi-linux-${arch}.tar.gz"
-      ;;
     *)
-      fail "$os is unsupported on this installer; on Windows use install.ps1"
+      fail "This release supports macOS Apple Silicon only (detected $os/$arch)."
       ;;
   esac
 }
@@ -135,7 +130,7 @@ check_pi_host() {
     fi
     return 0
   fi
-  info "Pi host not found on PATH (required: Pi >= 0.99.0)."
+  info "Pi host not found on PATH (required: Pi >= 1.0.0)."
   info "Install Pi (recommended):"
   info "  curl -fsSL https://pi.dev/install.sh | sh"
   info "Or:"
@@ -187,6 +182,11 @@ if [ ! -f "$tmpdir/grok-pi" ]; then
 fi
 
 mkdir -p "$INSTALL_DIR"
+# Libraries use @executable_path/lib/grok-pi and must be installed before the binary.
+if [ -d "$tmpdir/lib/grok-pi" ]; then
+  mkdir -p "$INSTALL_DIR/lib/grok-pi"
+  cp -R "$tmpdir/lib/grok-pi/." "$INSTALL_DIR/lib/grok-pi/"
+fi
 if command -v install >/dev/null 2>&1; then
   install -m 755 "$tmpdir/grok-pi" "$INSTALL_DIR/grok-pi"
 else
