@@ -27,6 +27,7 @@ done
 exit 1
 ''')
     (shim / "uname").write_text('#!/bin/sh\ncase "$1" in -s) echo "$TEST_OS";; -m) echo "$TEST_ARCH";; esac\n')
+    (shim / "sw_vers").write_text('#!/bin/sh\necho "${TEST_MACOS_VERSION:-14.0}"\n')
     for p in shim.iterdir():
         p.chmod(0o755)
     destination = root / "installed bin"
@@ -53,4 +54,7 @@ exit 1
         env.update(TEST_OS=os_name, TEST_ARCH=arch)
         result = subprocess.run(["sh", str(installer)], env=env, capture_output=True, text=True)
         assert result.returncode != 0 and "Apple Silicon" in result.stderr, result
+    env.update(TEST_OS="Darwin", TEST_ARCH="arm64", TEST_MACOS_VERSION="13.6")
+    result = subprocess.run(["sh", str(installer)], env=env, capture_output=True, text=True)
+    assert result.returncode != 0 and "macOS 14" in result.stderr, result
 print("PASS: first install, reinstall, aliases, relocated libraries/licenses, paths with spaces, unsupported platforms")

@@ -19,7 +19,7 @@
 ### 变更
 
 - 安装器、自动更新和 Welcome 更新日志统一指向 `kyrosle/grok-pi-tui`；不再回退到其他项目的 npm 包。
-- 本次仅发布 macOS Apple Silicon，要求系统 Pi >= 1.0.0；生产构建显式禁用 stock runtime 默认 features。
+- 本次仅发布 macOS 14+ Apple Silicon，要求系统 Pi >= 1.0.0；生产构建显式禁用 stock runtime 默认 features。
 - Pi 产品设置和入口隐藏 stock Grok 业务控制。本次版本交付不代表总体 native TUI 架构计划完成。
 
 ### 修复

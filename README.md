@@ -21,7 +21,7 @@ See the [verification report](docs/VERIFICATION.md) for current pending work.
 
 ## Install (macOS Apple Silicon)
 
-**v0.1.10** ships a prebuilt macOS Apple Silicon (M1/M2/M3/M4 and later) binary. Rust, this source checkout and MacPorts are not required. Intel Mac, Linux and Windows binary releases are not provided yet.
+**v0.1.10** ships a prebuilt **macOS 14 (Sonoma) or newer**, Apple Silicon (M1/M2/M3/M4 and later) binary. Rust, this source checkout and MacPorts are not required. Intel Mac, Linux and Windows binary releases are not provided yet.
 
 Install [Pi](https://pi.dev) **1.0.0 or newer** first (Node.js **22.19.0+** is required by the npm installation), then install grok-pi:
 

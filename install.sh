@@ -53,6 +53,8 @@ detect_asset() {
   case "$os" in
     Darwin)
       [ "$arch" = "aarch64" ] || fail "Intel Mac binaries are not published yet. This release supports macOS Apple Silicon."
+      macos_major="$(sw_vers -productVersion | cut -d . -f 1)"
+      [ "$macos_major" -ge 14 ] || fail "This release requires macOS 14 (Sonoma) or newer."
       printf '%s\n' "grok-pi-macos-${arch}.tar.gz"
       ;;
     *)

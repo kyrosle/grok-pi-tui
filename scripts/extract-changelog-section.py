@@ -94,7 +94,7 @@ def install_footer(repo: str, tag: str) -> str:
     return (
         "\n### Install\n\n"
         f"```bash\n"
-        f"# macOS Apple Silicon\n"
+        f"# macOS 14+ Apple Silicon\n"
         f"curl -fsSL https://github.com/{repo}/releases/download/{tag}/install.sh | "
         f"GROK_PI_VERSION={tag} sh\n"
         f"export PATH=\"$HOME/.local/bin:$PATH\"\n"

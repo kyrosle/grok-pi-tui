@@ -10,7 +10,7 @@ Status definitions: **Native** = implemented by a Grok Pager component; **Adapte
 
 Current scope follows the [product-surface SPEC](issues/架构/20261003-pi-product-surface-SPEC.md) and [PLAN](issues/架构/20261003-pi-product-surface-PLAN.md). Pi owns models/providers/authentication, tools, sessions, retry and compaction; Pager supplies the native terminal UI. Queue interception, adapter Plan/Goal state and optional Rhai orchestration remain recorded ownership debts. Grok voice/STT/TTS and stock account/billing/training/retention/agent/plugin/MCP controls are excluded from the external surface; F2, palette and Web host settings share the filtered catalog.
 
-Published binary: **v0.1.10, macOS Apple Silicon only**; `pig` is the short entry. The archive includes relocated non-system dylibs. Intel/Linux/Windows artifacts are not published yet. See the [release record](issues/grok-pi/20261005-v0.1.10-macos-release.md).
+Published binary: **v0.1.10, macOS 14+ Apple Silicon only**; `pig` is the short entry. The archive includes relocated non-system dylibs. Intel/Linux/Windows artifacts are not published yet. See the [release record](issues/grok-pi/20261005-v0.1.10-macos-release.md).
 
 ## Terminal and Display
 

@@ -13,7 +13,7 @@
 
 ## 安装（macOS Apple Silicon）
 
-**v0.1.10** 提供 macOS Apple Silicon（M1/M2/M3/M4 及后续芯片）预编译包，无需 Rust、源码仓库或 MacPorts。Intel Mac、Linux 和 Windows 的二进制发布暂未提供。
+**v0.1.10** 提供 **macOS 14（Sonoma）及更高版本**的 Apple Silicon（M1/M2/M3/M4 及后续芯片）预编译包，无需 Rust、源码仓库或 MacPorts。Intel Mac、Linux 和 Windows 的二进制发布暂未提供。
 
 先安装 [Pi](https://pi.dev) **1.0.0 或更高版本**（使用 npm 安装需要 Node.js **22.19.0+**），再安装 grok-pi：
 

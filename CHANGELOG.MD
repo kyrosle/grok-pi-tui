@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Installers, automatic updates and the Welcome changelog use `kyrosle/grok-pi-tui`; updates no longer fall back to the other project's npm package.
-- This release publishes macOS Apple Silicon only and requires system Pi >= 1.0.0. Production builds explicitly disable stock runtime default features.
+- This release publishes macOS 14+ Apple Silicon only and requires system Pi >= 1.0.0. Production builds explicitly disable stock runtime default features.
 - Pi product settings and entry points omit stock Grok business controls. This release does not claim completion of the master native TUI architecture plan.
 
 ### Fixed
