@@ -1293,6 +1293,10 @@ pub(super) fn action_for_enum_commit(key: SettingKey, choice: &'static str) -> O
             _ => None,
         },
         "ctrl_o_tool_expansion" => Some(Action::SetCtrlOToolExpansion(choice.to_string())),
+        "language" => match choice {
+            "auto" | "en" | "zh-CN" => Some(Action::SetSettingsLanguage(choice.to_string())),
+            _ => None,
+        },
         "pi_eval" => match choice {
             "v1" | "v2" => Some(Action::SetPiEval(choice.to_string())),
             _ => None,

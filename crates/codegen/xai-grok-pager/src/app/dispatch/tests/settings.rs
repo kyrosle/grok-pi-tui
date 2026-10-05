@@ -1502,6 +1502,9 @@ fn pr13_set_show_tips_toast_includes_restart_marker() {
 /// Dispatches theme-mutating actions for the theme keys; callers must hold the theme test lock (wrap the test in [`with_theme_test_env`]).
 fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::SettingKey) {
     match key {
+        "language" => {
+            let _ = dispatch(Action::SetSettingsLanguage("en".into()), app);
+        }
         "compact_mode" => {
             let _ = dispatch(Action::SetCompactMode(true), app);
         }
@@ -1756,16 +1759,78 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
             );
         }
         other => {
-            panic!(
-                "move_setting_away_from_default: no arm for `{other}`. \
-                 Add one when registering a new setting."
-            )
+            // Scalar additions use the same typed mutation path as a real reset.
+            // Verify the readback moved, so a missing or misrouted setter cannot pass vacuously.
+            use crate::settings::{SettingKind, SettingValue, StringValidator};
+            let registry = crate::settings::SettingsRegistry::defaults();
+            let meta = registry.find(other).expect("registered setting");
+            let default = crate::settings::default_value_for(meta);
+            let away = match &meta.kind {
+                SettingKind::Bool { default } => SettingValue::Bool(!default),
+                SettingKind::Enum {
+                    default, choices, ..
+                } => SettingValue::Enum(
+                    choices
+                        .iter()
+                        .find(|choice| choice.canonical != *default)
+                        .expect("enum needs a nondefault choice")
+                        .canonical,
+                ),
+                SettingKind::Int { default, min, max } => {
+                    SettingValue::Int(if default != min { *min } else { *max })
+                }
+                SettingKind::String {
+                    validator: StringValidator::PromptCursor,
+                    ..
+                } => SettingValue::String("bar".into()),
+                SettingKind::String { .. } | SettingKind::DynamicEnum { .. } => {
+                    SettingValue::String("test-provider/test-model".into())
+                }
+                SettingKind::Group { .. } => panic!("group has no scalar mutation"),
+            };
+            let action = action_for_reset(other, &away).expect("setting mutation mapping");
+            let _ = dispatch(action, app);
+            assert_ne!(
+                crate::settings::current_value_for(
+                    other,
+                    &app.current_ui,
+                    &build_pager_snapshot(app)
+                ),
+                Some(default),
+                "mutation must move {other} away from default before testing reset/rollback",
+            );
         }
     }
 }
+fn install_pi_task_feature_fixture(app: &mut AppView) {
+    let manifest = xai_grok_shared::host_features::HostFeatureManifest::from_json_sources(&[
+        (
+            "todo",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../extensions/pi-grok-todo/grok-pi.json"
+            )),
+        ),
+        (
+            "subagents",
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../extensions/pi-grok-subagents/grok-pi.json"
+            )),
+        ),
+    ])
+    .expect("valid bundled feature descriptors");
+    app.external_agent = true;
+    app.current_ui.language = "en".into();
+    app.settings_registry = std::sync::Arc::new(
+        crate::settings::SettingsRegistry::defaults_with_host_features(&manifest),
+    );
+}
+
 #[test]
 fn set_pi_todo_persists_restart_required_toggle() {
     let mut app = test_app_with_agent();
+    install_pi_task_feature_fixture(&mut app);
     app.current_ui.pi_todo = true;
 
     let effects = dispatch(
@@ -1785,13 +1850,20 @@ fn set_pi_todo_persists_restart_required_toggle() {
         }]
     ));
     let toast = read_toast(&app);
-    assert!(toast.contains("Pi todo: off"));
-    assert!(toast.contains("restart grok-pi to apply"));
+    assert!(
+        toast.contains(&format!(
+            "{}: off",
+            app.settings_registry.find("pi_todo").unwrap().label
+        )),
+        "{toast}"
+    );
+    assert!(toast.contains("Takes effect on next start."));
 }
 
 #[test]
 fn set_pi_subagents_persists_restart_required_toggle() {
     let mut app = test_app_with_agent();
+    install_pi_task_feature_fixture(&mut app);
     app.current_ui.pi_subagents = true;
 
     let effects = dispatch(
@@ -1811,8 +1883,14 @@ fn set_pi_subagents_persists_restart_required_toggle() {
         }]
     ));
     let toast = read_toast(&app);
-    assert!(toast.contains("Pi subagents: off"));
-    assert!(toast.contains("restart grok-pi to apply"));
+    assert!(
+        toast.contains(&format!(
+            "{}: off",
+            app.settings_registry.find("pi_subagents").unwrap().label
+        )),
+        "{toast}"
+    );
+    assert!(toast.contains("Takes effect on next start."));
 }
 
 #[test]
@@ -3766,4 +3844,43 @@ fn external_stock_settings_actions_do_not_mutate_or_persist() {
             .iter()
             .any(|effect| matches!(effect, Effect::PersistSetting { key: "pi_bash", .. }))
     );
+}
+
+#[test]
+fn settings_language_apply_and_failed_save_restore_open_panel() {
+    use crate::settings::{SettingValue, i18n::Language};
+    use crate::views::modal::ActiveModal;
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    app.current_ui.language = "en".into();
+    dispatch(Action::OpenPiSettings, &mut app);
+    let effects = dispatch(Action::SetSettingsLanguage("zh-CN".into()), &mut app);
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::PersistSetting {
+            key: "language",
+            value: SettingValue::Enum("zh-CN"),
+            rollback_value: SettingValue::Enum("en")
+        }]
+    ));
+    assert_eq!(app.current_ui.language, "zh-CN");
+    let Some(ActiveModal::PiSettings { state }) = &app.agents[&AgentId(0)].active_modal else {
+        panic!("expected Pi settings panel")
+    };
+    assert_eq!(state.language(), Language::ZhCn);
+    dispatch(
+        Action::TaskComplete(TaskResult::SettingPersistFailed {
+            key: "language",
+            rollback_value: SettingValue::Enum("en"),
+            error: "permission denied".into(),
+        }),
+        &mut app,
+    );
+    assert_eq!(app.current_ui.language, "en");
+    let Some(ActiveModal::PiSettings { state }) = &app.agents[&AgentId(0)].active_modal else {
+        panic!("expected Pi settings panel")
+    };
+    assert_eq!(state.language(), Language::En);
+    assert!(dispatch(Action::SetSettingsLanguage("unsupported".into()), &mut app).is_empty());
+    assert_eq!(app.current_ui.language, "en");
 }

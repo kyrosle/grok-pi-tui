@@ -371,7 +371,7 @@ pub(crate) fn render_picker_search_bar_with_label(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn render_line_editor_search_bar_with_label(
+pub(crate) fn render_line_editor_search_bar_with_label(
     buf: &mut Buffer,
     x: u16,
     y: u16,
@@ -383,7 +383,7 @@ fn render_line_editor_search_bar_with_label(
     show_hint: bool,
     bg: Option<ratatui::style::Color>,
 ) {
-    let input_width = width.saturating_sub(label.len() as u16) as usize;
+    let input_width = width.saturating_sub(label.width() as u16) as usize;
     let viewport = editor.viewport(input_width);
     render_search_bar_with_label_viewport(
         buf,
@@ -402,7 +402,7 @@ fn render_line_editor_search_bar_with_label(
 }
 
 /// Like [`render_search_bar`] but with a caller-supplied prompt `label` (e.g. `" path: "`) instead of the default `" search: "`.
-/// The label width is measured in bytes (ASCII), matching the input-window math.
+/// The label width uses terminal columns, including CJK labels.
 #[allow(clippy::too_many_arguments)]
 pub fn render_search_bar_with_label(
     buf: &mut Buffer,
@@ -460,7 +460,7 @@ fn render_search_bar_with_label_viewport(
     let always_active = !active && !show_hint;
 
     if active || !query.is_empty() || always_active {
-        let label_w = label.len() as u16;
+        let label_w = label.width() as u16;
         buf.set_line(
             x,
             y,

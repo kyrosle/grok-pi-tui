@@ -29,6 +29,7 @@ use unicode_width::UnicodeWidthStr;
 use super::layout;
 use super::state::{Mode, ModeKind, PiSettingsState, Row};
 use crate::render::line_utils::truncate_str;
+use crate::settings::i18n::{Language, translate};
 use crate::settings::{
     CodingDataSharingLock, OwnedEnumChoice, SettingKind, SettingMeta, SettingValue,
 };
@@ -78,8 +79,14 @@ const ADMIN_SUFFIX: &str = " \u{00B7} Admin Managed";
 
 /// Sidebar column width, derived from every section name in the layout table
 /// rather than the active tab's, so the divider never shifts between tabs.
-fn sidebar_width() -> u16 {
-    (layout::widest_section_name() as u16).min(SIDEBAR_NAME_CAP) + SIDEBAR_INDENT + SIDEBAR_GAP
+fn sidebar_width(state: &PiSettingsState) -> u16 {
+    let width = crate::settings::SettingCategory::ALL
+        .iter()
+        .flat_map(|category| layout::sections_for(*category))
+        .map(|name| state.t(name).width())
+        .max()
+        .unwrap_or(0);
+    (width as u16).min(SIDEBAR_NAME_CAP) + SIDEBAR_INDENT + SIDEBAR_GAP
 }
 
 // ---------------------------------------------------------------------------
@@ -102,13 +109,13 @@ pub fn render_pi_settings(
         Some(meta) if state.mode.is_sub_pane() => {
             breadcrumb = format!(
                 "{} {} {}",
-                super::MODAL_TITLE,
+                state.t(super::MODAL_TITLE),
                 crate::glyphs::chevron(),
-                meta.label
+                state.t(meta.label)
             );
             &breadcrumb
         }
-        _ => super::MODAL_TITLE,
+        _ => state.t(super::MODAL_TITLE),
     };
 
     let browsing = !state.mode.is_sub_pane();
@@ -180,12 +187,13 @@ fn render_browse(buf: &mut Buffer, content: Rect, state: &mut PiSettingsState, t
     // The search banner exists only while a query is live; browsing is entered
     // with `/`, so an always-on empty bar would just cost a row.
     if state.searching() && area.height >= 3 {
-        crate::views::picker::render_line_editor_search_bar(
+        crate::views::picker::render_line_editor_search_bar_with_label(
             buf,
             area.x,
             area.y,
             area.width,
             theme,
+            state.t(" search: "),
             &state.query,
             state.mode.kind() == ModeKind::Search,
             true,
@@ -249,7 +257,7 @@ fn render_rows(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, theme:
 
     let sections = state.sections();
     let active_section = state.active_section();
-    let sidebar_w = sidebar_width();
+    let sidebar_w = sidebar_width(state);
     let split = sections.len() >= 2 && area.width >= sidebar_w + SIDEBAR_SEPARATOR_W + MIN_PANE_W;
     let pane = if split {
         render_sidebar(
@@ -292,12 +300,14 @@ fn render_rows(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, theme:
         let dimmed = active_range.is_some_and(|(first, last)| row < first || row > last);
 
         match &state.rows[row] {
-            Row::Tab { category } => render_heading(buf, rect, category.label(), false, theme),
+            Row::Tab { category } => {
+                render_heading(buf, rect, state.t(category.label()), false, theme)
+            }
             Row::Section { name, .. } => {
                 // The sidebar owns section names in the split layout; inline
                 // headings are the narrow-terminal fallback.
                 if !split {
-                    render_heading(buf, rect, name, dimmed, theme);
+                    render_heading(buf, rect, state.t(name), dimmed, theme);
                 }
             }
             Row::Setting { key, meta } => {
@@ -319,6 +329,7 @@ fn render_rows(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, theme:
                     label_w,
                     style,
                     state.lock(key),
+                    state.language(),
                     theme,
                 );
                 state.value_rects[row] = value_rect;
@@ -331,7 +342,7 @@ fn render_no_matches(buf: &mut Buffer, area: Rect, state: &PiSettingsState, them
     if !state.searching() {
         return;
     }
-    let prefix = "No matches for ";
+    let prefix = state.t("No matches for ");
     let budget = (area.width as usize)
         .saturating_sub(prefix.width())
         .saturating_sub(2); // surrounding quotes
@@ -416,7 +427,7 @@ fn render_sidebar(
         if focused {
             buf.set_style(rect, Style::default().bg(theme.bg_visual));
         }
-        let text = format!("{cursor}{}", truncate_str(name, name_w as usize));
+        let text = format!("{cursor}{}", truncate_str(state.t(name), name_w as usize));
         let w = (text.width() as u16).min(sidebar_w);
         buf.set_span(rect.x, rect.y, &Span::styled(&text, style), w);
     }
@@ -458,7 +469,7 @@ fn label_column_width(state: &PiSettingsState, pane_w: u16) -> u16 {
             Row::Setting { meta, .. } => state.registry.all().get(*meta),
             _ => None,
         })
-        .map(|meta| meta.label.width() as u16)
+        .map(|meta| state.t(meta.label).width() as u16)
         .max()
         .unwrap_or(0)
         .min(cap)
@@ -479,12 +490,16 @@ fn render_description(buf: &mut Buffer, area: Rect, state: &PiSettingsState, the
     // user can act on.
     let owned;
     let text: &str = match state.lock(key).map(CodingDataSharingLock::reason) {
-        Some(reason) => reason,
+        Some(reason) => state.t(reason),
         None if meta.restart_required => {
-            owned = format!("{} Takes effect on next start.", meta.description);
+            owned = format!(
+                "{} {}",
+                state.t(meta.description),
+                state.t("Takes effect on next start.")
+            );
             &owned
         }
-        None => meta.description,
+        None => state.t(meta.description),
     };
 
     let style = Style::default()
@@ -567,25 +582,28 @@ pub(super) fn value_text(
     meta: &SettingMeta,
     value: &SettingValue,
     lock: Option<CodingDataSharingLock>,
+    language: Language,
 ) -> String {
     if lock == Some(CodingDataSharingLock::Zdr) {
         return ZDR_VALUE.to_string();
     }
     let mut text = match value {
-        SettingValue::Bool(b) => if *b { "on" } else { "off" }.to_string(),
+        SettingValue::Bool(b) => translate(language, if *b { "on" } else { "off" }).to_string(),
         SettingValue::String(s) => {
             if s.is_empty() && matches!(meta.kind, SettingKind::DynamicEnum { .. }) {
-                "(no override)".to_string()
+                translate(language, "(no override)").to_string()
             } else {
                 s.clone()
             }
         }
-        SettingValue::Enum(canonical) => enum_display(&meta.kind, canonical).to_string(),
+        SettingValue::Enum(canonical) => {
+            translate(language, enum_display(&meta.kind, canonical)).to_string()
+        }
         SettingValue::Int(i) => i.to_string(),
-        SettingValue::PiBuiltinTools(_) => "Pi built-in tools".to_string(),
+        SettingValue::PiBuiltinTools(_) => translate(language, "Pi built-in tools").to_string(),
     };
     if lock == Some(CodingDataSharingLock::TeamManaged) {
-        text.push_str(ADMIN_SUFFIX);
+        text.push_str(translate(language, ADMIN_SUFFIX));
     }
     text
 }
@@ -612,6 +630,7 @@ fn render_setting_row(
     label_w: u16,
     row: RowStyle,
     lock: Option<CodingDataSharingLock>,
+    language: Language,
     theme: &Theme,
 ) -> Rect {
     let bg = row_bg(theme, row.selected, row.hovered);
@@ -623,7 +642,7 @@ fn render_setting_row(
     // Any other missing value carrier means registry/dispatch skew. Surface it
     // rather than rendering a silently blank row.
     if value.is_none() && !group {
-        return render_unmapped_row(buf, area, meta, label_w, bg, theme);
+        return render_unmapped_row(buf, area, meta, label_w, bg, language, theme);
     }
 
     // Dimmed rows collapse to one flat wash so inner colors do not fight it.
@@ -658,7 +677,10 @@ fn render_setting_row(
 
     let label_x = area.x + CURSOR_W.min(area.width);
     let label_avail = area.width.saturating_sub(CURSOR_W);
-    let label = truncate_str(meta.label, label_w.min(label_avail) as usize);
+    let label = truncate_str(
+        translate(language, meta.label),
+        label_w.min(label_avail) as usize,
+    );
     let painted = (label.width() as u16).min(label_avail);
     if painted > 0 {
         buf.set_span(label_x, area.y, &Span::styled(&label, label_style), painted);
@@ -679,7 +701,12 @@ fn render_setting_row(
     let value_floor = label_x + label_w.min(label_avail) + GAP_W;
     let value_avail = chevron_x.saturating_sub(value_floor);
     let text = value
-        .map(|value| truncate_str(&value_text(meta, value, lock), value_avail as usize))
+        .map(|value| {
+            truncate_str(
+                &value_text(meta, value, lock, language),
+                value_avail as usize,
+            )
+        })
         .unwrap_or_default();
     let value_w = (text.width() as u16).min(value_avail);
     let value_x = chevron_x.saturating_sub(value_w);
@@ -718,6 +745,7 @@ fn render_unmapped_row(
     meta: &SettingMeta,
     label_w: u16,
     bg: Color,
+    language: Language,
     theme: &Theme,
 ) -> Rect {
     let style = Style::default()
@@ -725,8 +753,9 @@ fn render_unmapped_row(
         .bg(bg)
         .add_modifier(Modifier::BOLD);
     let text = format!(
-        "  {}  (no read mapping)",
-        truncate_str(meta.label, label_w as usize)
+        "  {}  {}",
+        truncate_str(translate(language, meta.label), label_w as usize),
+        translate(language, "(no read mapping)")
     );
     let w = (text.width() as u16).min(area.width);
     buf.set_span(area.x, area.y, &Span::styled(&text, style), w);
@@ -790,7 +819,7 @@ fn render_chooser(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, the
     let Some(meta) = state.meta(key) else {
         return;
     };
-    let (label, description) = (meta.label, meta.description);
+    let (label, description) = (state.t(meta.label), state.t(meta.description));
     let choices = state.choices_for(key);
     let header = render_sub_pane_header(buf, area, theme, label, description);
     if area.height <= header {
@@ -803,7 +832,16 @@ fn render_chooser(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, the
         ..area
     };
     let scroll = scroll.min(choices.len().saturating_sub(1));
-    state.choice_rects = render_choice_list(buf, body, &choices, index, scroll, state.hover, theme);
+    state.choice_rects = render_choice_list(
+        buf,
+        body,
+        &choices,
+        index,
+        scroll,
+        state.hover,
+        state.language(),
+        theme,
+    );
     if let Mode::Picking { scroll: s, .. } = &mut state.mode {
         *s = scroll;
     }
@@ -818,6 +856,7 @@ fn render_choice_list(
     selected: usize,
     scroll: usize,
     hover: Option<usize>,
+    language: Language,
     theme: &Theme,
 ) -> Vec<Rect> {
     let mut rects = vec![Rect::default(); choices.len()];
@@ -847,7 +886,10 @@ fn render_choice_list(
                     Modifier::empty()
                 });
 
-        let description = wrap_text(&choice.description, area.width.saturating_sub(5));
+        let description = wrap_text(
+            translate(language, &choice.description),
+            area.width.saturating_sub(5),
+        );
         let height = (1 + description.len() as u16).min(end_y - y);
         let rect = Rect {
             x: area.x,
@@ -863,7 +905,7 @@ fn render_choice_list(
             y,
             &Line::from(vec![
                 Span::styled(format!(" {marker}  "), marker_style),
-                Span::styled(choice.display.clone(), label_style),
+                Span::styled(translate(language, &choice.display), label_style),
             ]),
             area.width,
         );
@@ -894,7 +936,13 @@ fn render_group_sheet(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState,
     let Some(meta) = state.meta(key) else {
         return;
     };
-    let header = render_sub_pane_header(buf, area, theme, meta.label, meta.description);
+    let header = render_sub_pane_header(
+        buf,
+        area,
+        theme,
+        state.t(meta.label),
+        state.t(meta.description),
+    );
     if area.height <= header {
         return;
     }
@@ -904,7 +952,7 @@ fn render_group_sheet(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState,
     let label_w = children
         .iter()
         .filter_map(|k| state.meta(k))
-        .map(|m| m.label.width() as u16)
+        .map(|m| state.t(m.label).width() as u16)
         .max()
         .unwrap_or(0)
         .min(LABEL_CAP);
@@ -936,6 +984,7 @@ fn render_group_sheet(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState,
             label_w,
             style,
             None,
+            state.language(),
             theme,
         );
     }
@@ -951,7 +1000,13 @@ fn render_editor(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, them
     let Some(meta) = state.meta(key) else {
         return;
     };
-    let header = render_sub_pane_header(buf, area, theme, meta.label, meta.description);
+    let header = render_sub_pane_header(
+        buf,
+        area,
+        theme,
+        state.t(meta.label),
+        state.t(meta.description),
+    );
     if area.height <= header {
         return;
     }
@@ -966,12 +1021,13 @@ fn render_editor(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, them
     // borrow on `state.mode` is done before the mutable write.
     let stepper = match &state.mode {
         Mode::EditingString { editor, error, .. } => {
-            crate::views::picker::render_line_editor_search_bar(
+            crate::views::picker::render_line_editor_search_bar_with_label(
                 buf,
                 field.x,
                 field.y,
                 field.width,
                 theme,
+                state.t(" value: "),
                 editor,
                 true,
                 false,
@@ -981,7 +1037,15 @@ fn render_editor(buf: &mut Buffer, area: Rect, state: &mut PiSettingsState, them
                 && field.y + 2 < area.y + area.height
             {
                 let style = Style::default().fg(theme.accent_error).bg(theme.bg_base);
-                let text = truncate_str(error, area.width as usize);
+                let translated_error = error
+                    .strip_prefix("Unknown model: ")
+                    .map(|model| {
+                        state
+                            .t("Unknown model: \"{value}\"")
+                            .replace("{value}", model.trim_matches('"'))
+                    })
+                    .unwrap_or_else(|| state.t(error).to_string());
+                let text = truncate_str(&translated_error, area.width as usize);
                 let w = (text.width() as u16).min(area.width);
                 buf.set_span(area.x, field.y + 2, &Span::styled(&text, style), w);
             }
@@ -1030,11 +1094,14 @@ fn render_reset_confirm(buf: &mut Buffer, area: Rect, state: &mut PiSettingsStat
     };
     let default = state
         .default_of(key)
-        .map(|value| value_text(meta, &value, None))
-        .unwrap_or_else(|| "default".to_string());
+        .map(|value| value_text(meta, &value, None, state.language()))
+        .unwrap_or_else(|| state.t("default").to_string());
     buf.set_style(area, Style::default().bg(theme.bg_base));
 
-    let prompt = format!("Reset \u{201C}{}\u{201D} to {default}?", meta.label);
+    let prompt = state
+        .t("Reset “{label}” to {value}?")
+        .replace("{label}", state.t(meta.label))
+        .replace("{value}", &default);
     let style = Style::default()
         .fg(theme.accent_user)
         .bg(theme.bg_base)
@@ -1046,9 +1113,9 @@ fn render_reset_confirm(buf: &mut Buffer, area: Rect, state: &mut PiSettingsStat
     if area.height >= 3 {
         let current = state
             .value_of(key)
-            .map(|value| value_text(meta, &value, None))
+            .map(|value| value_text(meta, &value, None, state.language()))
             .unwrap_or_default();
-        let note = format!("Currently {current}.");
+        let note = state.t("Currently {value}.").replace("{value}", &current);
         let note_style = Style::default().fg(theme.gray).bg(theme.bg_base);
         let w = (note.width() as u16).min(area.width);
         buf.set_span(area.x, area.y + 2, &Span::styled(&note, note_style), w);
@@ -1059,9 +1126,9 @@ fn render_reset_confirm(buf: &mut Buffer, area: Rect, state: &mut PiSettingsStat
 // Footer
 // ---------------------------------------------------------------------------
 
-fn shortcut(label: &'static str) -> Shortcut<'static> {
+fn shortcut(language: Language, label: &'static str) -> Shortcut<'static> {
     Shortcut {
-        label,
+        label: translate(language, label),
         clickable: false,
         id: 0,
     }
@@ -1069,12 +1136,13 @@ fn shortcut(label: &'static str) -> Shortcut<'static> {
 
 /// Footer hints for the current mode.
 fn build_shortcuts(state: &PiSettingsState) -> Vec<Shortcut<'static>> {
+    let language = state.language();
     match state.mode.kind() {
         ModeKind::Browse if state.section_focus => vec![
-            shortcut("\u{2191}/\u{2193} jump sections"),
-            shortcut("Tab/Enter settings"),
-            shortcut("\u{2190}/\u{2192} tabs"),
-            shortcut("Esc close"),
+            shortcut(language, "\u{2191}/\u{2193} jump sections"),
+            shortcut(language, "Tab/Enter settings"),
+            shortcut(language, "\u{2190}/\u{2192} tabs"),
+            shortcut(language, "Esc close"),
         ],
         ModeKind::Browse => {
             // A locked row accepts neither the edit keys nor `d`, so it
@@ -1082,32 +1150,32 @@ fn build_shortcuts(state: &PiSettingsState) -> Vec<Shortcut<'static>> {
             let locked = state
                 .focused()
                 .is_some_and(|(key, _)| state.lock(key).is_some());
-            let mut hints = vec![shortcut("\u{2191}/\u{2193}/j/k nav")];
+            let mut hints = vec![shortcut(language, "\u{2191}/\u{2193}/j/k nav")];
             if !locked {
-                hints.push(shortcut("Space toggle"));
+                hints.push(shortcut(language, "Space toggle"));
                 hints.push(match state.focused() {
                     Some((_, meta)) if matches!(meta.kind, SettingKind::Bool { .. }) => {
-                        shortcut("Enter toggle")
+                        shortcut(language, "Enter toggle")
                     }
-                    _ => shortcut("Enter edit"),
+                    _ => shortcut(language, "Enter edit"),
                 });
             }
-            hints.push(shortcut("\u{2190}/\u{2192} tabs"));
+            hints.push(shortcut(language, "\u{2190}/\u{2192} tabs"));
             if state.sections().len() >= 2 {
-                hints.push(shortcut("Tab sections"));
+                hints.push(shortcut(language, "Tab sections"));
             }
-            hints.push(shortcut("/ search"));
+            hints.push(shortcut(language, "/ search"));
             if !locked {
-                hints.push(shortcut("d reset"));
+                hints.push(shortcut(language, "d reset"));
             }
-            hints.push(shortcut("F2/Esc close"));
+            hints.push(shortcut(language, "F2/Esc close"));
             hints
         }
         ModeKind::Search => vec![
-            shortcut("type to filter"),
-            shortcut("\u{2191}/\u{2193} nav"),
-            shortcut("Enter commit"),
-            shortcut("Esc clear"),
+            shortcut(language, "type to filter"),
+            shortcut(language, "\u{2191}/\u{2193} nav"),
+            shortcut(language, "Enter commit"),
+            shortcut(language, "Esc clear"),
         ],
         ModeKind::Picking => {
             let preview = matches!(
@@ -1118,34 +1186,37 @@ fn build_shortcuts(state: &PiSettingsState) -> Vec<Shortcut<'static>> {
                 }
             );
             vec![
-                shortcut(if preview {
-                    "\u{2191}/\u{2193} try"
-                } else {
-                    "\u{2191}/\u{2193} nav"
-                }),
-                shortcut("Enter select"),
-                shortcut(if preview { "Esc revert" } else { "Esc cancel" }),
+                shortcut(
+                    language,
+                    if preview {
+                        "\u{2191}/\u{2193} try"
+                    } else {
+                        "\u{2191}/\u{2193} nav"
+                    },
+                ),
+                shortcut(language, "Enter select"),
+                shortcut(language, if preview { "Esc revert" } else { "Esc cancel" }),
             ]
         }
         ModeKind::PickingGroup => vec![
-            shortcut("\u{2191}/\u{2193} nav"),
-            shortcut("Space/Enter toggle"),
-            shortcut("Esc back"),
+            shortcut(language, "\u{2191}/\u{2193} nav"),
+            shortcut(language, "Space/Enter toggle"),
+            shortcut(language, "Esc back"),
         ],
         ModeKind::EditingString => vec![
-            shortcut("type to edit"),
-            shortcut("Enter save"),
-            shortcut("Esc cancel"),
+            shortcut(language, "type to edit"),
+            shortcut(language, "Enter save"),
+            shortcut(language, "Esc cancel"),
         ],
         ModeKind::EditingInt => vec![
-            shortcut("\u{2190}/\u{2192} step"),
-            shortcut("Enter save"),
-            shortcut("Esc cancel"),
+            shortcut(language, "\u{2190}/\u{2192} step"),
+            shortcut(language, "Enter save"),
+            shortcut(language, "Esc cancel"),
         ],
         ModeKind::ConfirmReset => vec![
-            shortcut("y reset"),
-            shortcut("n cancel"),
-            shortcut("Esc cancel"),
+            shortcut(language, "y reset"),
+            shortcut(language, "n cancel"),
+            shortcut(language, "Esc cancel"),
         ],
     }
 }

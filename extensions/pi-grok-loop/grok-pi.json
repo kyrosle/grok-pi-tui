@@ -4,7 +4,7 @@
     {
       "key": "pi_loop",
       "label": "Pi /loop scheduler",
-      "description": "Enable Grok-style /loop recurring prompts in grok-pi (tasks pane + scheduler_create). Takes effect for new grok-pi sessions.",
+      "description": "Schedule recurring Pi prompts with /loop and manage them in the task panel. Schedules last for the current session. Applies after restart.",
       "keywords": ["pi", "loop", "/loop", "scheduler", "cron", "recurring", "agent"],
       "f2": { "category": "agent", "section": "Pi features", "order": 60 },
       "kind": "bool",

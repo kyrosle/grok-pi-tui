@@ -84,6 +84,8 @@ export type HostSettingEntry = {
 	key: string;
 	label?: string;
 	description?: string;
+	/** Display metadata shares the native settings translation catalog. Values stay canonical. */
+	localized?: Record<string, { label?: string; description?: string; options?: Record<string, string> }>;
 	kind?: string;
 	options?: string[];
 	default?: unknown;
@@ -104,6 +106,8 @@ export type HostConfigState = {
 	uiTables: Record<string, Record<string, unknown>>;
 	/** Metadata for registered settings, in F2 section/order. */
 	catalog: HostSettingEntry[];
+	/** Host OS locale resolved by the native injector; browser locale is the standalone fallback. */
+	systemLanguage?: string;
 	error?: string;
 };
 

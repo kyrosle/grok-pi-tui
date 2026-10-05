@@ -8,7 +8,7 @@ const dir=mkdtempSync(join(tmpdir(),"pi-web-config-tests-"));
 const previousHome=process.env.GROK_HOME, previousCatalog=process.env.PI_GROK_WEB_CONFIG_CATALOG;
 process.env.GROK_HOME=dir;
 const hostCatalogPath=join(dir,"host-catalog.json");
-writeFileSync(hostCatalogPath,JSON.stringify([{source:"native/Pi settings registry",manifest:{settings:[{key:"pi_bash",kind:"bool",default:true}]}}]));
+writeFileSync(hostCatalogPath,JSON.stringify([{source:"native/Pi settings registry",systemLanguage:"zh-CN",manifest:{settings:[{key:"pi_bash",kind:"bool",default:true},{key:"language",kind:"string",default:"auto",options:["auto","en","zh-CN"],localized:{en:{label:"Settings language"},"zh-CN":{label:"设置语言"}}}]}}]));
 process.env.PI_GROK_WEB_CONFIG_CATALOG=hostCatalogPath;
 mock.module("@earendil-works/pi-coding-agent",()=>({
  getAgentDir:()=>dir,
@@ -26,8 +26,11 @@ test("assembled frontend compiles and embedded translations have parity",()=>{
  const html=readFileSync(join(web,"index.html"),"utf8");
  for(const match of html.matchAll(/data-i18n(?:-placeholder|-aria)?="([^"]+)"/g)) {expect(dict.en[match[1]!]).toBeString();expect(dict.zh[match[1]!]).toBeString();}
  const config=JSON.parse(readFileSync(join(web,"ui-config.json"),"utf8"));
- for(const field of config.settings.groups.flatMap(group=>group.fields))expect(dict.zh["settings_field_"+field.key.replaceAll(".","_")]).toBeString();
- for(const entry of config.host.catalog) {expect(dict.en["host_label_"+entry.key]).toBeString();expect(dict.zh["host_desc_"+entry.key]).toBeString();}
+ for(const field of config.settings.groups.flatMap(group=>group.fields)) {
+  expect(dict.zh["settings_field_"+field.key.replaceAll(".","_")]).toBeString();
+  expect(dict.zh["settings_desc_"+field.key.replaceAll(".","_")]).toBeString();
+ }
+ expect(Object.keys(dict.en).some(key=>key.startsWith("host_label_")||key.startsWith("host_desc_"))).toBe(false);
 });
 test("model validator rejects duplicate IDs, invalid numbers and headers",()=>{
  const doc=(models:any[])=>({providers:{example:{models}}});
@@ -70,6 +73,26 @@ test("host writes reject unsupported keys before touching existing configuration
  store.saveHostUi(path,{pi_bash:false});
  expect(readFileSync(path,"utf8")).toContain('future_setting = "keep"');
  expect(readFileSync(path,"utf8")).toContain('voice_keybind_enabled = true');
+});
+test("host catalog retains shared translations, canonical options and system language",()=>{
+ const host=store.collectHostState();
+ expect(host.systemLanguage).toBe("zh-CN");
+ const language=host.catalog.find(entry=>entry.key==="language")!;
+ expect(language.localized?.["zh-CN"]?.label).toBe("设置语言");
+ expect(language.options).toEqual(["auto","en","zh-CN"]);
+});
+test("language preference round-trips in the existing UI table without changing unrelated values",()=>{
+ const path=join(dir,"config.toml");
+ writeFileSync(path,'[ui]\npi_bash = false\nfuture_setting = "keep"\n[voice]\nlanguage = "en"\n');
+ for(const language of ["auto","zh-CN","en"]) {
+  store.saveHostUi(path,{language});
+  expect(store.collectHostState().ui.language).toBe(language);
+  expect(readFileSync(path,"utf8")).toContain('future_setting = "keep"');
+  expect(readFileSync(path,"utf8")).toContain('[voice]\nlanguage = "en"');
+ }
+ const before=readFileSync(path,"utf8");
+ expect(()=>store.saveHostUi(path,{language:"zh"})).toThrow("language must be");
+ expect(readFileSync(path,"utf8")).toBe(before);
 });
 test("conditional settings save rejects an external package edit and preserves unknown fields",async()=>{
  const path=join(dir,"settings.json");

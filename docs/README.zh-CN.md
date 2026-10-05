@@ -127,6 +127,8 @@ Provider/model 行为、鉴权、工具、会话、retry 与 compaction 以 Pi �
 
 集成参考 Pi interactive 的命令和设置组织，保留 `/effort`、`/rename` 等 Pager 名称。F2 使用原生 Pager 设置面，不复制 Pi interactive settings 组件。
 
+F2 → 外观 → 设置语言可以选择“跟随系统”（默认）、“简体中文”或“English”。设置名称、说明、选项和操作提示跟随所选语言，搜索支持中英文。选择保存在产品 `config.toml` 的 `[ui].language`，值为 `auto`、`zh-CN` 或 `en`，与 Web 配置页共享。功能使用“团队协作”“任务依赖与提醒”“代码执行模式”等名称；原有 `*_v2` 配置键和执行模式持久值保持兼容。此语言设置覆盖配置界面。
+
 详细行为和有意边界见[功能矩阵（中文）](FEATURE_MATRIX.zh-CN.md) / [English](FEATURE_MATRIX.md)。
 
 Package 变更重算policy控制的startup admission；输入不变走官方Pi重载，输入改变则official dispose后重启并用公开API恢复session、leaf、model、thinking。没有persistent sessionFile或user-message leaf无法安全恢复时，保持saved/deferred，待完成响应或用户重启；最终nativefixture验证了组合install/remove闭环与history保全。

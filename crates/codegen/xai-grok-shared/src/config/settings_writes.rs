@@ -351,6 +351,15 @@ pub async fn set_pi_bash(value: bool) -> Result<()> {
     update_config(|cfg| cfg.ui.pi_bash = value).await
 }
 
+/// Persist the settings UI language without changing any agent preferences.
+pub async fn set_language(value: String) -> Result<()> {
+    anyhow::ensure!(
+        matches!(value.as_str(), "auto" | "en" | "zh-CN"),
+        "invalid settings language"
+    );
+    update_config(|cfg| cfg.ui.language = value).await
+}
+
 /// Persist the grok-pi Eval bridge generation (`v1` or `v2`).
 pub async fn set_pi_eval(value: String) -> Result<()> {
     update_config(|cfg| cfg.ui.pi_eval = value).await

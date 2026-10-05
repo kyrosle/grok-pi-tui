@@ -4,7 +4,7 @@
     {
       "key": "pi_goal",
       "label": "Pi goal mode",
-      "description": "Enable Grok-style /goal autonomous loop in grok-pi (status bar + update_goal). Takes effect for new grok-pi sessions.",
+      "description": "Allow /goal to continue work across turns toward a stated objective, with progress in the status bar. Applies after restart.",
       "keywords": ["pi", "goal", "/goal", "autonomous", "update_goal", "agent"],
       "f2": { "category": "agent", "section": "Pi features", "order": 50 },
       "kind": "bool",

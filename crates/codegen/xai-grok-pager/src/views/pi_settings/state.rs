@@ -233,6 +233,8 @@ impl PiSettingsState {
         ui_snapshot: UiConfig,
         pager_snapshot: PagerLocalSnapshot,
     ) -> Self {
+        // Resolve an automatic locale before rendering; OS probing is cached process-wide.
+        let _ = crate::settings::i18n::resolve_language(&ui_snapshot.language);
         let rows = build_rows(&registry);
         let tabs = build_tabs(&rows);
         let mut state = Self {
@@ -294,8 +296,20 @@ impl PiSettingsState {
         self.tabs.get(self.active_tab).copied()
     }
 
+    pub fn language(&self) -> crate::settings::i18n::Language {
+        crate::settings::i18n::resolve_language(&self.ui_snapshot.language)
+    }
+
+    pub fn t<'a>(&self, source: &'a str) -> &'a str {
+        crate::settings::i18n::translate(self.language(), source)
+    }
+
     pub fn tab_labels(&self) -> Vec<&'static str> {
-        self.tabs.iter().copied().map(layout::tab_label).collect()
+        self.tabs
+            .iter()
+            .copied()
+            .map(|tab| self.t(layout::tab_label(tab)))
+            .collect()
     }
 
     /// The focused setting row, if the cursor is on one.

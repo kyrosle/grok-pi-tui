@@ -134,6 +134,7 @@ pub(super) fn write_web_config_extension() -> Result<WebConfigExtension> {
 /// `BUNDLED_HOST_UI_SOURCES`, so the web F2 surface maps the registered
 /// extension settings one-to-one with the native F2 modal.
 fn host_catalog_json() -> String {
+    use xai_grok_pager::settings::i18n::{Language, resolve_language, translate};
     use xai_grok_pager::settings::{SettingKind, SettingsRegistry};
 
     let registry = SettingsRegistry::defaults_with_host_features(
@@ -184,8 +185,49 @@ fn host_catalog_json() -> String {
         .collect::<Vec<_>>();
     items.push(serde_json::json!({
         "source": "native/Pi settings registry",
+        "systemLanguage": resolve_language("auto").code(),
         "manifest": { "settings": native },
     }));
+    for item in &mut items {
+        for setting in item["manifest"]["settings"].as_array_mut().unwrap() {
+            let key = setting["key"].as_str().unwrap();
+            let meta = registry.all().iter().find(|meta| meta.key == key);
+            let label = meta
+                .map(|meta| meta.label)
+                .unwrap_or_else(|| setting["label"].as_str().unwrap_or(key));
+            let description = meta
+                .map(|meta| meta.description)
+                .unwrap_or_else(|| setting["description"].as_str().unwrap_or(""));
+            let localized = [Language::En, Language::ZhCn]
+                .into_iter()
+                .map(|language| {
+                    let options = match meta.map(|meta| &meta.kind) {
+                        Some(SettingKind::Enum { choices, .. }) => choices
+                            .iter()
+                            .map(|choice| {
+                                (
+                                    choice.canonical.to_owned(),
+                                    serde_json::Value::String(
+                                        translate(language, choice.display).to_owned(),
+                                    ),
+                                )
+                            })
+                            .collect::<serde_json::Map<_, _>>(),
+                        _ => serde_json::Map::new(),
+                    };
+                    (
+                        language.code().to_owned(),
+                        serde_json::json!({
+                            "label": translate(language, label),
+                            "description": translate(language, description),
+                            "options": options,
+                        }),
+                    )
+                })
+                .collect::<serde_json::Map<_, _>>();
+            setting["localized"] = localized.into();
+        }
+    }
     serde_json::to_string_pretty(&items).expect("serializable host catalog")
 }
 
@@ -304,6 +346,35 @@ mod tests {
             .unwrap();
         assert!(native.iter().any(|entry| entry["key"] == "pi_bash"));
         assert!(native.iter().any(|entry| entry["key"] == "session_recap"));
+        let language = native
+            .iter()
+            .find(|entry| entry["key"] == "language")
+            .unwrap();
+        assert_eq!(language["default"], "auto");
+        assert_eq!(
+            language["options"],
+            serde_json::json!(["auto", "en", "zh-CN"])
+        );
+        assert_eq!(language["localized"]["zh-CN"]["label"], "设置语言");
+        let eval = native
+            .iter()
+            .find(|entry| entry["key"] == "pi_eval")
+            .unwrap();
+        assert_eq!(eval["options"], serde_json::json!(["v1", "v2"]));
+        assert_ne!(eval["localized"]["en"]["options"]["v1"], "v1");
+        assert_ne!(eval["localized"]["zh-CN"]["options"]["v2"], "v2");
+        for source in sources {
+            for entry in source["manifest"]["settings"].as_array().unwrap() {
+                assert!(entry["localized"]["en"]["label"].is_string());
+                assert!(entry["localized"]["zh-CN"]["description"].is_string());
+                assert!(
+                    !entry["localized"]["en"]["label"]
+                        .as_str()
+                        .unwrap()
+                        .contains("V2")
+                );
+            }
+        }
         for entry in native {
             assert!(xai_grok_pager::settings::external_setting_supported(
                 entry["key"].as_str().unwrap()

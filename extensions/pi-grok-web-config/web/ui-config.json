@@ -225,10 +225,10 @@
     ]
   },
   "language": {
-    "storageKey": "piWebLang",
     "supported": [
+      "auto",
       "en",
-      "zh"
+      "zh-CN"
     ]
   },
   "theme": {
@@ -242,6 +242,19 @@
   },
   "host": {
     "catalog": [
+      {
+        "key": "language",
+        "default": "auto",
+        "restartRequired": false,
+        "section": "display",
+        "kind": "string",
+        "options": [
+          "auto",
+          "en",
+          "zh-CN"
+        ],
+        "source": "native"
+      },
       {
         "key": "pi_bash",
         "default": true,

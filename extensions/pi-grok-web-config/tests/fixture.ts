@@ -4,9 +4,12 @@ import { readdirSync,readFileSync,writeFileSync,mkdirSync } from "node:fs";
 import { join,resolve } from "node:path";
 import { createHash } from "node:crypto";
 const root = resolve(import.meta.dir,"../../..");
+const translations = JSON.parse(readFileSync(join(root,"crates/codegen/xai-grok-pager/src/settings/translations.json"),"utf8"));
+const localized = (entry:any) => ({...entry,localized:{en:{label:entry.label,description:entry.description},"zh-CN":{label:translations[entry.label] || entry.label,description:translations[entry.description] || entry.description}}});
 const catalog = readdirSync(join(root,"extensions")).flatMap(name=>{
- try { const manifest=JSON.parse(readFileSync(join(root,"extensions",name,"grok-pi.json"),"utf8"));return (manifest.settings||[]).map(entry=>({...entry,...entry.f2,source:"extensions/"+name+"/grok-pi.json"})); } catch { return []; }
+ try { const manifest=JSON.parse(readFileSync(join(root,"extensions",name,"grok-pi.json"),"utf8"));return (manifest.settings||[]).map(entry=>localized({...entry,...entry.f2,source:"extensions/"+name+"/grok-pi.json"})); } catch { return []; }
 });
+catalog.push({key:"language",label:"Settings language",description:"Choose the language for settings.",default:"auto",kind:"string",options:["auto","en","zh-CN"],section:"display",source:"native/Pi settings registry",localized:{en:{label:"Settings language",description:"Choose the language for settings.",options:{auto:"System default",en:"English","zh-CN":"简体中文"}},"zh-CN":{label:"设置语言",description:"选择设置界面的语言。",options:{auto:"跟随系统",en:"English","zh-CN":"简体中文"}}}});
 const state:any = {
  agentDir:"/demo/pi/agent",cwd:"/demo/workspace/grok-pi",paths:{models:"/demo/pi/agent/models.json",settings:"/demo/pi/agent/settings.json"},
  models:{customTopLevel:{preserve:true},providers:{
@@ -18,7 +21,7 @@ const state:any = {
  current:{provider:"openai",modelId:"gpt-5"},defaults:{provider:"openai",modelId:"gpt-5"},
  providerAuth:{openai:{configured:true,source:"env",label:"environment"},anthropic:{configured:false}},
  resources:{extensions:[{path:"/demo/extensions/review.ts",name:"Review helper",source:"settings"},{path:"/demo/cli/bridge.ts",name:"Session bridge",source:"cli"}],skills:[{name:"Review code",path:"/demo/skills/review/SKILL.md",description:"Review changes before sharing.",source:"discovered"}],prompts:[{name:"Explain changes",path:"/demo/prompts/explain.md",description:"Explain the reasoning behind a code change.",source:"discovered"}],themes:[{name:"Graphite",path:"/demo/themes/graphite.json",source:"discovered"}]},
- host:{grokHome:"/demo/grok-pi",configPath:"/demo/grok-pi/config.toml",ui:{pi_subagents:true,terminal_custom:"value"},uiTables:{keybindings:{"Ctrl+K":"search"}},catalog}
+ host:{grokHome:"/demo/grok-pi",configPath:"/demo/grok-pi/config.toml",ui:{language:"en",pi_subagents:true,terminal_custom:"value"},systemLanguage:"zh-CN",uiTables:{keybindings:{"Ctrl+K":"search"}},catalog}
 };
 const settingsVersion=()=>createHash("sha256").update(JSON.stringify(state.settings)).digest("hex");
 export async function fixture() {

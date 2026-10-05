@@ -23,47 +23,65 @@ pub(crate) const MAX_THOUGHTS_WIDTH_MAX: i64 = 500;
 /// Registry key for `max_thoughts_width`; it is shared between the registry definition and the live-wrap-preview gate in the int stepper.
 pub(crate) const MAX_THOUGHTS_WIDTH_KEY: &str = "max_thoughts_width";
 
+const LANGUAGE_CHOICES: &[EnumChoice] = &[
+    EnumChoice {
+        canonical: "auto",
+        display: "Follow system",
+        description: "Use your operating system language; languages other than Chinese use English.",
+    },
+    EnumChoice {
+        canonical: "en",
+        display: "English",
+        description: "Show settings in English.",
+    },
+    EnumChoice {
+        canonical: "zh-CN",
+        display: "简体中文",
+        description: "Show settings in Simplified Chinese.",
+    },
+];
+
 const PI_EVAL_CHOICES: &[EnumChoice] = &[
     EnumChoice {
         canonical: "v1",
-        display: "v1",
-        description: "Legacy Eval: persistent Python and JavaScript kernels.",
+        display: "Persistent REPL",
+        description: "Run Python and JavaScript cells with variables preserved between calls.",
     },
     EnumChoice {
         canonical: "v2",
-        display: "v2",
-        description: "Eval Bridge v2: host-RPC runtime with selectable Python/JavaScript support.",
+        display: "Tool-enabled execution",
+        description: "Run code that can call Pi tools. Use store/load to retain data between calls.",
     },
 ];
 
 const PI_EVAL_V2_LANGUAGE_CHOICES: &[EnumChoice] = &[
     EnumChoice {
         canonical: "js",
-        display: "js",
-        description: "Expose JavaScript only in Eval Bridge v2.",
+        display: "JavaScript",
+        description: "Make JavaScript available in Tool-enabled execution mode.",
     },
     EnumChoice {
         canonical: "py",
-        display: "py",
-        description: "Expose Python only in Eval Bridge v2.",
+        display: "Python",
+        description: "Make Python available in Tool-enabled execution mode.",
     },
     EnumChoice {
         canonical: "all",
-        display: "all",
-        description: "Expose both Python and JavaScript in Eval Bridge v2.",
+        display: "Python and JavaScript",
+        description: "Make both Python and JavaScript available in Tool-enabled execution mode.",
     },
 ];
 
 const PI_EVAL_V2_DISPLAY_MODE_CHOICES: &[EnumChoice] = &[
     EnumChoice {
         canonical: "effects",
-        display: "effects",
-        description: "Hide Eval v2 orchestration source and foreground nested effects/results.",
+        display: "Tool activity",
+        description: "Focus on nested tool calls and results; show a code card when no tool is called.",
     },
     EnumChoice {
         canonical: "legacy",
-        display: "legacy",
-        description: "Show the Eval v2 source/result card using the legacy presentation.",
+        display: "Code and results",
+        description: "Show the execution code and its results, including when Code-only tool access is enabled.",
     },
 ];
 
@@ -362,12 +380,12 @@ const SCREEN_MODE_CHOICES: &[EnumChoice] = &[
     EnumChoice {
         canonical: "fullscreen",
         display: "Fullscreen",
-        description: "Open plain grok in the standard fullscreen TUI. Default when unset.",
+        description: "Start in the standard fullscreen TUI. Default when unset.",
     },
     EnumChoice {
         canonical: "minimal",
         display: "Minimal",
-        description: "Open plain grok in scrollback-native (minimal) mode.",
+        description: "Start in minimal mode, using terminal scrollback.",
     },
 ];
 
@@ -605,6 +623,22 @@ pub fn default_settings() -> Vec<SettingMeta> {
 
     vec![
         SettingMeta {
+            key: "language",
+            category: SettingCategory::Appearance,
+            owner: SettingOwner::Shell,
+            label: "Settings language",
+            description: "Choose the language for settings names, options, and descriptions. Follow system uses your operating system language. Applies immediately.",
+            keywords: &["language", "locale", "english", "chinese", "中文", "语言"],
+            kind: SettingKind::Enum {
+                default: "auto",
+                choices: LANGUAGE_CHOICES,
+                supports_preview: false,
+            },
+            restart_required: false,
+            hidden_in_minimal: false,
+            external_only: true,
+        },
+        SettingMeta {
             key: "compact_mode",
             category: SettingCategory::Appearance,
             owner: SettingOwner::Shared,
@@ -626,9 +660,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
             category: SettingCategory::Appearance,
             owner: SettingOwner::Shell,
             label: "Default screen mode",
-            description: "How plain grok opens next time: Fullscreen (default when unset) or \
-                          Minimal. Writes [ui] screen_mode in config.toml. Restart required. \
-                          Switch this session only with /minimal or /fullscreen.",
+            description: "Choose Fullscreen or Minimal for the next start. Applies after restart.",
             keywords: &[
                 "screen",
                 "mode",
@@ -1945,8 +1977,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_bash",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
-            label: "Pi Bash bridge",
-            description: "Enable grok-pi's enhanced Bash bridge for the next session. Off restores stock Pi Bash; Eval remains independent.",
+            label: "Background command support",
+            description: "Allow Bash commands to run in the background and appear in the task panel. Off uses the standard Pi Bash tool. Code execution is configured separately. Applies after restart.",
             keywords: &["pi", "bash", "bridge", "extension", "runtime"],
             kind: SettingKind::Bool {
                 default: ui_default.pi_bash,
@@ -1959,8 +1991,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_eval",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
-            label: "Eval bridge version",
-            description: "Choose the Eval runtime for the next grok-pi session. v1 is the legacy Python + JavaScript runtime; v2 uses the host-RPC runtime and the separate language selector.",
+            label: "Code execution mode",
+            description: "Choose how the Eval tool runs code: Persistent REPL keeps Python and JavaScript variables between calls; Tool-enabled execution can call Pi tools and keeps data explicitly with store/load. Requires the Eval tool; applies after restart.",
             keywords: &[
                 "pi",
                 "eval",
@@ -1984,8 +2016,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_eval_v2_language",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
-            label: "Eval v2 language",
-            description: "Choose which language(s) Eval Bridge v2 exposes next session: js, py, or all.",
+            label: "Execution language",
+            description: "Choose Python, JavaScript, or both for Tool-enabled execution. Does not affect Persistent REPL. Applies after restart.",
             keywords: &[
                 "pi",
                 "eval",
@@ -2008,8 +2040,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_eval_v2_display_mode",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
-            label: "Eval v2 display",
-            description: "Choose the live Eval v2 presentation: effects hides orchestration source; legacy shows source and results. Under Eval v2 only, legacy is what keeps the top-level eval card visible.",
+            label: "Execution display",
+            description: "Choose how Tool-enabled execution appears: Tool activity focuses on nested tool calls; Code and results also shows the execution code. Calls without tools always keep a code card. Applies immediately.",
             keywords: &["pi", "eval", "v2", "display", "effects", "legacy", "source"],
             kind: SettingKind::Enum {
                 default: "effects",
@@ -2024,8 +2056,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_eval_v2_only",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
-            label: "Eval v2 only",
-            description: "Force Eval Bridge v2 and hide every other Pi tool for the next grok-pi session. Explicit CLI --tools/--no-tools still takes precedence.",
+            label: "Code-only tool access",
+            description: "Use Tool-enabled execution and expose only Eval to the model; other Pi tools remain callable through code. Explicit CLI --tools/--no-tools restrictions still apply. Applies after restart.",
             keywords: &[
                 "pi", "eval", "v2", "only", "isolate", "tools", "hide", "sandbox",
             ],
@@ -2040,8 +2072,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_eval_mcp",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
-            label: "Eval MCP (local)",
-            description: "Expose this Eval v2-only Pi session via authenticated loopback MCP. Requires Eval v2 only and restarting grok-pi. The URL permits Eval execution: share only with trusted agents.",
+            label: "Share execution over local MCP",
+            description: "Let other MCP clients call this session through an authenticated local URL. Requires Code-only tool access and a restart. The URL grants code execution access; share it only with trusted clients.",
             keywords: &["pi", "eval", "mcp", "binding", "local", "tokenizers"],
             kind: SettingKind::Bool {
                 default: ui_default.pi_eval_mcp,
@@ -2201,7 +2233,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
             label: "Eval",
-            description: "Expose Pi's Eval tool. The grok-pi Eval bridge version is configured separately by Eval bridge version.",
+            description: "Allow Python or JavaScript execution through Eval. Choose its behavior under Code execution mode. Applies after restart.",
             keywords: &[
                 "pi",
                 "tool",
@@ -2560,7 +2592,7 @@ Manual /recap still works when the agent advertises sessionRecap.",
             category: SettingCategory::Models,
             owner: SettingOwner::Shell,
             label: "Recap models",
-            description: "Primary + fallback models for session recap (/recap and auto away-recap). Empty slots use the active session model or skip.",
+            description: "Primary and fallback models for session recap (/recap and automatic recap). Empty slots are skipped; if all slots are empty, use the active session model.",
             keywords: &["recap", "model", "summary", "session", "models", "fallback"],
             kind: SettingKind::Group {
                 children: RECAP_MODELS_CHILDREN,
@@ -2574,7 +2606,7 @@ Manual /recap still works when the agent advertises sessionRecap.",
             category: SettingCategory::Models,
             owner: SettingOwner::Shell,
             label: "Btw models",
-            description: "Primary + fallback models for /btw side questions. Empty slots use the active session model or skip.",
+            description: "Primary and fallback models for /btw side questions. Empty slots are skipped; if all slots are empty, use the active session model.",
             keywords: &["btw", "model", "side", "question", "fallback"],
             kind: SettingKind::Group {
                 children: BTW_MODELS_CHILDREN,
@@ -2588,7 +2620,7 @@ Manual /recap still works when the agent advertises sessionRecap.",
             category: SettingCategory::Models,
             owner: SettingOwner::Shell,
             label: "Primary",
-            description: "Primary recap model. Empty = active session model.",
+            description: "Primary recap model. If all model slots are empty, use the active session model.",
             keywords: &["recap", "model", "summary", "session", "models"],
             kind: SettingKind::DynamicEnum {
                 default: "",
@@ -2636,7 +2668,7 @@ Manual /recap still works when the agent advertises sessionRecap.",
             category: SettingCategory::Models,
             owner: SettingOwner::Shell,
             label: "Primary",
-            description: "Primary /btw model. Empty = active session model.",
+            description: "Primary /btw model. If all model slots are empty, use the active session model.",
             keywords: &["btw", "model", "side", "question"],
             kind: SettingKind::DynamicEnum {
                 default: "",

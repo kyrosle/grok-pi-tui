@@ -2343,7 +2343,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
             let rollback_effects = apply_setting_rollback(app, key, &rollback_value);
             tracing::warn!(target: "settings", ?key, ?rollback_value, %error, "setting persist failed; rolled back");
             let scrubbed = scrub_error_for_toast(&error);
-            app.show_toast(&format!("\u{2717} Could not save {key}: {scrubbed}"));
+            app.show_toast(&super::settings::ui::setting_save_error(app, key, &scrubbed));
             rollback_effects
         }
         TaskResult::SettingPersistFailedBestEffort { key, error } => {
@@ -2353,7 +2353,7 @@ pub(super) fn dispatch_task_result(result: TaskResult, app: &mut AppView) -> Vec
                 "setting persist failed (best-effort); in-memory state stays at optimistic value",
             );
             let scrubbed = scrub_error_for_toast(&error);
-            app.show_toast(&format!("\u{2717} Could not save {key}: {scrubbed}"));
+            app.show_toast(&super::settings::ui::setting_save_error(app, key, &scrubbed));
             vec![]
         }
     }

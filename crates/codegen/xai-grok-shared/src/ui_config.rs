@@ -21,6 +21,8 @@ use xai_grok_status_line::StatusLineConfig;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UiConfig {
+    /// Settings UI language: `auto` follows the operating system; `en` or `zh-CN` overrides it.
+    pub language: String,
     pub max_thoughts_width: u16,
     /// Pi built-in tool preferences for the grok-pi external profile. The
     /// default preserves Pi's own default tool set; F2 writes this as a group.
@@ -511,6 +513,7 @@ where
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
+            language: "auto".to_string(),
             max_thoughts_width: DEFAULT_MAX_THOUGHTS_WIDTH,
             pi_builtin_tools: PiBuiltinTools::default(),
             pi_bash: true,

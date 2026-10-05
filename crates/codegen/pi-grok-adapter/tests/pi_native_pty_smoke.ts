@@ -27,8 +27,11 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
  const grok = join(directory, "grok");
  mkdirSync(grok, { recursive: true });
  const configPath = join(grok, "config.toml");
- if (mode !== "settings-reopen" && mode !== "settings-rollback")
+ const languageCase = mode.startsWith("language-");
+ if (!["settings-reopen", "settings-rollback", "language-reopen"].includes(mode))
   writeFileSync(configPath, `[ui]\npi_subagents = false\npi_todo = false\npi_workflows = false\npi_bash = false\npi_eval = "v2"\npi_eval_v2_only = ${evalOnly}\ngroup_tool_verbs = false\n[ui.pi_builtin_tools]\ncodemode = ${codemode}\n`);
+ if (!languageCase && !["settings-reopen", "settings-rollback"].includes(mode))
+  writeFileSync(configPath, readFileSync(configPath, "utf8").replace("[ui]\n", '[ui]\nlanguage = "en"\n'));
  if (mode === "product-surface")
   writeFileSync(configPath, readFileSync(configPath, "utf8").replace("[ui]\n", "[ui]\nvoice_keybind_enabled = true\nvoice_stt_language = 'en'\n"));
  const fixture = mode === "models" ? "pi_models.ts" : controls ? "pi_pty_controls.ts" : "pi_render_tools.ts";
@@ -42,6 +45,11 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
   PI_OFFLINE: "1", PI_TELEMETRY: "0", GROK_CONTEXTUAL_HINTS: "0", PI_GROK_REMOTE_TUI: mode === "remote-ui" ? "1" : "0", PI_GROK_NATIVE_COMMANDS: "0", PI_GROK_EVAL_VERSION: "v2",
   PI_GROK_EVAL_V2_ONLY: evalOnly ? "1" : "0", PI_GROK_EVAL_MCP: "0", PI_GROK_RPC_WATCHDOG: "0", PI_NATIVE_RENDER_TRACE: join(directory, "render-tools.jsonl"),
   TERM: "xterm-256color", TERM_PROGRAM: "xterm", COLORTERM: "truecolor" };
+ // Pin terminal locale in synthetic cases; language-reopen deliberately changes
+ // the system locale to prove the saved explicit preference wins.
+ env["LC_ALL"] = mode === "language-save" ? "zh_CN.UTF-8" : "en_US.UTF-8";
+ env["LC_MESSAGES"] = "en_US.UTF-8";
+ env["LANG"] = "en_US.UTF-8";
  env["PI_PTY_CONTROL_TRACE"] = join(directory, "control-registry.jsonl");
  if (mode === "product-surface") {
   for (const key of ["GROK_VOICE_MODE", "GROK_PLUGIN_CTA", "GROK_WORKSPACE_DASHBOARD", "GROK_PRIVACY_NOTICE_ROLLOUT"])
@@ -260,6 +268,63 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
    }
    final = await wait(text => text.includes("[Open Image]"), "native generated-image affordance after normal wheel scrolling");
    save("image-classifier-bottom", final); send(" ");
+  } else if (languageCase) {
+   send("/new\r");
+   await wait(text => text.includes("Native render fixture") && !text.includes("New worktree"), "native session for bilingual settings");
+   const open = async (title: string) => {
+    send("\x1bOQ");
+    return wait(text => text.includes("┌─ " + title), "native localized F2 title " + title);
+   };
+   const close = async () => {
+    send("\x1bOQ");
+    await wait(text => !text.includes("┌─ Settings") && !text.includes("┌─ 设置"), "native settings close");
+   };
+   const search = async (query: string, expected: string) => {
+    send("/");
+    await wait(text => text.includes("type to filter") || text.includes("输入以筛选"), "localized settings search focus");
+    send("\x1b[200~" + query + "\x1b[201~");
+    const labels = query === "Settings language" ? ["Settings language", "设置语言"] : [expected];
+    await wait(text => text.includes(query) && text.split("\n").some(line => labels.some(label => line.includes("› " + label))), "bilingual setting search " + query);
+    send("\r");
+    await new Promise(done => setTimeout(done, 100));
+   };
+   const chooseLanguage = async (index: number, canonical: string, label: string) => {
+    await search("Settings language", "language");
+    send("\r");
+    await wait(text => text.includes("English") && text.includes("简体中文"), "native language chooser");
+    send("\x1b[A\x1b[A\x1b[A" + "\x1b[B".repeat(index) + "\r");
+    return wait(text => text.includes(label) && new RegExp(`language\\s*=\\s*["']${canonical}["']`).test(readFileSync(configPath, "utf8")), "localized language apply and disk readback " + canonical);
+   };
+   if (mode === "language-save") {
+    save("auto-chinese", await open("设置"));
+    await search("团队协作", "团队协作");
+    save("chinese-search", screen());
+    // Close and reopen clears the previous search without altering preferences.
+    await close(); await open("设置");
+    save("english", await chooseLanguage(1, "en", "Settings language"));
+    await close(); await open("Settings");
+    save("chinese", await chooseLanguage(2, "zh-CN", "设置语言"));
+    if (!/pi_eval\s*=\s*"v2"/.test(readFileSync(configPath, "utf8"))) throw new Error("Language switch changed canonical execution setting");
+   } else {
+    if (!/language\s*=\s*"zh-CN"/.test(readFileSync(configPath, "utf8"))) throw new Error("Language choice not persisted across native processes");
+    save("persisted-chinese", await open("设置"));
+    save("system-english", await chooseLanguage(0, "auto", "Settings language"));
+    await close(); await open("Settings");
+    const beforeFailedSave = readFileSync(configPath, "utf8");
+    await search("Settings language", "Settings language"); send("\r");
+    await wait(text => text.includes("English") && text.includes("简体中文"), "language chooser before failed save");
+    chmodSync(grok, 0o500);
+    send("\x1b[A\x1b[A\x1b[A\x1b[B\x1b[B\r");
+    // Toasts live on the underlying agent surface; close the modal to read the failure.
+    send("\x1bOQ");
+    save("rollback-notice", await wait(text => !text.includes("┌─ Settings") && !text.includes("┌─ 设置")
+     && text.includes("Could not save Settings language"), "failed language save notice"));
+    save("rollback", await open("Settings"));
+    if (!screen().includes("Settings language") || screen().includes("设置语言")) throw new Error("Failed save did not restore English settings");
+    if (readFileSync(configPath, "utf8") !== beforeFailedSave) throw new Error("Failed language save changed persisted config");
+    chmodSync(grok, 0o700);
+   }
+   await close();
   } else if (mode.startsWith("settings-")) {
    send("/new\r");
    await wait(text => text.includes("Native render fixture") && !text.includes("New worktree"), "native session for F2 settings");
@@ -290,7 +355,7 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
     chmodSync(grok, 0o500);
     send(" ");
     send("\x1bOQ");
-    const rolledBack = await wait(text => text.includes("Could not save group_tool_verbs") && !text.includes("Settings"), "native F2 failed save notice");
+    const rolledBack = await wait(text => text.includes("Could not save Group tool calls") && !text.includes("Settings"), "native F2 failed save notice");
     if (readFileSync(configPath, "utf8") !== before) throw new Error("Failed native F2 save changed config.toml");
     writeFileSync(join(artifacts, `${mode}-rollback.txt`), rolledBack);
     writeFileSync(join(artifacts, `${mode}-reopen.txt`), await openSetting("on"));
@@ -362,11 +427,16 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
 
 const selected = process.argv.slice(2);
 const modes = selected.length ? selected : ["eval", "codemode", "signal", "timeout", "eof"];
-if (modes.some(mode => ["runtime", "packages", "models", "remote-ui", "product-surface"].includes(mode))) {
+if (modes.some(mode => ["runtime", "packages", "models", "remote-ui", "product-surface", "language"].includes(mode))) {
  if (!process.env.PI_NATIVE_EXPECTED_SHA256 || process.env.PI_NATIVE_EXPECTED_SHA256 !== binarySha256)
   throw new Error("New Pi deep-adaptation PTY cases require the root-verified fresh binary SHA in PI_NATIVE_EXPECTED_SHA256");
 }
 for (const mode of modes) {
+ if (mode === "language") {
+  const directory = await run("language-save");
+  await run("language-reopen", directory);
+  continue;
+ }
  if (mode === "settings") {
   const directory = await run("settings-save");
   await run("settings-reopen", directory);

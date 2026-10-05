@@ -4,7 +4,7 @@
     {
       "key": "pi_workflows",
       "label": "Pi workflows",
-      "description": "Enable upstream Rhai workflows in grok-pi (tool `workflow`, deep-research, .grok/workflows). Takes effect for new grok-pi sessions.",
+      "description": "Run Rhai workflow scripts with Pi agents through /workflow and the workflow tool. Scripts come from your grok-pi workflow directories. Applies after restart.",
       "keywords": ["pi", "workflow", "workflows", "rhai", "deep-research", "agent", "orchestration"],
       "f2": { "category": "agent", "section": "Pi features", "order": 10 },
       "kind": "bool",

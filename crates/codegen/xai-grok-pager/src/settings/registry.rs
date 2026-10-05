@@ -472,7 +472,8 @@ pub fn external_setting_supported(key: &str) -> bool {
     xai_grok_shared::host_features::feature_spec_by_setting_key(key).is_some()
         || matches!(
             key,
-            "compact_mode"
+            "language"
+                | "compact_mode"
                 | "screen_mode"
                 | "show_timestamps"
                 | "show_timeline"
@@ -634,11 +635,31 @@ fn build_search_haystack(m: &SettingMeta) -> String {
     s.push_str(&m.description.to_lowercase());
     s.push(' ');
     s.push_str(m.key);
+    for source in [
+        m.label,
+        m.description,
+        m.category.label(),
+        super::layout::section_for(m.key),
+    ] {
+        s.push(' ');
+        s.push_str(super::i18n::translate(super::i18n::Language::ZhCn, source));
+    }
+    if let SettingKind::Enum { choices, .. } = &m.kind {
+        for choice in *choices {
+            s.push(' ');
+            s.push_str(&choice.display.to_lowercase());
+            s.push(' ');
+            s.push_str(super::i18n::translate(
+                super::i18n::Language::ZhCn,
+                choice.display,
+            ));
+        }
+    }
     for kw in m.keywords {
         s.push(' ');
         s.push_str(kw);
     }
-    s
+    s.to_lowercase()
 }
 
 // ---------------------------------------------------------------------------
@@ -658,6 +679,9 @@ pub fn current_value_for(
     }
     match key {
         // SHARED: UiConfig is the source of truth, the pager keeps a cache
+        "language" => Some(SettingValue::Enum(super::i18n::canonical_language(
+            &ui.language,
+        ))),
         "compact_mode" => Some(SettingValue::Bool(ui.compact_mode)),
         "show_timestamps" => Some(SettingValue::Bool(ui.show_timestamps.unwrap_or(true))),
         "show_timeline" => Some(SettingValue::Bool(ui.show_timeline_enabled())),
@@ -1109,6 +1133,9 @@ mod tests {
                 ("pi_eval", SettingKind::Enum { default, .. }) => {
                     let expected = if ui.pi_eval == "v2" { "v2" } else { "v1" };
                     assert_eq!(*default, expected);
+                }
+                ("language", SettingKind::Enum { default, .. }) => {
+                    assert_eq!(*default, ui.language);
                 }
                 ("pi_eval_v2_language", SettingKind::Enum { default, .. }) => {
                     let expected = match ui.pi_eval_v2_language.as_str() {

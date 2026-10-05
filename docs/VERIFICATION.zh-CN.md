@@ -1,5 +1,14 @@
 # grok-pi 验证记录
 
+
+## 2026-10-05 设置功能命名与中英文增量
+
+[设置 SPEC](issues/架构/20261005-settings-language-SPEC.md) / [PLAN](issues/架构/20261005-settings-language-PLAN.md) 覆盖功能名称和共享语言选择（`auto/en/zh-CN`）。原生设置名称、选项、说明、操作提示及 Web 宿主目录共用 368 条中文词表；保留功能配置键和值。
+
+有界验证通过：原生 settings 232/0、Pi binary 98/0、Web unit 12/0（200 assertions）、browser 37 checks/无 runtime errors、架构 17 项及 negative guard、Pi/stock profile checks、`./build.sh` 和 6 个 fresh-binary 原生 PTY。Debug SHA `66c0a6f68069138fa76c60412d1f41a0bab1ba02e01b77e11830852b2974329a`，证据 `/tmp/grok-pi-settings-pty-final3-20261005/report.json`；终端实测 auto locale、明确选择跨进程恢复、双语搜索、磁盘保存及保存失败回滚。Production 仍为 796 packages、29 pending removals。
+
+扩大 settings 首轮 374/48；本增量及关联入口修复后，最终 232 项有界检查通过，排除了旧 stock modal 和 Home `/settings` 断言：36 个 stock 失败与 1 个 Home 失败有 HEAD 已存在的源码合同矛盾，没有执行 baseline runtime。不宣称全 Pager 或 stock tests 通过。确切命令、修复过程、日志及本机 release 交付见 PLAN；没有真人 provider/OAuth 或跨平台运行验收。
+
 ## 总纲：T0/T1通过，T2–T8待办
 
 当前 [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) 取代按局部检查点宣称完成。T0 退役参考仓库 blob 身份约束；现行守卫为架构、依赖、服务端点、Pi 合同和实际原生交互。[归档材料](grok-build/archive/README.md) 保留旧证据，不再执行。

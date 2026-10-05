@@ -1460,6 +1460,9 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
         Action::SetRemoteTuiFooter(v) => set_remote_tui_footer(app, v),
         Action::SetPiBuiltinTool { tool, enabled } => set_pi_builtin_tool(app, tool, enabled),
         Action::SetPiBash(enabled) => set_pi_bash(app, enabled),
+        Action::SetSettingsLanguage(language) => {
+            super::settings::setters::set_settings_language(app, language)
+        }
         Action::SetPiEval(version) => set_pi_eval(app, version),
         Action::SetPiEvalV2Language(language) => set_pi_eval_v2_language(app, language),
         Action::SetPiEvalV2DisplayMode(mode) => set_pi_eval_v2_display_mode(app, mode),
@@ -1989,6 +1992,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
         Action::RewindDismissError => dispatch_rewind_dismiss_error(app),
         Action::InlineEditSubmit => dispatch_inline_edit_submit(app),
     };
+    super::settings::ui::show_pi_setting_change(app, &effects);
     restore_stash_where_the_draft_was_consumed(app);
     app.reconcile_foreign_resume_launch();
     sync_sleep_inhibitor(app);

@@ -15,8 +15,8 @@
     },
     {
       "key": "pi_todo_v2",
-      "label": "Pi todo V2",
-      "description": "Select the todo extension V2 runtime (cross-version migration from V1). Default off = V1; takes effect for new grok-pi sessions.",
+      "label": "Task dependencies and reminders",
+      "description": "Add task dependencies, owners, and automatic progress reminders. Reminders may prompt the agent to continue unfinished work. Requires Pi todo; existing tasks migrate automatically. Applies after restart.",
       "keywords": ["pi", "todo", "todos", "v2", "task", "tasks", "plan", "migration"],
       "f2": { "category": "agent", "section": "Pi features", "order": 41 },
       "kind": "bool",

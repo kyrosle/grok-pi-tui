@@ -138,6 +138,8 @@ Commands are organized by responsibility:
 
 Pi's interactive command names and settings guide the integration; grok-pi retains Pager names such as `/effort` and `/rename`. Its F2 panel is the native Pager settings surface, not a copy of Pi's interactive settings component.
 
+F2 → Appearance → Settings language selects Follow system (default), 简体中文, or English. Setting names, descriptions, choices and panel controls use the selected language; searches accept Chinese and English. The preference is `[ui].language = "auto" | "zh-CN" | "en"` in the product's `config.toml`, shared with the Web configuration workbench. Feature names describe behavior: Team collaboration, Task dependencies and reminders, and Code execution mode. Existing `*_v2` keys and stored execution values remain compatible. This language preference covers the settings interface.
+
 For field-level behavior and intentional omissions, see the [feature matrix](docs/FEATURE_MATRIX.md).
 
 Native package changes recompute policy-controlled startup admission. Unchanged inputs use official Pi reload; changed inputs restart after official disposal and restore the public session, leaf, model and thinking state. Without a persistent session file or when a user-message leaf cannot be safely restored, changes stay saved/deferred until the response finishes or the user restarts. The final native package fixture verifies the composed install/remove loop and history preservation.

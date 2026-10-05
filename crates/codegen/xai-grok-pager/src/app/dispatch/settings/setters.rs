@@ -2347,6 +2347,32 @@ pub(in crate::app::dispatch) fn set_pi_bash(app: &mut AppView, enabled: bool) ->
     }]
 }
 
+pub(in crate::app::dispatch) fn set_settings_language(
+    app: &mut AppView,
+    requested: String,
+) -> Vec<Effect> {
+    use crate::settings::{SettingValue, i18n};
+    if !matches!(requested.as_str(), "auto" | "en" | "zh-CN") {
+        return vec![];
+    }
+    let canonical = i18n::canonical_language(&requested);
+    let previous = i18n::canonical_language(&app.current_ui.language);
+    if previous == canonical {
+        return vec![];
+    }
+    app.current_ui.language = canonical.to_string();
+    refresh_open_settings_modals(app);
+    app.show_toast(i18n::translate(
+        i18n::resolve_language(canonical),
+        "Settings language updated",
+    ));
+    vec![Effect::PersistSetting {
+        key: "language",
+        value: SettingValue::Enum(canonical),
+        rollback_value: SettingValue::Enum(previous),
+    }]
+}
+
 pub(in crate::app::dispatch) fn set_pi_eval(app: &mut AppView, requested: String) -> Vec<Effect> {
     let canonical = match requested.as_str() {
         "v2" => "v2",

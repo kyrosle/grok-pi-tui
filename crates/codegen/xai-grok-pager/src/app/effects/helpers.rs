@@ -1687,6 +1687,14 @@ pub(crate) async fn persist_setting(
                 .await
                 .map_err(|e| e.to_string())
         }
+        "language" => {
+            let SettingValue::Enum(language) = value else {
+                return Err(kind_mismatch("language", "Enum", &value));
+            };
+            crate::settings_config::set_language(language.to_string())
+                .await
+                .map_err(|e| e.to_string())
+        }
         "pi_eval" => {
             let SettingValue::Enum(version) = value else {
                 return Err(kind_mismatch("pi_eval", "Enum", &value));

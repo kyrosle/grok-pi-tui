@@ -4,7 +4,7 @@
     {
       "key": "pi_ask_user_question",
       "label": "Q&A",
-      "description": "Grok Build asks the right questions to nail the details. Enable native ask_user_question → QuestionView. Takes effect for new grok-pi sessions.",
+      "description": "Let Pi ask structured questions through native choice and text dialogs. Applies after restart.",
       "keywords": ["pi", "qa", "q&a", "ask", "question", "ask_user_question", "questionnaire", "interview"],
       "f2": { "category": "agent", "section": "Pi features", "order": 70 },
       "kind": "bool",

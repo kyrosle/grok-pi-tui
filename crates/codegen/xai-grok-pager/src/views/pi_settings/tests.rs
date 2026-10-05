@@ -16,7 +16,32 @@ use xai_grok_shared::ui_config::UiConfig;
 fn state() -> PiSettingsState {
     PiSettingsState::new(
         Arc::new(SettingsRegistry::defaults()),
-        UiConfig::default(),
+        UiConfig {
+            language: "en".into(),
+            ..UiConfig::default()
+        },
+        PagerLocalSnapshot::default(),
+    )
+}
+
+/// Exercise the actual external catalog without changing the process-global profile gate.
+fn external_state() -> PiSettingsState {
+    let registry = SettingsRegistry::defaults_with_host_features(&Default::default());
+    let entries = registry
+        .all()
+        .iter()
+        .cloned()
+        .map(|mut meta| {
+            meta.external_only = false;
+            meta
+        })
+        .collect();
+    PiSettingsState::new(
+        Arc::new(SettingsRegistry::from_entries(entries)),
+        UiConfig {
+            language: "en".into(),
+            ..UiConfig::default()
+        },
         PagerLocalSnapshot::default(),
     )
 }
@@ -32,11 +57,15 @@ fn render_lines(state: &mut PiSettingsState, width: u16, height: u16) -> Vec<Str
     render_pi_settings(&mut buf, area, state, false);
     (0..height)
         .map(|y| {
-            (0..width)
-                .map(|x| buf.cell((x, y)).map_or(" ", |c| c.symbol()).to_string())
-                .collect::<String>()
-                .trim_end()
-                .to_string()
+            use unicode_width::UnicodeWidthStr;
+            let mut line = String::new();
+            let mut x = 0;
+            while x < width {
+                let symbol = buf.cell((x, y)).map_or(" ", |cell| cell.symbol());
+                line.push_str(symbol);
+                x += symbol.width().max(1) as u16;
+            }
+            line.trim_end().to_string()
         })
         .collect()
 }
@@ -624,4 +653,74 @@ impl PiSettingsState {
             _ => None,
         }
     }
+}
+
+#[test]
+fn language_switch_translates_existing_panel_and_retains_bilingual_search() {
+    let mut state = external_state();
+    state.set_query("language");
+    assert!(state.visible.iter().any(|&row| matches!(
+        state.rows[row],
+        Row::Setting {
+            key: "language",
+            ..
+        }
+    )));
+    assert!(
+        render_lines(&mut state, 120, 36)
+            .join("\n")
+            .contains("Settings language")
+    );
+    state.ui_snapshot.language = "zh-CN".into();
+    let rendered = render_lines(&mut state, 120, 36).join("\n");
+    assert!(rendered.contains("设置语言"), "{rendered}");
+    assert!(!rendered.contains("Settings language"), "{rendered}");
+    state.set_query("设置语言");
+    assert_eq!(state.focused().map(|(key, _)| key), Some("language"));
+    state.ui_snapshot.language = "en".into();
+    state.refresh_visible();
+    assert!(state.visible.iter().any(|&row| matches!(
+        state.rows[row],
+        Row::Setting {
+            key: "language",
+            ..
+        }
+    )));
+    assert!(
+        render_lines(&mut state, 120, 36)
+            .join("\n")
+            .contains("Settings language")
+    );
+}
+
+#[test]
+fn language_chooser_uses_localized_copy_but_dispatches_canonical_value() {
+    let mut state = external_state();
+    state.ui_snapshot.language = "zh-CN".into();
+    assert!(state.focus_key("language"));
+    assert!(matches!(
+        press(&mut state, KeyCode::Enter),
+        Outcome::Changed
+    ));
+    let rendered = render_lines(&mut state, 120, 36).join("\n");
+    assert!(rendered.contains("跟随系统"), "{rendered}");
+    assert!(rendered.contains("English"), "{rendered}");
+    assert!(rendered.contains("简体中文"), "{rendered}");
+    press(&mut state, KeyCode::Up);
+    assert!(
+        matches!(press(&mut state, KeyCode::Enter), Outcome::Action(Action::SetSettingsLanguage(language)) if language == "en")
+    );
+}
+
+#[test]
+fn chinese_setting_details_wrap_within_narrow_modal() {
+    let mut state = external_state();
+    state.ui_snapshot.language = "zh-CN".into();
+    state.focus_key("pi_eval");
+    let rendered = render_lines(&mut state, 60, 26).join("\n");
+    assert!(
+        rendered.contains(state.t(state.meta("pi_eval").unwrap().label)),
+        "{rendered}"
+    );
+    assert!(!rendered.contains("Eval bridge version"), "{rendered}");
 }

@@ -762,6 +762,8 @@ pub enum Action {
     SetPiBash(bool),
     /// Select Eval bridge generation (`v1` or `v2`; restart required).
     SetPiEval(String),
+    /// Change settings names, options, and descriptions immediately.
+    SetSettingsLanguage(String),
     /// Select Eval v2 language exposure (`js`, `py`, or `all`; restart required).
     SetPiEvalV2Language(String),
     /// Select Eval v2 presentation (`effects` or `legacy`; live-applied).

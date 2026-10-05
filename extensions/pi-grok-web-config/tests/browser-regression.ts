@@ -16,6 +16,7 @@ async function command(...args:string[]) {
  return response.data;
 }
 async function evaluate(js:string) {return (await command("eval",js)).result;}
+async function editRawSettings(text:string) {return evaluate(`(()=>{const input=document.querySelector('#settings-json');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));return true;})()`);}
 async function check(js:string,label:string) {assert.equal(await evaluate(js),true,label);passed.push(label);console.log("PASS "+label);}
 async function until(predicate:()=>boolean,label:string) {for(let i=0;i<60;i++){if(predicate())return;await Bun.sleep(50);}throw new Error(label+" "+JSON.stringify(await evaluate("({error:document.querySelector(\"#editor-error\")?.textContent,invalid:[...document.querySelectorAll(\":invalid\")].map(e=>({name:e.name,message:e.validationMessage})),status:document.querySelector(\"#global-status\")?.textContent})")));}
 async function snap(name:string) {const data=await command("screenshot");copyFileSync(data.path,resolve(output,name+".png"));}
@@ -25,9 +26,9 @@ try {
  assert.equal((await fetch(new URL("/api/state",f.server.url))).status,401);passed.push("Missing token is rejected");
  await command("open",f.server.url);
  await command("wait","#provider-title");
- await evaluate("localStorage.setItem('piWebLang','en');location.reload();true");
+ await evaluate("localStorage.setItem('piWebLang','zh');location.reload();true");
  await command("wait","#provider-title");
- await check("document.title === 'Configuration studio · grok-pi'","English page and title");
+ await check("document.title === 'Configuration studio · grok-pi' && document.querySelector('#btn-lang').value === 'en'","Saved native language overrides old browser-only preference");
  await command("click","[data-tab=settings]");
  const before=f.writes;
  await command("click",".setting-toggle:first-child .switch-control");
@@ -35,12 +36,12 @@ try {
  await check("!document.querySelector('#btn-settings-save').disabled","Quick settings create a draft without writing");
  await command("click","#raw-settings-details summary");
  await check("JSON.parse(document.querySelector('#settings-json').value).hideThinkingBlock === true","Form and JSON share one draft");
- await command("fill","#settings-json","{ invalid");
+ await editRawSettings("{ invalid");
  await command("click","#btn-settings-save");
  assert.equal(f.writes,before);
  await check("document.querySelector('#settings-state').textContent === 'Unsaved changes'","Invalid JSON preserves draft and blocks write");
  const doc={...f.state.settings,hideThinkingBlock:true,compaction:{...f.state.settings.compaction,keepRecentTokens:24000}};
- await command("fill","#settings-json",JSON.stringify(doc,null,2));
+ await editRawSettings(JSON.stringify(doc,null,2));
  await command("click","#btn-settings-save");
  await until(()=>f.state.settings.hideThinkingBlock===true,"settings persisted");
  await check("document.querySelector('#settings-state').textContent === 'Saved'","Explicit save commits settings");
@@ -88,7 +89,14 @@ try {
  await evaluate("window.confirm=()=>true;true");
  await command("click","#btn-settings-discard");
  await command("click","#btn-refresh");
- await command("click","#btn-lang");
+ await command("select","#btn-lang","auto");
+ await until(()=>f.state.host.ui.language === "auto","system language preference persisted");
+ await check("document.documentElement.lang === 'zh-CN' && document.querySelector('#btn-lang').value === 'auto'","Automatic language follows host OS locale");
+ await command("select","#btn-lang","en");
+ await until(()=>f.state.host.ui.language === "en","English language preference persisted");
+ await check("document.documentElement.lang === 'en'","Explicit English overrides host OS locale");
+ await command("select","#btn-lang","zh-CN");
+ await until(()=>f.state.host.ui.language === "zh-CN","Chinese language preference persisted");
  await check("document.documentElement.lang === 'zh-CN'","Chinese language switch");
  await command("click","#btn-search");
  await command("fill","#global-search","自动压缩");
@@ -117,7 +125,11 @@ try {
  await command("click","#btn-theme");await command("click","#btn-theme");
  await check("document.documentElement.dataset.theme === 'dark'","Dark theme applies");
  await snap("mobile-dark");
- await check("localStorage.getItem('piWebTheme') === 'dark' && localStorage.getItem('piWebLang') === 'zh'","Theme and language preferences persist in browser storage");
+ await check("localStorage.getItem('piWebTheme') === 'dark'","Theme preference persists in browser storage");
+ await command("click","[data-tab=models]");
+ await command("reload");
+ await command("wait","#provider-title");
+ await check("document.documentElement.lang === 'zh-CN' && document.querySelector('#btn-lang').value === 'zh-CN'","Shared language preference survives page reload");
  const errors=await command("errors");
  assert(!errors.errors?.length,JSON.stringify(errors));
  passed.push("No browser runtime errors");

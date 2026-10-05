@@ -15,8 +15,8 @@
     },
     {
       "key": "pi_subagents_v2",
-      "label": "Pi subagents V2",
-      "description": "Enable optional Subagents V2 team tools (spawn_team, stable /root/... agent paths, peer messaging, nested spawn) on top of Pi subagents. Requires Pi subagents; takes effect for new grok-pi sessions.",
+      "label": "Team collaboration",
+      "description": "Add team creation, agent-to-agent messages, nested delegation, and reusable child sessions. Requires Pi subagents. Applies after restart.",
       "keywords": ["pi", "subagent", "subagents", "v2", "team", "spawn_team", "peer messaging", "agent"],
       "f2": { "category": "agent", "section": "Pi features", "order": 31 },
       "kind": "bool",

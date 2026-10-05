@@ -1,5 +1,7 @@
-	function hostLabel(entry) { return I18N[lang]["host_label_"+entry.key] || entry.label || entry.key; }
-	function hostDescription(entry) { return I18N[lang]["host_desc_"+entry.key] || entry.description || ""; }
+	function hostText(entry) { return entry.localized?.[lang === "zh" ? "zh-CN" : "en"] || entry; }
+	function hostLabel(entry) { return hostText(entry).label || entry.label || entry.key; }
+	function hostDescription(entry) { return hostText(entry).description || entry.description || ""; }
+	function hostOptionLabel(entry, value) { return hostText(entry).options?.[value] || I18N[lang]["option_"+value] || value; }
 	function hostSectionLabel(value) { return I18N[lang]["host_section_"+value] || (value === "Pi features" ? t("host_features") : value || t("host_section_other")); }
 	function hostCatalog() { return state?.host?.catalog || []; }
 	function isScalar(value) {
@@ -12,7 +14,7 @@
 		renderBanner("host-banner", host.error ? t("host_error_banner", { error: host.error }) : null);
 		renderHostStatus();
 		const query = view.hostQuery.trim().toLowerCase();
-		const matches = (entry) => !query || [entry.key, hostLabel(entry), hostDescription(entry), hostSectionLabel(entry.section), entry.source].some((value) => String(value || "").toLowerCase().includes(query));
+		const matches = (entry) => !query || [entry.key, hostLabel(entry), hostDescription(entry), ...Object.values(entry.localized || {}).flatMap(text => [text.label, text.description]), hostSectionLabel(entry.section), entry.source].some((value) => String(value || "").toLowerCase().includes(query));
 		const filtered = (entry) => matches(entry) && (!view.hostCustomized || host.ui?.[entry.key] !== undefined || Object.hasOwn(view.hostDraft,entry.key));
 		const catalog = hostCatalog().filter(filtered);
 		const sections = new Map();
@@ -73,7 +75,7 @@
 				onchange: (value) => saveHostValue(entry, value),
 			});
 		} else if (entry.options) {
-			control = el("select", {"aria-label":hostLabel(entry),disabled}, entry.options.map(value=>el("option",{value,text:I18N[lang]["option_"+value] || value})));
+			control = el("select", {"aria-label":hostLabel(entry),disabled}, entry.options.map(value=>el("option",{value,text:hostOptionLabel(entry,value)})));
 			control.value = current;
 			control.addEventListener("change",()=>saveHostValue(entry,control.value));
 		} else {
@@ -97,7 +99,7 @@
 			});
 		}
 		const meta = [badge(entry.key)];
-		if (!configured && entry.default !== undefined) meta.push(badge(t("default_value", { value: formatValue(entry.default) })));
+		if (!configured && entry.default !== undefined) meta.push(badge(t("default_value", { value: entry.options ? hostOptionLabel(entry, entry.default) : typeof entry.default === "boolean" ? t(entry.default ? "option_on" : "option_off") : formatValue(entry.default) })));
 		if (entry.restartRequired) meta.push(badge(t("host_restart"), "warning"));
 		if (entry.source) meta.push(badge(entry.source.split("/")[1] || entry.source));
 		return el("div", { class: "host-row", "data-host-key":entry.key }, [
@@ -121,6 +123,7 @@
 		if (input?.type === "checkbox") input.checked=value === true; else if(input) input.value=value ?? "";
 		const reset=row?.querySelector(".reset-button");if(reset)reset.disabled=equal(value,entry.default);
 		renderHostStatus();
+		if (entry.key === "language") renderAll();
 	}
 	async function saveHostDraft() {
 		if (!Object.keys(view.hostDraft).length || writePending) return;

@@ -47,7 +47,8 @@ pub fn section_for(key: SettingKey) -> &'static str {
     match key {
         // -- Appearance ------------------------------------------------------
         "theme" | "auto_dark_theme" | "auto_light_theme" => "Theme",
-        "compact_mode"
+        "language"
+        | "compact_mode"
         | "screen_mode"
         | "show_timestamps"
         | "show_timeline"
@@ -75,7 +76,9 @@ pub fn section_for(key: SettingKey) -> &'static str {
         "keep_text_selection" => "Selection",
 
         // -- Editor ----------------------------------------------------------
-        "combine_queued_prompts"
+        "follow_up_behavior"
+        | "confirm_before_rewind"
+        | "combine_queued_prompts"
         | "cancel_turn_key"
         | "multiline_mode"
         | "prompt_suggestions"
@@ -135,6 +138,7 @@ pub fn section_for(key: SettingKey) -> &'static str {
         | "contextual_hints.send_now"
         | "contextual_hints.small_screen"
         | "contextual_hints.word_select"
+        | "contextual_hints.export_copy"
         | "contextual_hints.ssh_wrap" => "Contextual hints",
         "hunk_tracker_mode" => "Diffs",
 

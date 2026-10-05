@@ -1,5 +1,6 @@
 
 	function settingsLabel(key) { return t("settings_field_" + key.replaceAll(".", "_")); }
+	function settingsDescription(key) { return t("settings_desc_" + key.replaceAll(".", "_")); }
 	function getSetting(doc, path) { return path.split(".").reduce((value, key) => value?.[key], doc); }
 	function setSetting(doc, path, value) {
 		const keys = path.split(".");
@@ -34,7 +35,7 @@
 		const groups = $("#settings-groups");
 		groups.replaceChildren();
 		for (const group of UI_CONFIG.settings.groups) {
-			const fields = group.fields.filter(field => matches(field.key, settingsLabel(field.key), t("settings_group_" + group.key)));
+			const fields = group.fields.filter(field => matches(field.key, settingsLabel(field.key), settingsDescription(field.key) + " " + t("settings_group_" + group.key)));
 			if (!fields.length) continue;
 			groups.appendChild(el("section", {class:"settings-section"}, [
 				el("div", {class:"settings-section-heading"}, [el("h2", {text:t("settings_group_"+group.key)}),el("p",{text:t("settings_group_"+group.key+"_desc")})]),
@@ -75,7 +76,7 @@
 			control.addEventListener("input",()=>control.setCustomValidity(""));
 		}
 		return el("div",{class:"setting-field", "data-setting-key":field.key}, [
-			el("div",{class:"setting-field-copy"},[el("strong",{text:label}),el("code",{text:field.key}),el("small",{text:stored === undefined ? t("inherited_value") : t("configured_value")})]),
+			el("div",{class:"setting-field-copy"},[el("strong",{text:label}),el("p",{class:"host-description",text:settingsDescription(field.key)}),el("code",{text:field.key}),el("small",{text:stored === undefined ? t("inherited_value") : t("configured_value")})]),
 			el("div",{class:"setting-field-control"},[control,el("button",{class:"btn small reset-button",type:"button",text:t("reset_default"),disabled:stored === undefined || Boolean(state.settingsError),onclick:()=>stageSetting(field.key,undefined)})])
 		]);
 	}

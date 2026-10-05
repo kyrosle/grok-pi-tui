@@ -36,6 +36,69 @@ pub(in crate::app::dispatch) fn save_success_toast(label: &str, on: bool) -> Str
     format!("\u{2713} {label}: {value}")
 }
 
+/// Pi setting feedback uses the same names and enum labels as the panel and Web catalog.
+pub(in crate::app::dispatch) fn show_pi_setting_change(app: &mut AppView, effects: &[Effect]) {
+    use crate::settings::{SettingKind, SettingValue, i18n};
+    if !app.external_agent {
+        return;
+    }
+    for effect in effects {
+        let Effect::PersistSetting { key, value, .. } = effect else {
+            continue;
+        };
+        let Some(meta) = app.settings_registry.find(key) else {
+            continue;
+        };
+        let language = i18n::resolve_language(&app.current_ui.language);
+        let display = match value {
+            SettingValue::Bool(enabled) => {
+                i18n::translate(language, if *enabled { "on" } else { "off" }).to_string()
+            }
+            SettingValue::Enum(canonical) => {
+                let label = match &meta.kind {
+                    SettingKind::Enum { choices, .. } => choices
+                        .iter()
+                        .find(|c| c.canonical == *canonical)
+                        .map(|c| c.display)
+                        .unwrap_or(canonical),
+                    _ => canonical,
+                };
+                i18n::translate(language, label).to_string()
+            }
+            SettingValue::String(value) => value.clone(),
+            SettingValue::Int(value) => value.to_string(),
+            SettingValue::PiBuiltinTools(_) => continue,
+        };
+        let mut message = format!("✓ {}: {display}", i18n::translate(language, meta.label));
+        if meta.restart_required {
+            message.push_str(" — ");
+            message.push_str(i18n::translate(language, "Takes effect on next start."));
+        }
+        app.show_toast(&message);
+    }
+}
+
+pub(in crate::app::dispatch) fn setting_save_error(
+    app: &AppView,
+    key: &str,
+    error: &str,
+) -> String {
+    if !app.external_agent {
+        return format!("✗ Could not save {key}: {error}");
+    }
+    let language = crate::settings::i18n::resolve_language(&app.current_ui.language);
+    let label = app
+        .settings_registry
+        .all()
+        .iter()
+        .find(|meta| meta.key == key)
+        .map(|meta| meta.label)
+        .unwrap_or(key);
+    crate::settings::i18n::translate(language, "✗ Could not save {label}: {error}")
+        .replace("{label}", crate::settings::i18n::translate(language, label))
+        .replace("{error}", error)
+}
+
 /// Refresh every open settings modal's `ui_snapshot` and `pager_snapshot` so the next render reads the latest live state.
 /// The modal stores snapshots by value; without this, toggles would appear stuck.
 pub(crate) fn refresh_open_settings_modals(app: &mut AppView) {
@@ -1018,6 +1081,7 @@ pub(in crate::app::dispatch) fn action_for_reset(
             enabled: *b,
         }),
         ("pi_bash", SettingValue::Bool(b)) => Some(Action::SetPiBash(*b)),
+        ("language", SettingValue::Enum(s)) => Some(Action::SetSettingsLanguage((*s).to_string())),
         ("pi_eval", SettingValue::Enum(s)) => Some(Action::SetPiEval((*s).to_string())),
         ("pi_eval_v2_language", SettingValue::Enum(s)) => {
             Some(Action::SetPiEvalV2Language((*s).to_string()))
@@ -1167,6 +1231,31 @@ pub(in crate::app::dispatch) fn action_for_reset(
                 None
             }
         }
+        ("recap_model_2", SettingValue::String(value)) => Some(if value.is_empty() {
+            Action::ClearRecapModel2
+        } else {
+            Action::SetRecapModel2(value.clone())
+        }),
+        ("recap_model_3", SettingValue::String(value)) => Some(if value.is_empty() {
+            Action::ClearRecapModel3
+        } else {
+            Action::SetRecapModel3(value.clone())
+        }),
+        ("btw_model", SettingValue::String(value)) => Some(if value.is_empty() {
+            Action::ClearBtwModel
+        } else {
+            Action::SetBtwModel(value.clone())
+        }),
+        ("btw_model_2", SettingValue::String(value)) => Some(if value.is_empty() {
+            Action::ClearBtwModel2
+        } else {
+            Action::SetBtwModel2(value.clone())
+        }),
+        ("btw_model_3", SettingValue::String(value)) => Some(if value.is_empty() {
+            Action::ClearBtwModel3
+        } else {
+            Action::SetBtwModel3(value.clone())
+        }),
         // max_thoughts_width: direct round-trip.
         ("max_thoughts_width", SettingValue::Int(i)) => Some(Action::SetMaxThoughtsWidth(*i)),
         // coding_data_sharing: "opt-in" / "opt-out" map to bool; both arms are needed (registry default is "opt-out")
@@ -1267,6 +1356,7 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
             app.current_ui.pi_builtin_tools = value.clone()
         }
         ("pi_bash", SettingValue::Bool(b)) => app.current_ui.pi_bash = *b,
+        ("language", SettingValue::Enum(s)) => app.current_ui.language = (*s).to_string(),
         ("pi_eval", SettingValue::Enum(s)) => app.current_ui.pi_eval = (*s).to_string(),
         ("pi_eval_v2_language", SettingValue::Enum(s)) => {
             app.current_ui.pi_eval_v2_language = (*s).to_string()

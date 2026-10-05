@@ -8,7 +8,6 @@
 	const RESOURCE_LABELS = Object.fromEntries(UI_CONFIG.resources.kinds.map((item) => [item.key, item.labelKey]));
 	const RESOURCE_PAGE_SIZE = UI_CONFIG.resources.pageSize;
 	const SETTINGS_TOGGLES = UI_CONFIG.settings.quickToggles;
-	const LANGUAGE_STORAGE_KEY = UI_CONFIG.language.storageKey;
 	const SUPPORTED_LANGS = UI_CONFIG.language.supported;
 	const THEME_STORAGE_KEY = UI_CONFIG.theme.storageKey;
 	const THEME_MODES = UI_CONFIG.theme.modes;
@@ -24,7 +23,7 @@
 	let editorContext = null;
 	let writePending = false;
 	let refreshGeneration = 0;
-	let lang = detectLang();
+	let lang = "en";
 	let theme = detectTheme();
 	const view = {
 		tab: initialTab(),
@@ -97,10 +96,29 @@
 	}
 
 	function detectLang() {
-		const stored = storageGet(LANGUAGE_STORAGE_KEY);
-		if (SUPPORTED_LANGS.includes(stored)) return stored;
-		const browserLang = (navigator.language || "en").toLowerCase().startsWith("zh") ? "zh" : "en";
-		return SUPPORTED_LANGS.includes(browserLang) ? browserLang : SUPPORTED_LANGS[0] || "en";
+		const preference = languagePreference();
+		const locale = preference === "auto" ? state?.host?.systemLanguage || navigator.language || "en" : preference;
+		return locale.toLowerCase().startsWith("zh") ? "zh" : "en";
+	}
+
+	function languagePreference() {
+		const preference = view?.hostDraft?.language ?? state?.host?.ui?.language ?? "auto";
+		return SUPPORTED_LANGS.includes(preference) ? preference : "auto";
+	}
+
+	async function saveLanguagePreference(preference) {
+		if (!state || writePending || !SUPPORTED_LANGS.includes(preference)) return;
+		const previous = state.host?.ui?.language;
+		try {
+			await writeOperation(async () => {
+				const latest = await api("/api/state");
+				if (latest.host?.error) throw new Error(latest.host.error);
+				if (!equal(latest.host?.ui?.language, previous)) throw new Error(t("conflict"));
+				await api("/api/host-ui", { method: "PUT", body: JSON.stringify({ language: preference }) });
+				delete view.hostDraft.language;
+				await refresh();
+			});
+		} catch (error) { notify(error.message, true); renderAll(); }
 	}
 
 	function detectTheme() {
@@ -134,7 +152,10 @@
 		for (const node of document.querySelectorAll("[data-i18n-aria]")) node.setAttribute("aria-label", t(node.dataset.i18nAria));
 		for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
 		for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
-		$("#btn-lang").textContent = t("lang_label");
+		const languagePicker = $("#btn-lang");
+		languagePicker.replaceChildren(...SUPPORTED_LANGS.map(value => el("option", { value, text: t("language_" + value) })));
+		languagePicker.value = languagePreference();
+		languagePicker.disabled = !state || Boolean(state.host?.error);
 		$("#editor-close").setAttribute("aria-label", t("close"));
 		applyTheme();
 	}
@@ -247,6 +268,7 @@
 	}
 
 	function renderAll() {
+		lang = detectLang();
 		applyI18n();
 		if (!state) return;
 		renderChrome();
@@ -275,7 +297,7 @@
 		);
 		const providerCount = providerIds().length;
 		const resourceCount = RESOURCE_KEYS.reduce((sum, key) => sum + resourceEntries(key).length, 0);
-		const hostCount = hostCatalog().length + hostExtras().length;
+		const hostCount = hostCatalog().length;
 		$("#nav-models-count").textContent = String(providerCount);
 		$("#nav-resources-count").textContent = String(resourceCount);
 		$("#nav-host-count").textContent = String(hostCount);
@@ -449,12 +471,7 @@
 				notify(error.message, true);
 			}
 		});
-		$("#btn-lang").addEventListener("click", () => {
-			const index = SUPPORTED_LANGS.indexOf(lang);
-			lang = SUPPORTED_LANGS[(index + 1) % SUPPORTED_LANGS.length] || SUPPORTED_LANGS[0] || "en";
-			storageSet(LANGUAGE_STORAGE_KEY, lang);
-			renderAll();
-		});
+		$("#btn-lang").addEventListener("change", event => { void saveLanguagePreference(event.target.value); });
 		$("#btn-theme").addEventListener("click", () => {
 			const index = THEME_MODES.indexOf(theme);
 			theme = THEME_MODES[(index + 1) % THEME_MODES.length] || UI_CONFIG.theme.default;
@@ -471,7 +488,7 @@
 		$("#btn-host-save").addEventListener("click", saveHostDraft);
 		$("#btn-host-discard").addEventListener("click", () => {
 			if (Object.keys(view.hostDraft).length && !window.confirm(t("confirm_discard"))) return;
-			view.hostDraft = {}; view.hostBase = null; renderHost();
+			view.hostDraft = {}; view.hostBase = null; renderAll();
 		});
 		$("#host-customized").addEventListener("change", (event) => { view.hostCustomized = event.target.checked; renderHost(); });
 		$("#btn-search").addEventListener("click", openSearch);
@@ -532,8 +549,8 @@
 			for (const model of state.models.providers[id].models || []) rows.push({tab:"models",label:model.name || model.id,detail:id+" / "+model.id,query:model.id,provider:id});
 		}
 		for (const kind of RESOURCE_KEYS) for (const entry of resourceEntries(kind)) rows.push({tab:"resources",label:entry.name || entry.path,detail:entry.path,query:entry.path,kind});
-		for (const entry of [...hostCatalog(), ...hostExtras()]) rows.push({tab:"host",label:hostLabel(entry),detail:entry.key+" "+hostDescription(entry),query:entry.key});
-		for (const field of [...SETTINGS_TOGGLES, ...UI_CONFIG.settings.groups.flatMap(group=>group.fields)]) rows.push({tab:"settings",label:field.labelKey ? t(field.labelKey) : settingsLabel(field.key),detail:field.key,query:field.key});
+		for (const entry of hostCatalog()) rows.push({tab:"host",label:hostLabel(entry),detail:entry.key+" "+hostDescription(entry),query:entry.key});
+		for (const field of [...SETTINGS_TOGGLES, ...UI_CONFIG.settings.groups.flatMap(group=>group.fields)]) rows.push({tab:"settings",label:field.labelKey ? t(field.labelKey) : settingsLabel(field.key),detail:field.key+" "+(field.descriptionKey ? t(field.descriptionKey) : settingsDescription(field.key)),query:field.key});
 		return rows;
 	}
 	function renderSearch() {
@@ -552,6 +569,7 @@
 	}
 
 	async function init() {
+		lang = detectLang();
 		applyI18n();
 		bindEvents();
 		showTab(view.tab, false);

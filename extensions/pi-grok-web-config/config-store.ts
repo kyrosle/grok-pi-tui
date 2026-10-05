@@ -500,6 +500,7 @@ export function updateUiTable(text: string, updates: Record<string, unknown>): s
 
 function loadHostCatalog(catalogPath: string | undefined): {
 	catalog: HostSettingEntry[];
+	systemLanguage?: string;
 	error?: string;
 } {
 	if (!catalogPath) return { catalog: [] };
@@ -507,7 +508,9 @@ function loadHostCatalog(catalogPath: string | undefined): {
 	try {
 		const parsed = JSON.parse(readFileSync(catalogPath, "utf8"));
 		const catalog: HostSettingEntry[] = [];
+		let systemLanguage: string | undefined;
 		for (const item of Array.isArray(parsed) ? parsed : []) {
+			if (["en", "zh-CN"].includes(item?.systemLanguage)) systemLanguage = item.systemLanguage;
 			const source = typeof item?.source === "string" ? item.source : "";
 			const manifest = item?.manifest;
 			if (!isJsonObject(manifest) || !Array.isArray(manifest.settings)) continue;
@@ -518,6 +521,7 @@ function loadHostCatalog(catalogPath: string | undefined): {
 					key: setting.key,
 					label: typeof setting.label === "string" ? setting.label : undefined,
 					description: typeof setting.description === "string" ? setting.description : undefined,
+					localized: isJsonObject(setting.localized) ? setting.localized as HostSettingEntry["localized"] : undefined,
 					kind: typeof setting.kind === "string" ? setting.kind : undefined,
 					options: Array.isArray(setting.options) ? setting.options.filter((value): value is string => typeof value === "string") : undefined,
 					default: setting.default,
@@ -534,7 +538,7 @@ function loadHostCatalog(catalogPath: string | undefined): {
 			if (section !== 0) return section;
 			return (a.order ?? 0) - (b.order ?? 0) || a.key.localeCompare(b.key);
 		});
-		return { catalog };
+		return { catalog, systemLanguage };
 	} catch (error) {
 		return {
 			catalog: [],
@@ -564,6 +568,7 @@ export function collectHostState(): HostConfigState {
 		ui,
 		uiTables,
 		catalog: loaded.catalog,
+		systemLanguage: loaded.systemLanguage,
 		error,
 	};
 }
@@ -573,6 +578,7 @@ export function saveHostUi(configPath: string, updates: JsonObject): void {
 	const supported = new Set(loadHostCatalog(process.env[HOST_CATALOG_ENV]).catalog.map((entry) => entry.key));
 	for (const [key, value] of Object.entries(updates)) {
 		if (!supported.has(key)) throw new Error(`setting "${key}" is unavailable for Pi`);
+		if (key === "language" && !["auto", "en", "zh-CN"].includes(value as string)) throw new Error("language must be auto, en or zh-CN");
 		if (!/^[A-Za-z0-9_-]+$/.test(key)) throw new Error(`invalid setting key "${key}"`);
 		if ((typeof value === "number" && !Number.isFinite(value)) || (typeof value !== "boolean" && typeof value !== "number" && typeof value !== "string")) {
 			throw new Error(`setting "${key}" must be a boolean, number or string`);

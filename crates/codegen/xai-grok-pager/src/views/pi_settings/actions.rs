@@ -85,6 +85,7 @@ pub(super) fn action_for_bool(key: SettingKey, new: bool) -> Option<Action> {
         "contextual_hints.send_now" => Action::SetContextualHintSendNow(new),
         "contextual_hints.small_screen" => Action::SetContextualHintSmallScreen(new),
         "contextual_hints.word_select" => Action::SetContextualHintWordSelect(new),
+        "contextual_hints.export_copy" => Action::SetContextualHintExportCopy(new),
         "contextual_hints.ssh_wrap" => Action::SetContextualHintSshWrap(new),
         "multiline_mode" => Action::SetMultilineMode(new),
         "vim_mode" => Action::SetVimMode(new),
@@ -157,6 +158,12 @@ pub(super) fn action_for_enum_commit(key: SettingKey, choice: &str) -> Option<Ac
             _ => None,
         },
         "ctrl_o_tool_expansion" => Some(Action::SetCtrlOToolExpansion(choice.to_string())),
+        "follow_up_behavior" => crate::appearance::FollowUpBehavior::from_canonical(choice)
+            .map(Action::SetFollowUpBehavior),
+        "language" => match choice {
+            "auto" | "en" | "zh-CN" => Some(Action::SetSettingsLanguage(choice.to_string())),
+            _ => None,
+        },
         "pi_eval" => match choice {
             "v1" | "v2" => Some(Action::SetPiEval(choice.to_string())),
             _ => None,
