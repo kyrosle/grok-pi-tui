@@ -9,6 +9,8 @@
 
 扩大 settings 首轮 374/48；本增量及关联入口修复后，最终 232 项有界检查通过，排除了旧 stock modal 和 Home `/settings` 断言：36 个 stock 失败与 1 个 Home 失败有 HEAD 已存在的源码合同矛盾，没有执行 baseline runtime。不宣称全 Pager 或 stock tests 通过。确切命令、修复过程、日志及本机 release 交付见 PLAN；没有真人 provider/OAuth 或跨平台运行验收。
 
+本机 macOS arm64 已安装 `tpig` 版本 `0.0.0-tpig.7351543f`，对应源码 `7351543f`，SHA `ad91fdaedc8d6bee5977b08348d779b0a6b2c2d32b7074574004eec24ed3ea29`。release artifact 与实际启动器各通过 6 个 native PTY；原 `pig` 二进制/链接和用户 `~/.tpig/config.toml` 与起点字节一致。交付 manifest `/Users/kyros/.local/lib/tpig/7351543f/manifest.json`；未发布远端 release。
+
 ## 总纲：T0/T1通过，T2–T8待办
 
 当前 [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) 取代按局部检查点宣称完成。T0 退役参考仓库 blob 身份约束；现行守卫为架构、依赖、服务端点、Pi 合同和实际原生交互。[归档材料](grok-build/archive/README.md) 保留旧证据，不再执行。

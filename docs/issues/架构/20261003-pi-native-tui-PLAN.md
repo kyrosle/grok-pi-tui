@@ -26,7 +26,7 @@ category: "architecture"
 
 ## 阶段总览
 
-用户 2026-10-05 明确优先安排 T5 的设置交互增量：[设置功能命名与中英文 SPEC](20261005-settings-language-SPEC.md) / [PLAN](20261005-settings-language-PLAN.md)。只推进该子项，不改变其他阶段的完成状态。
+用户 2026-10-05 明确优先安排 T5 的设置交互增量：[设置功能命名与中英文 SPEC](20261005-settings-language-SPEC.md) / [PLAN](20261005-settings-language-PLAN.md)。该子项已完成（功能命名、配置页中英文、本机 tpig 交付）；不改变其他阶段的完成状态。
 
 | 阶段 | 目标 | 对应 SPEC | 依赖 | 状态 |
 |---|---|---|---|---|

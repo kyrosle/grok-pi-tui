@@ -1,7 +1,7 @@
 ---
 id: "2026-10-05-settings-language-spec"
 title: "设置功能命名与中英文 SPEC"
-status: "in-progress"
+status: "complete"
 created: "2026-10-05"
 category: "architecture"
 ---

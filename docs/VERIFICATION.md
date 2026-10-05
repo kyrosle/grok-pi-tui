@@ -9,6 +9,8 @@ Scoped verification: native settings 232/0, Pi binary 98/0, Web unit 12/0 (200 a
 
 The first broader settings run was 374/48. Scope fixes pass the final 232-case run, which excludes legacy stock modal tests and the Home `/settings` assertion: 36 stock failures and one Home failure have existing HEAD source-contract mismatches, without a baseline runtime run. These do not certify the full Pager or stock suite. Exact commands, repair history, logs and local release delivery are recorded in the PLAN. No real provider/OAuth or cross-platform runtime was exercised.
 
+Local macOS arm64 delivery is installed as `tpig` version `0.0.0-tpig.7351543f`, pinned to source commit `7351543f`; SHA `ad91fdaedc8d6bee5977b08348d779b0a6b2c2d32b7074574004eec24ed3ea29`. Release artifact and actual installed launcher each pass six native PTYs. The original `pig` binary/link and user `~/.tpig/config.toml` are byte-identical to the task start. Local manifest: `/Users/kyros/.local/lib/tpig/7351543f/manifest.json`; no remote release was published.
+
 ## Master plan: T0/T1 passed; T2–T8 pending
 
 The governing [SPEC](issues/架构/20261003-pi-native-tui-SPEC.md) / [PLAN](issues/架构/20261003-pi-native-tui-PLAN.md) replace checkpoint-only completion. T0 retires reference blob identity; current gates check architecture, dependency policy, service endpoints, Pi contracts and actual native UI behavior. Historical identity receipts below remain evidence for their own commits only. [Archived material](grok-build/archive/README.md) is not an active gate.

@@ -1,7 +1,7 @@
 ---
 id: "2026-10-05-settings-language-plan"
 title: "设置功能命名与中英文 PLAN"
-status: "in-progress"
+status: "complete"
 created: "2026-10-05"
 category: "architecture"
 ---
@@ -16,7 +16,7 @@ category: "architecture"
 | L1 | 功能命名、双语文案、语言配置与原生设置集成 | 完成，368 条共享词条 |
 | L2 | Web 配置共享文案与语言选择 | 完成，12 unit / 37 browser checks |
 | L3 | 单元/配置测试、profile 检查、原生 PTY 与文档 | 完成，有界检查通过 |
-| L4 | 本机 tpig 构建安装、交付记录 | 进行中 |
+| L4 | 本机 tpig 构建安装、交付记录 | 完成，本机安装及启动器 PTY 通过 |
 
 ## 验证记录
 
@@ -32,3 +32,14 @@ category: "architecture"
 - Native PTY 6 cases 全部 nativeExit 0，binary SHA 前后一致：language-save/reopen（auto 中文、英文/中文选择、另一 locale 进程保留中文、auto 回英文、只读保存失败恢复英文）、settings-save/reopen/rollback、product-surface。命令 `node --experimental-strip-types crates/codegen/pi-grok-adapter/tests/pi_native_pty_smoke.ts language settings product-surface`（显式指定 fresh binary/SHA/artifacts）。证据 `/tmp/grok-pi-settings-pty-final3-20261005/report.json`。此前 runner 的 modal close/search 焦点等待及 modal 遮住 toast 的观测假设失败，已修测试等待；没有修改 Rust runtime 来绕过失败。
 - Production dependency guard：796 packages，stock_runtime/audio_backends/forbidden 为空，29 pending removals 保持，非终态验收。证据 `/tmp/grok-pi-settings-dependency-20261005.json`。
 - 翻译范围为配置界面；本轮没有真人 OAuth、模型推理、跨平台终端或全 Pager/stock 测试验收。
+
+## 本机交付
+
+- 实现提交 `7351543f8b7824a62497f794cb143416f64ed91d`，clean source 构建本机 macOS arm64 `release-dist`，1m23s、exit 0。版本 `0.0.0-tpig.7351543f`，61031848 bytes，SHA `ad91fdaedc8d6bee5977b08348d779b0a6b2c2d32b7074574004eec24ed3ea29`。明确 `--no-default-features --features release-dist,jemalloc,sandbox-enforce`，codegen units16/LTO off/debug0/jobs4。证据 `/tmp/tpig-settings-release-artifact-20261005.json`，构建日志 `/tmp/tpig-settings-release-build-20261005.log`。
+- release artifact 再跑 6 个 native PTY：全部 nativeExit 0，SHA 前后一致。证据 `/tmp/tpig-settings-release-pty-20261005/report.json`。
+- 安装 `/Users/kyros/.local/lib/tpig/7351543f/grok-pi`，原子更新 `/Users/kyros/.local/bin/tpig` 启动器。UI 保持 `~/.tpig` / `.tpig`，Pi auth/models/sessions 保持 Pi 默认；没有复制凭据或修改用户配置。旧固定版本保留。
+- 实际启动器再跑 6 个 PTY：全部 nativeExit 0；每个 case 使用独立 `TPIG_HOME`，启动器 hash与 pinned binary SHA 分开核验。证据 `/tmp/tpig-settings-installed-pty-20261005/report.json`、`/tmp/tpig-settings-installed-20261005.json`。启动器语法、`--version`、help 已检查；update/migrate-home 维持固定测试版本策略并返回64。
+- 原 `pig` symlink/binary SHA `bfaf8739a026c6afd0afc27e1888861b798c82385ba979312badcbfa83347580` 和 `~/.tpig/config.toml` SHA `5386eaf5c17a6250879f57c6b92228142f9f33ec71489feb2488b9447212668b` 与任务起点及安装前后均相同。未 push 或发布远端 release。
+- 本机 release 使用当前系统的 `/opt/local/lib/libiconv.2.dylib` 和 `libz.1.dylib`；这是当前设备交付，不是跨设备可移植包或总体 T8 release 验收。
+
+本设置增量完成；总体 T2–T8 的其余工作仍依总体 PLAN。
