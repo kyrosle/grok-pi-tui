@@ -26,6 +26,8 @@ category: "architecture"
 
 ## 阶段总览
 
+用户 2026-10-05 明确优先安排 T5 的设置交互增量：[设置功能命名与中英文 SPEC](20261005-settings-language-SPEC.md) / [PLAN](20261005-settings-language-PLAN.md)。只推进该子项，不改变其他阶段的完成状态。
+
 | 阶段 | 目标 | 对应 SPEC | 依赖 | 状态 |
 |---|---|---|---|---|
 | T0 | 治理切换：Grok Build 改为参考仓库，验证体系换成架构守卫 | GV-01~07、VF-01~08 | — | 完成，T0 验证通过 |
