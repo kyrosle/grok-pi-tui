@@ -397,6 +397,18 @@ pub struct SettingsRegistry {
 }
 
 impl SettingsRegistry {
+    /// Keep the native UI; exclude controls without a Durable handler.
+    pub fn for_durable(mut self) -> Self {
+        self.entries.retain(|meta| {
+            if meta.key.starts_with("pi_") {
+                matches!(meta.key, "pi_durable" | "pi_user_markdown" | "pi_bash_command_format" | "pi_builtin_tools" | "pi_builtin_tools.read" | "pi_builtin_tools.write" | "pi_builtin_tools.edit" | "pi_builtin_tools.bash")
+            } else { !matches!(meta.key, "psm_resume_index" | "session_recap" | "recap_mermaid" | "plan_mode" | "contextual_hints.plan_mode" | "contextual_hints.image_input") }
+        });
+        if let Some(meta) = self.entries.iter_mut().find(|meta| meta.key == "pi_durable") {
+            meta.description = "Current runtime: Pi Durable. This saved preference takes effect on next start; changing it keeps current tasks running.";
+        }
+        self
+    }
     /// Build the default registry from `crate::settings::defs::default_settings()`.
     pub fn defaults() -> Self {
         let entries = crate::settings::defs::default_settings();
@@ -420,6 +432,9 @@ impl SettingsRegistry {
                 "Switch the active Pi session model; manage persisted defaults in Pi settings.";
         }
         entries.extend(manifest.iter().map(host_feature_setting_meta));
+        if let Some(meta) = entries.iter_mut().find(|meta| meta.key == "pi_durable") {
+            meta.description = "Current runtime: Pi RPC. This saved preference takes effect on next start; changing it keeps the current session running.";
+        }
         assert_unique_keys(&entries);
         Self { entries }
     }
@@ -519,6 +534,7 @@ pub fn external_setting_supported(key: &str) -> bool {
                 | "contextual_hints.export_copy"
                 | "contextual_hints.ssh_wrap"
                 | "pi_bash"
+                | "pi_durable"
                 | "pi_builtin_tools"
                 | "pi_builtin_tools.read"
                 | "pi_builtin_tools.bash"
@@ -689,6 +705,7 @@ pub fn current_value_for(
         "pi_builtin_tools.ls" => Some(SettingValue::Bool(ui.pi_builtin_tools.ls)),
         "pi_builtin_tools.codemode" => Some(SettingValue::Bool(ui.pi_builtin_tools.codemode)),
         "pi_bash" => Some(SettingValue::Bool(ui.pi_bash)),
+        "pi_durable" => Some(SettingValue::Bool(ui.pi_durable)),
         "psm_resume_index" => Some(SettingValue::Bool(ui.psm_resume_index)),
         "pi_tree_file_rollback" => Some(SettingValue::Bool(ui.pi_tree_file_rollback)),
         "pi_tree_skip_summary_prompt" => Some(SettingValue::Bool(ui.pi_tree_skip_summary_prompt)),

@@ -1,5 +1,23 @@
 //! Tests for settings setters, toggles, resets, and rollback.
 use super::*;
+#[test]
+fn durable_setting_only_changes_saved_preference_and_rolls_back() {
+    let mut app = test_app_with_agent();
+    app.external_agent = true;
+    let session = app.agents[&AgentId(0)].session.session_id.clone();
+    let effects = dispatch(Action::SetPiDurable(true), &mut app);
+    assert!(app.current_ui.pi_durable);
+    assert_eq!(app.agents[&AgentId(0)].session.session_id, session);
+    assert!(matches!(effects.as_slice(), [Effect::PersistSetting { key: "pi_durable", value: crate::settings::SettingValue::Bool(true), rollback_value: crate::settings::SettingValue::Bool(false) }]));
+    let registry = crate::settings::SettingsRegistry::defaults_with_host_features(&Default::default()).for_durable();
+    assert!(registry.find("pi_durable").unwrap().restart_required);
+    assert!(registry.find("pi_builtin_tools.read").is_some());
+    assert!(registry.find("pi_builtin_tools.codemode").is_none());
+    let effects = dispatch(Action::SetPiDurable(false), &mut app);
+    assert!(!app.current_ui.pi_durable);
+    assert_eq!(app.agents[&AgentId(0)].session.session_id, session);
+    assert!(matches!(effects.as_slice(), [Effect::PersistSetting { key: "pi_durable", value: crate::settings::SettingValue::Bool(false), .. }]));
+}
 /// `Action::ToggleVimMode` flips the active agent's `vim_mode` field and the in-process pager cache (`load_vim_mode`) that seeds future agents.
 /// It emits `Effect::PersistSetting` so the new value lands in `[ui].vim_mode` in config.toml, and a second toggle restores the original.
 #[test]

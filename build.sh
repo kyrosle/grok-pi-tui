@@ -12,6 +12,16 @@ fi
 
 "$ROOT/scripts/setup-shared-cargo-target.sh"
 
+# Durable is opt-in at runtime. Release builds set GROK_PI_BUILD_DURABLE=1;
+# ordinary Rust-only builds still work without the optional Node dependency tree.
+DURABLE_ROOT="$ROOT/runtime/pi-durable-host"
+if [[ "${GROK_PI_BUILD_DURABLE:-0}" == "1" ]]; then
+  (cd "$DURABLE_ROOT" && npm ci --ignore-scripts --no-audit --no-fund)
+fi
+if [[ -f "$DURABLE_ROOT/node_modules/@earendil-works/pi-durable/package.json" ]]; then
+  (cd "$DURABLE_ROOT" && npm run build)
+fi
+
 # Optional: rebuild the locked pi-main coding-agent checkout when its workspace
 # dependencies are provisioned. A freshly initialized submodule has no
 # node_modules and must not prevent the Rust composition binary from building.

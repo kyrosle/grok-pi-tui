@@ -347,6 +347,10 @@ pub async fn set_pi_builtin_tools(value: PiBuiltinTools) -> Result<()> {
 }
 
 /// Persist the grok-pi Bash/Eval bridge master switch.
+pub async fn set_pi_durable(value: bool) -> Result<()> {
+    update_config(|cfg| cfg.ui.pi_durable = value).await
+}
+
 pub async fn set_pi_bash(value: bool) -> Result<()> {
     update_config(|cfg| cfg.ui.pi_bash = value).await
 }

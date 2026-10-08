@@ -1,0 +1,19 @@
+{
+  "runtime": "durable",
+  "protocol": "grok-pi-durable/1",
+  "sdkVersion": "1.1.0",
+  "experimental": true,
+  "tools": ["read", "write", "edit", "bash", "subagent"],
+  "subagents": true,
+  "persistence": true,
+  "taskGraph": true,
+  "recovery": true,
+  "inbox": true,
+  "compaction": true,
+  "classicExtensions": false,
+  "codemode": false,
+  "mcp": false,
+  "images": false,
+  "hotSwitch": false,
+  "backgroundOwner": true
+}

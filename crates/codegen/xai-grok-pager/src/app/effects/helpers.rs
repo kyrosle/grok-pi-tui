@@ -1679,6 +1679,10 @@ pub(crate) async fn persist_setting(
                 .await
                 .map_err(|e| e.to_string())
         }
+        "pi_durable" => {
+            let SettingValue::Bool(b) = value else { return Err(kind_mismatch("pi_durable", "Bool", &value)); };
+            crate::settings_config::set_pi_durable(b).await.map_err(|e| e.to_string())
+        }
         "pi_bash" => {
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("pi_bash", "Bool", &value));

@@ -660,6 +660,7 @@ fn handle_ext_notification(notif: &acp::ExtNotification, app: &mut AppView) -> b
         "pi/ui/reset_extension_ui" => handle_pi_ui_reset_extension_ui(app),
         "pi/ui/editor_text" => handle_pi_ui_editor_text(notif, app),
         "pi/ui/session_catalog" => handle_pi_ui_session_catalog(notif, app),
+        "pi/ui/durable/tasks" => handle_durable_tasks(notif, app),
         "pi/ui/cancel_interaction" => handle_pi_ui_cancel_interaction(notif, app),
         "pi/ui/plan_file" => handle_pi_ui_plan_file(notif, app),
         // Experimental Remote TUI frame projection (PI_GROK_REMOTE_TUI=1 on Pi).
@@ -1026,6 +1027,34 @@ fn handle_pi_ui_plan_file(notif: &acp::ExtNotification, app: &mut AppView) -> bo
     };
     if let Some(agent) = app.agents.get_mut(&id) {
         agent.pi_plan_file_path = Some(std::path::PathBuf::from(plan_path));
+    }
+    true
+}
+
+fn handle_durable_tasks(notif: &acp::ExtNotification, app: &mut AppView) -> bool {
+    use crate::views::modal::{ActiveModal, ArgPickerSelection};
+    let Some(params) = pi_ui_params(notif) else { return false; };
+    let Some(tasks) = params["graph"]["tasks"].as_object() else { return false; };
+    let Some(agent) = app.active_agent_mut() else { return false; };
+    if agent.session.session_id.as_ref().is_some_and(|id| Some(id.0.as_ref()) != params["sessionId"].as_str()) { return false; }
+    let updating = matches!(&agent.active_modal, Some(ActiveModal::ArgPicker { command, .. }) if command == "durable-task");
+    if !updating && params["open"] != true { return true; }
+    let mut rows = tasks.iter().collect::<Vec<_>>();
+    rows.sort_by_key(|(id, _)| id.parse::<u64>().unwrap_or_default());
+    let mut items = rows.into_iter().map(|(id, task)| crate::slash::command::ArgItem {
+        display: format!("#{id} {}", task["kind"].as_str().unwrap_or("task")),
+        match_text: format!("{id} {task}"), insert_text: id.to_string(),
+        description: format!("{} · conversation {} · owner {} · waits {}", task["state"]["status"].as_str().unwrap_or("pending"), task["conversationId"], task["owner"], task["state"]["on"]),
+    }).collect::<Vec<_>>();
+    if items.is_empty() { items.push(crate::slash::command::ArgItem { display: "No live Durable tasks".into(), match_text: "idle".into(), insert_text: String::new(), description: "Completed work remains in the Durable store.".into() }); }
+    if let Some(ActiveModal::ArgPicker { command, items: visible, original_items, state, .. }) = &mut agent.active_modal
+        && command == "durable-task" {
+        let query = state.query().to_lowercase();
+        *original_items = items;
+        *visible = original_items.iter().filter(|item| item.match_text.to_lowercase().contains(&query)).cloned().collect();
+        state.selected = state.selected.min(visible.len().saturating_sub(1));
+    } else {
+        agent.active_modal = Some(ActiveModal::ArgPicker { command: "durable-task".into(), args_query: String::new(), original_items: items.clone(), items, state: crate::views::picker::PickerState::input_active(), previous_palette: None, previous_settings: None, selection: ArgPickerSelection::RunCommand, window: crate::views::modal_window::ModalWindowState::new() });
     }
     true
 }

@@ -762,6 +762,8 @@ pub enum Action {
     },
     /// Enable grok-pi's enhanced Bash bridge (restart required).
     SetPiBash(bool),
+    /// Saved backend preference; the active connection stays unchanged.
+    SetPiDurable(bool),
     /// Change settings names, options, and descriptions immediately.
     SetSettingsLanguage(String),
     /// Enable PSM's optional SQLite catalog source for Pi `/resume`.

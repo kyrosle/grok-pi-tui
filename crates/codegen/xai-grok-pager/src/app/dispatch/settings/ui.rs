@@ -1109,6 +1109,7 @@ pub(in crate::app::dispatch) fn action_for_reset(
             enabled: *b,
         }),
         ("pi_bash", SettingValue::Bool(b)) => Some(Action::SetPiBash(*b)),
+        ("pi_durable", SettingValue::Bool(b)) => Some(Action::SetPiDurable(*b)),
         ("language", SettingValue::Enum(s)) => Some(Action::SetSettingsLanguage((*s).to_string())),
         ("psm_resume_index", SettingValue::Bool(b)) => Some(Action::SetPsmResumeIndex(*b)),
         ("pi_tree_file_rollback", SettingValue::Bool(b)) => Some(Action::SetPiTreeFileRollback(*b)),
@@ -1375,6 +1376,7 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
             app.current_ui.pi_builtin_tools = value.clone()
         }
         ("pi_bash", SettingValue::Bool(b)) => app.current_ui.pi_bash = *b,
+        ("pi_durable", SettingValue::Bool(b)) => app.current_ui.pi_durable = *b,
         ("language", SettingValue::Enum(s)) => app.current_ui.language = (*s).to_string(),
         ("psm_resume_index", SettingValue::Bool(b)) => app.current_ui.psm_resume_index = *b,
         ("pi_tree_file_rollback", SettingValue::Bool(b)) => {

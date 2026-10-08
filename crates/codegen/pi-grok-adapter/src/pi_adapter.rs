@@ -455,7 +455,7 @@ impl PiAgent {
     }
 }
 
-fn build_model_catalog(
+pub(crate) fn build_model_catalog(
     models: &[PiModel],
     current: Option<&PiModel>,
     thinking_level: &str,
@@ -946,7 +946,7 @@ fn inject_workflow_slash_commands(
     }
 }
 
-fn model_key(model: &PiModel) -> String {
+pub(crate) fn model_key(model: &PiModel) -> String {
     if model.provider.is_empty() {
         model.id.clone()
     } else {
@@ -1771,7 +1771,7 @@ fn acp_internal(error: impl std::fmt::Display) -> acp::Error {
 }
 
 /// Wall-clock UTC ms for ACP `_meta.agentTimestampMs` / stream anchors.
-fn utc_now_ms() -> i64 {
+pub(crate) fn utc_now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)

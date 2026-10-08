@@ -1234,9 +1234,8 @@ pub(crate) async fn run(
     };
     app.external_agent = external_agent;
     if let crate::acp::UiProfile::External(profile) = &ui_profile {
-        app.settings_registry = std::sync::Arc::new(
-            crate::settings::SettingsRegistry::defaults_with_host_features(&profile.host_features),
-        );
+        let registry = crate::settings::SettingsRegistry::defaults_with_host_features(&profile.host_features);
+        app.settings_registry = std::sync::Arc::new(if profile.agent_name == "Pi Durable" { registry.for_durable() } else { registry });
         app.external_ui.host_palette = profile.host_features.palette().to_vec();
     }
     crate::app::set_external_agent_active(external_agent);

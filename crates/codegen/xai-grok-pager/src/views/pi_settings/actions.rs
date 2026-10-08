@@ -58,6 +58,7 @@ pub(super) fn action_for_bool(key: SettingKey, new: bool) -> Option<Action> {
             enabled: new,
         },
         "pi_bash" => Action::SetPiBash(new),
+        "pi_durable" => Action::SetPiDurable(new),
         "psm_resume_index" => Action::SetPsmResumeIndex(new),
         "pi_tree_file_rollback" => Action::SetPiTreeFileRollback(new),
         "pi_tree_skip_summary_prompt" => Action::SetPiTreeSkipSummaryPrompt(new),

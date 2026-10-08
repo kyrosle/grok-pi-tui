@@ -14,6 +14,8 @@ mod bash_extension;
 mod btw_extension;
 #[path = "grok_pi/cli.rs"]
 mod cli;
+#[path = "grok_pi/durable_host.rs"]
+mod durable_host;
 #[path = "grok_pi/config_skill.rs"]
 mod config_skill;
 #[path = "grok_pi/context_extension.rs"]
@@ -261,6 +263,11 @@ fn main() -> Result<()> {
         }
     }
     if args.print_capabilities {
+        let config = xai_grok_config::load_effective_config_disk_only().ok();
+        if runtime_config::durable_enabled(args.durable || args.durable_background, args.no_durable, config.as_ref())? {
+            println!("{}", durable_host::CAPABILITIES);
+            return Ok(());
+        }
         println!(
             "{}",
             include_str!("../../../pi-grok-adapter/docs/capabilities.json")
@@ -330,6 +337,14 @@ async fn run(mut args: Args) -> Result<()> {
         Some(path) => std::path::absolute(path).context("failed to resolve --pi-cwd")?,
         None => std::env::current_dir().context("failed to read current directory")?,
     };
+
+    let runtime_config = xai_grok_config::load_effective_config_disk_only().ok();
+    if runtime_config::durable_enabled(args.durable || args.durable_background, args.no_durable, runtime_config.as_ref())? {
+        return durable_host::run(args, cwd).await;
+    }
+    if args.session.as_deref().is_some_and(|id| id.starts_with("durable:")) {
+        anyhow::bail!("Durable sessions must be opened with --durable");
+    }
 
     // Discover Pi theme JSON (embedded dark/light + ~/.pi/agent/themes + .pi/themes)
     // so `/theme` can list and apply them as `pi:<name>`.

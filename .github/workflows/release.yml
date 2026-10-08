@@ -51,6 +51,7 @@ jobs:
           CARGO_PROFILE_RELEASE_DIST_LTO: "off"
           CARGO_PROFILE_RELEASE_DIST_DEBUG: "0"
         run: |
+          (cd runtime/pi-durable-host && npm ci --ignore-scripts --no-audit --no-fund && npm run build)
           ./scripts/cargo-shared.sh build --locked --profile release-dist \
             -p xai-grok-pager-bin --bin grok-pi \
             --no-default-features --features release-dist,jemalloc,sandbox-enforce

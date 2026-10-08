@@ -30,6 +30,9 @@ def package(binary, archive):
         target = stage / "grok-pi"
         shutil.copy2(binary, target)
         libdir = stage / "lib/grok-pi"
+        durable = Path(__file__).resolve().parent.parent / "runtime/pi-durable-host/dist"
+        if durable.is_dir():
+            shutil.copytree(durable, libdir / "durable", symlinks=True)
         # Copy the dependency closure before changing any install names.
         pending = [binary.resolve()]
         libraries = {}
@@ -67,7 +70,7 @@ def package(binary, archive):
         archive.parent.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive, "w:gz") as tar:
             tar.add(target, arcname="grok-pi")
-            if libraries:
+            if libdir.is_dir():
                 tar.add(stage / "lib", arcname="lib")
         print(f"Packaged {archive}: {len(libraries)} relocated dylibs")
 

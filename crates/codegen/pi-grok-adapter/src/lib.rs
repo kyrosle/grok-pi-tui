@@ -9,6 +9,7 @@ mod background_bash_bridge;
 mod btw_bridge;
 mod cache_metrics;
 mod context_projection;
+pub mod durable;
 mod goal_host;
 mod loop_host;
 mod model;

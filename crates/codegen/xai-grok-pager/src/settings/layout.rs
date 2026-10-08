@@ -101,6 +101,7 @@ pub fn section_for(key: SettingKey) -> &'static str {
         | "pi_builtin_tools.ls"
         | "pi_builtin_tools.codemode" => "Built-in tools",
         "pi_bash"
+        | "pi_durable"
         | "pi_cache_graph"
         | "pi_config_skill"
         | "pi_config"

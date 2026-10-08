@@ -2327,6 +2327,18 @@ pub(in crate::app::dispatch) fn set_pi_builtin_tool(
 }
 
 /// Persist the optional PSM SQLite catalog setting.
+pub(in crate::app::dispatch) fn set_pi_durable(app: &mut AppView, enabled: bool) -> Vec<Effect> {
+    let previous = app.current_ui.pi_durable;
+    if previous == enabled { return vec![]; }
+    app.current_ui.pi_durable = enabled;
+    refresh_open_settings_modals(app);
+    vec![Effect::PersistSetting {
+        key: "pi_durable",
+        value: crate::settings::SettingValue::Bool(enabled),
+        rollback_value: crate::settings::SettingValue::Bool(previous),
+    }]
+}
+
 pub(in crate::app::dispatch) fn set_pi_bash(app: &mut AppView, enabled: bool) -> Vec<Effect> {
     let previous = app.current_ui.pi_bash;
     if previous == enabled {

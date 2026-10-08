@@ -896,9 +896,12 @@ fn print_external_exit_resume_hint(
 }
 
 fn format_external_resume_command(session_id: &str, session_dir: Option<&str>) -> String {
+    if session_id.starts_with("durable:") {
+        return format!("grok-pi --durable --session {session_id}");
+    }
     match session_dir.map(str::trim).filter(|d| !d.is_empty()) {
-        Some(dir) => format!("grok-pi --session-dir {dir} --session {session_id}"),
-        None => format!("grok-pi --session {session_id}"),
+        Some(dir) => format!("grok-pi --no-durable --session-dir {dir} --session {session_id}"),
+        None => format!("grok-pi --no-durable --session {session_id}"),
     }
 }
 
@@ -2648,7 +2651,7 @@ mod tests {
     fn format_external_resume_command_session_only() {
         assert_eq!(
             format_external_resume_command("019f88c-full-uuid", None),
-            "grok-pi --session 019f88c-full-uuid"
+            "grok-pi --no-durable --session 019f88c-full-uuid"
         );
     }
 
@@ -2656,7 +2659,7 @@ mod tests {
     fn format_external_resume_command_with_session_dir() {
         assert_eq!(
             format_external_resume_command("abc123", Some("~/pi-sessions")),
-            "grok-pi --session-dir ~/pi-sessions --session abc123"
+            "grok-pi --no-durable --session-dir ~/pi-sessions --session abc123"
         );
     }
 
@@ -2666,7 +2669,7 @@ mod tests {
         print_external_exit_resume_hint("019f88c", None, &mut buf);
         assert_eq!(
             String::from_utf8(buf).unwrap(),
-            "\x1b[2mTo resume this session:\x1b[0m grok-pi --session 019f88c\n"
+            "\x1b[2mTo resume this session:\x1b[0m grok-pi --no-durable --session 019f88c\n"
         );
     }
 

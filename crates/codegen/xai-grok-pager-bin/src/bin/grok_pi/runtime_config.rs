@@ -1,5 +1,33 @@
 use super::{bash_extension, tools_extension::should_inject_tools_extension};
 
+pub(super) fn durable_enabled(cli_on: bool, cli_off: bool, config: Option<&toml::Value>) -> anyhow::Result<bool> {
+    if cli_on { return Ok(true); }
+    if cli_off { return Ok(false); }
+    match config.and_then(|root| root.get("ui")).and_then(|ui| ui.get("pi_durable")) {
+        None => Ok(false),
+        Some(toml::Value::Boolean(value)) => Ok(*value),
+        Some(_) => anyhow::bail!("[ui].pi_durable must be true or false"),
+    }
+}
+
+#[cfg(test)]
+mod durable_tests {
+    use super::durable_enabled;
+    use clap::Parser;
+    use crate::cli::Args;
+    #[test]
+    fn durable_preference_and_cli_overrides() {
+        let on: toml::Value = toml::from_str("[ui]\npi_durable=true").unwrap();
+        assert!(!durable_enabled(false, false, None).unwrap());
+        assert!(durable_enabled(false, false, Some(&on)).unwrap());
+        assert!(!durable_enabled(false, true, Some(&on)).unwrap());
+        assert!(durable_enabled(true, false, None).unwrap());
+        let invalid: toml::Value = toml::from_str("[ui]\npi_durable='yes'").unwrap();
+        assert!(durable_enabled(false, false, Some(&invalid)).is_err());
+        assert!(Args::try_parse_from(["grok-pi", "--durable", "--no-durable"]).is_err());
+    }
+}
+
 /// Best-effort host terminal size for Remote TUI viewport (Pi child has no TTY).
 pub(super) fn host_terminal_size() -> Option<(u16, u16)> {
     #[cfg(unix)]

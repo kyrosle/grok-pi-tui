@@ -35,8 +35,11 @@ Examples:
   grok-pi --no-builtin-tools -e ./my-extension.ts
 
 Notes:
-  TUI is Grok Pager; agent core is Pi (always `--mode rpc`).
+  TUI is Grok Pager; default core is Pi RPC (`--mode rpc`); optional Durable uses the official SDK.
   Runtime /model and /resume use native Grok surfaces, not Pi's TUI pickers.
+  F2 Durable mode is saved for next start (default off).
+  --durable / --no-durable override F2 for this run; --durable-background keeps an explicit Unix owner.
+  Durable has its own SQLite sessions; ordinary extensions, MCP, Codemode and images are not adapted yet.
   Stock Grok `--resume` is not exposed: use Welcome, /resume, or `--session <uuid>`.
   On quit, prints: To resume this session: grok-pi --session <uuid>
 
@@ -78,6 +81,18 @@ pub(super) struct Args {
     /// Pi executable. By default, use the repository-bundled Pi CLI when present.
     #[arg(long, default_value = "pi")]
     pub(super) pi_bin: String,
+
+    /// Use the official Pi Durable backend for this run (overrides F2).
+    #[arg(long, conflicts_with = "no_durable")]
+    pub(super) durable: bool,
+
+    /// Use Pi RPC for this run (overrides F2).
+    #[arg(long, conflicts_with = "durable")]
+    pub(super) no_durable: bool,
+
+    /// Explicit local Durable owner: keep work running when the UI closes (Unix).
+    #[arg(long, conflicts_with = "no_durable")]
+    pub(super) durable_background: bool,
 
     /// Argument inserted before `--mode rpc` (repeatable).
     #[arg(long = "pi-prefix-arg")]

@@ -94,7 +94,7 @@ use super::settings::setters::{
     set_group_tool_verbs, set_host_feature_bool, set_hunk_tracker_mode, set_invert_scroll,
     set_keep_text_selection, set_max_thoughts_width, set_model_slot, set_multiline_mode,
     set_page_flip_on_send, set_pi_ask_user_question_notifications, set_pi_at_search_hidden,
-    set_pi_bash, set_pi_bash_command_format, set_pi_bash_run_display, set_pi_builtin_tool,
+    set_pi_durable, set_pi_bash, set_pi_bash_command_format, set_pi_bash_run_display, set_pi_builtin_tool,
     set_pi_cache_graph, set_pi_config_skill, set_pi_keep_multi_agent, set_pi_tree_file_rollback,
     set_pi_tree_skip_summary_prompt, set_pi_user_markdown, set_progress_bar, set_prompt_cursor,
     set_prompt_suggestions, set_psm_resume_index, set_recap_mermaid, set_recap_model,
@@ -1459,6 +1459,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
         Action::SetRemoteTuiFooter(v) => set_remote_tui_footer(app, v),
         Action::SetPiBuiltinTool { tool, enabled } => set_pi_builtin_tool(app, tool, enabled),
         Action::SetPiBash(enabled) => set_pi_bash(app, enabled),
+        Action::SetPiDurable(enabled) => set_pi_durable(app, enabled),
         Action::SetSettingsLanguage(language) => {
             super::settings::setters::set_settings_language(app, language)
         }

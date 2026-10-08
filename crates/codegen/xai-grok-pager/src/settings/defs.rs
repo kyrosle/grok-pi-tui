@@ -1929,6 +1929,18 @@ pub fn default_settings() -> Vec<SettingMeta> {
             external_only: false,
         },
         SettingMeta {
+            key: "pi_durable",
+            category: SettingCategory::Agent,
+            owner: SettingOwner::Shell,
+            label: "Durable mode (experimental)",
+            description: "Use the official Pi Durable backend with persistent tasks and recovery on next start. Off keeps Pi RPC. Existing sessions stay in their original backend.",
+            keywords: &["pi", "durable", "runtime", "recovery"],
+            kind: SettingKind::Bool { default: ui_default.pi_durable },
+            restart_required: true,
+            hidden_in_minimal: false,
+            external_only: true,
+        },
+        SettingMeta {
             key: "pi_bash",
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,

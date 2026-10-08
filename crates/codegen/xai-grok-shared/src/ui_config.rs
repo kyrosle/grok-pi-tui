@@ -22,6 +22,9 @@ pub struct UiConfig {
     /// Default on; takes effect for new grok-pi sessions only.
     #[serde(default = "default_true")]
     pub pi_bash: bool,
+    /// Select the official Durable backend for the next grok-pi start.
+    #[serde(default)]
+    pub pi_durable: bool,
     /// Format Bash commands and historical tool source for display in detail/popup views.
     /// Display-only; executed inputs remain unchanged.
     /// Default off; F2 can enable without restart.
@@ -480,6 +483,7 @@ impl Default for UiConfig {
             max_thoughts_width: DEFAULT_MAX_THOUGHTS_WIDTH,
             pi_builtin_tools: PiBuiltinTools::default(),
             pi_bash: true,
+            pi_durable: false,
             pi_bash_command_format: false,
             write_edit_hover_popups: true,
             psm_resume_index: false,

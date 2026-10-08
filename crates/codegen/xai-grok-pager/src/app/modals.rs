@@ -3024,6 +3024,7 @@ impl AgentView {
                     "model" | "m" if !args_query.is_empty() => "Pick reasoning effort",
                     "model" | "m" => "Pick model",
                     "theme" | "t" => "Pick theme",
+                    "durable-task" => "Durable tasks",
                     _ => "Pick option",
                 };
                 // Model list rows show the model name and provider. Metadata for
