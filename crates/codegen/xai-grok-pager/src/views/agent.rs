@@ -1178,6 +1178,9 @@ pub fn build_hints(
     selected_is_agent_message: bool,
     shift_enter_unavailable: bool,
     scrollback_search: Option<&ScrollbackSearchState>,
+    // Selected scrollback entry is collapsed and carries tool traces: ← then
+    // opens the tool-trace modal (the Collapse router branch) instead of folding.
+    selected_has_trace: bool,
 ) -> Vec<HintItem> {
     let mut hints = match active_pane {
         ActivePane::Todo => {
@@ -1400,6 +1403,11 @@ pub fn build_hints(
             {
                 hints.push(HintItem::new(key, "open"));
             }
+            if selected_has_trace
+                && let Some(key) = registry.key_for_mode(ActionId::Collapse, vim_mode)
+            {
+                hints.push(HintItem::new(key, "trace"));
+            }
             if vim_mode
                 && let (Some(j), Some(k)) = (
                     registry.key_for(ActionId::SelectNext),
@@ -1533,6 +1541,7 @@ mod tests {
             selected_is_agent_message,
             false,
             None,
+            false,
         )
     }
     fn first_two_labels(hints: &[HintItem]) -> Vec<&str> {
@@ -1717,12 +1726,66 @@ mod tests {
             false,
             false,
             None,
+            false,
         );
         let hint = hints
             .iter()
             .find(|hint| hint.label == "send to bg")
             .expect("running Execute should advertise demotion");
         assert_eq!(hint.keys, vec![crate::key!('b', CONTROL)]);
+    }
+    #[test]
+    fn collapsed_trace_entry_advertises_trace_hint_on_collapse_key() {
+        let registry = ActionRegistry::defaults();
+        let args = |vim_mode: bool, has_trace: bool| -> Vec<HintItem> {
+            build_hints(
+                ActivePane::Scrollback,
+                prompt_focus_hint(),
+                &PromptWidget::default(),
+                &registry,
+                false,
+                Some("expand"),
+                None,
+                "prompt",
+                "expand thinking",
+                false,
+                false,
+                None,
+                false,
+                false,
+                false,
+                false,
+                vim_mode,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                None,
+                has_trace,
+            )
+        };
+        let non_vim = args(false, true);
+        let hint = non_vim
+            .iter()
+            .find(|hint| hint.label == "trace")
+            .expect("collapsed trace-bearing entry should advertise the trace hint");
+        // Non-vim mode swaps the letter default for the arrow alt key.
+        assert_eq!(hint.keys, vec![crate::key!(Left)]);
+        let vim = args(true, true);
+        let hint = vim
+            .iter()
+            .find(|hint| hint.label == "trace")
+            .expect("vim mode should advertise the trace hint too");
+        assert_eq!(hint.keys, vec![crate::key!('h')]);
+        assert!(
+            args(false, false)
+                .iter()
+                .all(|hint| hint.label != "trace"),
+            "entries without traces must not advertise the trace hint"
+        );
     }
     #[test]
     fn group_header_shows_enter_toggle_hint_instead_of_open_and_fold() {
@@ -1753,6 +1816,7 @@ mod tests {
             false,
             false,
             None,
+            false,
         );
         let labels: Vec<&str> = hints.iter().map(|h| h.label.as_ref()).collect();
         assert!(
@@ -1919,6 +1983,7 @@ mod tests {
             false,
             false,
             Some(&search),
+            false,
         )
     }
     #[test]
@@ -2024,6 +2089,7 @@ mod tests {
             false,
             false,
             None,
+            false,
         );
         assert!(
             !hints.iter().any(|h| h.label == "home"),
@@ -2070,6 +2136,7 @@ mod tests {
             false,
             shift_enter_unavailable,
             None,
+            false,
         )
     }
     #[test]
@@ -2131,6 +2198,7 @@ mod tests {
                 false,
                 false,
                 None,
+                false,
             );
             let labels: Vec<&str> = hints.iter().map(|h| h.label.as_ref()).collect();
             assert!(
@@ -2176,6 +2244,7 @@ mod tests {
                 false,
                 false,
                 None,
+                false,
             );
             let cancel = hints
                 .iter()
@@ -2227,6 +2296,7 @@ mod tests {
             false,
             false,
             Some(&search),
+            false,
         );
         let esc_cancels: Vec<&HintItem> = hints
             .iter()
@@ -2278,6 +2348,7 @@ mod tests {
             false,
             false,
             None,
+            false,
         );
         let esc_rows: Vec<&HintItem> = hints
             .iter()

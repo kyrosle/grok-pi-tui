@@ -177,6 +177,84 @@ fn tool_trace_preserves_acp_input_output_usage_and_timing() {
 }
 
 #[test]
+fn replayed_codemode_completion_durations_use_agent_stamp_delta() {
+    let mut sb = ScrollbackState::new();
+    let mut tracker = AcpUpdateTracker::new();
+
+    let start = acp::SessionUpdate::ToolCall(
+        acp::ToolCall::new(acp::ToolCallId::new(Arc::from("cm-1")), "codemode")
+            .kind(acp::ToolKind::Other)
+            .status(acp::ToolCallStatus::InProgress)
+            .raw_input(Some(serde_json::json!({
+                "variant": "Codemode",
+                "code": "return 1;"
+            }))),
+    );
+    // Replayed start: the real wall time rides in `agentTimestampMs`.
+    let start_meta = NotificationMeta {
+        agent_timestamp_ms: Some(1_000),
+        is_replay: true,
+        ..Default::default()
+    };
+    assert!(tracker.handle_update(start, &start_meta, &mut sb));
+
+    let completed = acp::SessionUpdate::ToolCallUpdate(acp::ToolCallUpdate::new(
+        acp::ToolCallId::new(Arc::from("cm-1")),
+        acp::ToolCallUpdateFields::new()
+            .status(Some(acp::ToolCallStatus::Completed))
+            .raw_output(Some(serde_json::json!({
+                "type": "Codemode",
+                "calls": [
+                    { "id": "c/1", "name": "ffind", "args": "{}", "status": "ok", "durationMs": 12.942792000001646 }
+                ],
+                "output": "done",
+                "full_output_path": ""
+            }))),
+    ));
+    let end_meta = NotificationMeta {
+        agent_timestamp_ms: Some(1_000 + 5_684),
+        is_replay: true,
+        ..Default::default()
+    };
+    assert!(tracker.handle_update(completed, &end_meta, &mut sb));
+
+    let entry = sb.get(0).expect("codemode entry");
+    let RenderBlock::ToolCall(ToolCallBlock::Codemode(cm)) = &entry.block else {
+        panic!("expected a codemode block, got {:?}", entry.block);
+    };
+    // The local Instant spans only the replay batching latency; the header
+    // duration must come from the agent-stamped start/end delta instead.
+    assert_eq!(cm.elapsed_ms, Some(5_684));
+    // Pi reports fractional `performance.now()` deltas; an integer-only parse
+    // would drop the row duration entirely.
+    assert_eq!(cm.calls[0].duration_ms, Some(13));
+}
+
+#[test]
+fn official_execution_duration_wins_for_completed_or_live_or_replayed_cards() {
+    for replay in [false, true] {
+        let call = acp::ToolCall::new("timed", "codemode")
+            .kind(acp::ToolKind::Other).status(acp::ToolCallStatus::Completed)
+            .raw_input(serde_json::json!({"variant":"Codemode","code":"return 1"}))
+            .raw_output(serde_json::json!({"type":"Codemode","durationMs":41,"output":"done"}));
+        let RenderBlock::ToolCall(ToolCallBlock::Codemode(block)) = tool_call_to_block(&call, None) else { panic!("Codemode"); };
+        assert_eq!(block.elapsed_ms, Some(41));
+        let mut sb = ScrollbackState::new(); let mut tracker = AcpUpdateTracker::new();
+        let start = acp::ToolCall::new("timed", "codemode")
+            .kind(acp::ToolKind::Other).status(acp::ToolCallStatus::InProgress)
+            .raw_input(serde_json::json!({"variant":"Codemode","code":"return 1"}));
+        tracker.handle_update(acp::SessionUpdate::ToolCall(start), &NotificationMeta { is_replay:replay, agent_timestamp_ms:Some(1000), ..Default::default() }, &mut sb);
+        let completion = acp::ToolCallUpdate::new("timed", acp::ToolCallUpdateFields::new()
+            .status(acp::ToolCallStatus::Completed).raw_output(call.raw_output));
+        tracker.handle_update(acp::SessionUpdate::ToolCallUpdate(completion), &NotificationMeta {is_replay:replay, agent_timestamp_ms:Some(6000), ..Default::default()}, &mut sb);
+        let RenderBlock::ToolCall(ToolCallBlock::Codemode(block)) = &sb.get(0).unwrap().block else { panic!("Codemode"); };
+        assert_eq!(block.elapsed_ms, Some(41));
+    }
+    assert_eq!(replay_elapsed_ms(Some(i64::MIN),Some(i64::MAX)), None);
+    assert_eq!(replay_elapsed_ms(Some(2),Some(1)), None);
+}
+
+#[test]
 fn streaming_agent_message() {
     let mut sb = ScrollbackState::new();
     let mut tracker = AcpUpdateTracker::new();

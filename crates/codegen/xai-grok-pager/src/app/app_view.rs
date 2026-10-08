@@ -7190,6 +7190,18 @@ impl AppView {
                 (None, None, None, false, None, false)
             };
         let any_agent_has_perms = self.agents.values().any(|a| !a.permission_queue.is_empty());
+        if self.external_agent {
+            use crate::terminal::program_status::State;
+            let state = if has_perms { State::Permission }
+                else if self.active_agent().is_some_and(|agent| agent.question_view.is_some()) || self.external_ui.remote_tui_id.is_some() {
+                    if self.notification_service.awaiting_auth() { State::Auth } else { State::Question }
+                }
+                else if is_busy { State::Working }
+                else { self.notification_service.idle_program_status() };
+            if let Some(esc) = self.notification_service.program_status(state) {
+                self.pending_notification_escapes.get_or_insert_with(String::new).push_str(esc);
+            }
+        }
         if !any_agent_has_perms {
             self.notification_service.clear_permission_notification();
         }

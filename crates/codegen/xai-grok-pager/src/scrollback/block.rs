@@ -944,6 +944,7 @@ impl RenderBlock {
             | RenderBlock::ToolCall(ToolCallBlock::UseTool(_))
             | RenderBlock::ToolCall(ToolCallBlock::Other(_))
             | RenderBlock::ToolCall(ToolCallBlock::Skill(_))
+            | RenderBlock::ToolCall(ToolCallBlock::Codemode(_))
             | RenderBlock::ToolCall(ToolCallBlock::Eval(_))
             | RenderBlock::BgTask(_) => true,
             RenderBlock::ToolCall(ToolCallBlock::Read(b)) => b.has_content(),

@@ -279,10 +279,12 @@ pub(super) fn dispatch_open_block_viewer(app: &mut AppView) {
             return;
         };
 
-        // Block has images/media but the terminal can't render pixels: toast and bail
+        // A text viewer is useful even when its block also contains images.
+        // Only a media-only fallback requires a terminal graphics protocol.
         let has_media =
             !entry.block.image_references().is_empty() || entry.block.inline_media().is_some();
-        if has_media && !crate::terminal::image::detect_graphics_protocol().supports_images() {
+        if has_media && !entry.block.has_normal_fullscreen_viewer()
+            && !crate::terminal::image::detect_graphics_protocol().supports_images() {
             agent.guard_image_support();
             return;
         }
@@ -313,6 +315,9 @@ pub(super) fn dispatch_open_block_viewer(app: &mut AppView) {
             }
             RenderBlock::ToolCall(ToolCallBlock::Eval(_)) => {
                 BlockViewerPane::for_eval(entry.id, entry)
+            }
+            RenderBlock::ToolCall(ToolCallBlock::Codemode(_)) => {
+                BlockViewerPane::for_codemode(entry.id, entry)
             }
             RenderBlock::ToolCall(ToolCallBlock::Edit(_)) => {
                 BlockViewerPane::for_edit(entry.id, entry)

@@ -62,6 +62,8 @@ impl PiAgent {
         }
         match event_type {
             "agent_start" => {
+                self.state.borrow_mut().last_response_error = false;
+                self.send_ext_notification("pi/ui/program_status", json!({"sessionId":self.session_id().0.as_ref(),"state":"working"})).await;
                 let now = utc_now_ms();
                 let claimed_parked = {
                     let mut state = self.state.borrow_mut();
@@ -103,6 +105,8 @@ impl PiAgent {
             "agent_settled" => {
                 let aborted = cancelling || event.get("aborted").and_then(Value::as_bool) == Some(true);
                 let stop_reason = if aborted { acp::StopReason::Cancelled } else { acp::StopReason::EndTurn };
+                let status = if aborted { "idle" } else if self.state.borrow().last_response_error { "error" } else { "done" };
+                self.send_ext_notification("pi/ui/program_status", json!({"sessionId":self.session_id().0.as_ref(),"state":status})).await;
                 self.refresh_context_usage().await;
                 let (mode_update, running) = {
                     let mut state = self.state.borrow_mut();
@@ -367,6 +371,7 @@ impl PiAgent {
         let Some(message) = event.get("message") else {
             return;
         };
+        self.state.borrow_mut().last_response_error = message.get("stopReason").and_then(Value::as_str) == Some("error");
         self.publish_model_route(Some(message)).await;
         // Prefer the assistant message's own usage for a low-latency bar update;
         // agent_settled still revalidates via get_session_stats.

@@ -55,6 +55,24 @@ pub(super) fn make_session(session_id: Option<&str>) -> AgentSession {
 pub(super) fn make_agent(session_id: Option<&str>) -> AgentView {
     AgentView::new(make_session(session_id), ScrollbackState::new())
 }
+
+#[test]
+fn program_status_projection_rejects_foreign_sessions_and_retains_provider_error() {
+    let mut app = make_app_with_agent("session-A");
+    app.external_agent = true;
+    let status = |session: &str, state: &str| acp::ExtNotification::new("pi/ui/program_status",
+        serde_json::value::to_raw_value(&serde_json::json!({"sessionId":session,"state":state})).unwrap().into());
+    assert!(handle_pi_program_status(&status("session-A", "error"), &mut app));
+    assert!(app.notification_service.program_status_error);
+    assert!(!handle_pi_program_status(&status("session-B", "working"), &mut app));
+    assert!(app.notification_service.program_status_error);
+    assert!(!handle_pi_program_status(&status("session-A", "unrecognized"), &mut app));
+    assert!(handle_pi_program_status(&status("session-A", "working"), &mut app));
+    assert!(!app.notification_service.program_status_error);
+    assert_eq!(durable_task_time(&serde_json::json!({})), "");
+    let elapsed = durable_task_time(&serde_json::json!({"startedAt":1000,"endedAt":6000}));
+    assert!(elapsed.contains("elapsed") && elapsed.contains("includes waits"));
+}
 pub(super) fn permission_req_with_raw_input(
     raw_input: Option<serde_json::Value>,
 ) -> acp::RequestPermissionRequest {

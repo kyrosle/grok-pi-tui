@@ -1650,6 +1650,17 @@ pub(super) fn handle_prompt_response(
             }
         }
 
+        // Title/progress completion above replaces stale escapes. Queue the
+        // final program status afterwards so that replacement cannot erase it.
+        if app.external_agent {
+            use crate::terminal::program_status::State;
+            let state = if was_cancelling { State::Idle }
+                else if result.is_err() || app.notification_service.program_status_error { State::Error }
+                else { State::Done };
+            if let Some(esc) = app.notification_service.program_status(state) {
+                app.pending_notification_escapes.get_or_insert_with(String::new).push_str(esc);
+            }
+        }
         if let Err(ref err) = result {
             tracing::error!(agent = ?agent_id, error = %err, "Prompt failed");
         }

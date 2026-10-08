@@ -67,6 +67,7 @@ pub(super) fn emit_terminal_teardown_sequences(mode: ScreenMode, inline_cursor_r
     // This path runs from signal/panic handlers that cannot access NotificationService
     xai_grok_shared::stderr::with_locked_stderr(|stderr| {
         let _ = stderr.write_all(crate::notifications::progress::OSC_CLEAR.as_bytes());
+        if crate::terminal::program_status::supported() { let _ = stderr.write_all(crate::terminal::program_status::CLEAR.as_bytes()); }
         let _ = stderr.flush();
     });
 

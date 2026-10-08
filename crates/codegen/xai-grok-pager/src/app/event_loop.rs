@@ -1969,6 +1969,7 @@ pub(crate) async fn run(
     // Fire-and-forget XTVERSION query
     // Must sit immediately before the input reader thread is spawned so no earlier stdin consumer eats the reply
     // DA2 shares that constraint but runs earlier, in `init_terminal`, so its version is resolved when the startup telemetry above is emitted
+    if external_agent { crate::terminal::program_status::probe_at_startup(); }
     crate::terminal::xtversion::probe_at_startup();
 
     // Read terminal events on a dedicated thread and forward them over an mpsc channel

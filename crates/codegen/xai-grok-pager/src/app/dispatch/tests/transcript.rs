@@ -249,7 +249,7 @@ fn open_block_viewer_prefers_markdown_viewer_over_image_refs() {
         )));
     agent.scrollback.set_selected(Some(0));
 
-    // Without a graphics protocol the top-level media guard returns early before the block viewer is reached
+    // Inline graphics must not be required to read the surrounding text.
     let _guard = set_protocol_for_test(GraphicsProtocol::Kitty);
     let effects = dispatch(Action::OpenBlockViewer, &mut app);
 
@@ -498,12 +498,11 @@ fn open_block_viewer_opens_image_only_blocks_natively() {
     std::fs::write(&image_path, make_test_png(20, 10)).unwrap();
 
     let agent = app.agents.get_mut(&id).unwrap();
-    agent
-        .scrollback
-        .push_block(RenderBlock::ToolCall(ToolCallBlock::Other(
-            crate::scrollback::blocks::OtherToolCallBlock::new("image_tool", "saved image")
-                .with_output(format!("Saved image: {}", image_path.display())),
-        )));
+    let mut read = crate::scrollback::blocks::tool::ReadToolCallBlock::new(image_path.display().to_string());
+    read.image_ref = Some(crate::prompt_images::ScrollbackImageRef {
+        path: image_path, dimensions: Some((20, 10)), alt_text: "image".into(),
+    });
+    agent.scrollback.push_block(RenderBlock::ToolCall(ToolCallBlock::Read(read)));
     agent.scrollback.set_selected(Some(0));
 
     let entry = agent.scrollback.entry(0).unwrap();
@@ -629,7 +628,7 @@ fn plugins_list_delivery_seeds_once_then_always_preserves() {
 }
 
 #[test]
-fn open_block_viewer_skips_image_viewer_when_no_graphics() {
+fn open_block_viewer_keeps_text_when_no_graphics() {
     use crate::terminal::image::{GraphicsProtocol, set_protocol_for_test};
 
     let mut app = test_app_with_agent();
@@ -648,15 +647,32 @@ fn open_block_viewer_skips_image_viewer_when_no_graphics() {
     agent.scrollback.set_selected(Some(0));
 
     // The terminal has no inline-image protocol (e.g. Windows ConPTY).
-    // The dispatch refuses to open the image-viewer modal and shows a toast instead
+    // The text viewer remains useful; a pixel-only viewer must not open.
     let _guard = set_protocol_for_test(GraphicsProtocol::None);
     let effects = dispatch(Action::OpenBlockViewer, &mut app);
 
     assert!(effects.is_empty());
     let agent = app.agents.get(&id).unwrap();
-    assert!(agent.block_viewer.is_none());
+    assert!(agent.block_viewer.is_some());
     assert!(
         agent.image_viewer.is_none(),
         "image_viewer modal should not open on terminals without a graphics protocol"
     );
+}
+
+#[test]
+fn codemode_text_viewer_with_images_opens_without_terminal_graphics() {
+    use crate::terminal::image::{GraphicsProtocol, set_protocol_for_test};
+    let mut app = test_app_with_agent();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("output.png");
+    std::fs::write(&path, make_test_png(20, 10)).unwrap();
+    let mut block = crate::scrollback::blocks::tool::CodemodeToolCallBlock::new("text('done'); image(...)").with_output("done");
+    block.images.push(crate::prompt_images::ScrollbackImageRef { path, dimensions:Some((20,10)), alt_text:"output".into() });
+    let agent = app.agents.get_mut(&AgentId(0)).unwrap();
+    agent.scrollback.push_block(RenderBlock::ToolCall(ToolCallBlock::Codemode(block)));
+    agent.scrollback.set_selected(Some(0));
+    let _guard = set_protocol_for_test(GraphicsProtocol::None);
+    dispatch(Action::OpenBlockViewer, &mut app);
+    assert!(app.agents.get(&AgentId(0)).unwrap().block_viewer.is_some());
 }

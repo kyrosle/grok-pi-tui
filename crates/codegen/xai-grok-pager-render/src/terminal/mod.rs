@@ -16,6 +16,7 @@ pub mod keyboard;
 pub mod kitty_keyboard;
 pub mod overlay;
 pub mod pop_fence;
+pub mod program_status;
 pub(crate) mod probe;
 pub mod term_version;
 pub mod tmux;

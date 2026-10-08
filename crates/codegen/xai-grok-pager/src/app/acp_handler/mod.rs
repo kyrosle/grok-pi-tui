@@ -655,6 +655,7 @@ fn handle_ext_notification(notif: &acp::ExtNotification, app: &mut AppView) -> b
         "pi/ui/compaction_summary" => handle_pi_ui_compaction_summary(notif, app),
         "pi/ui/btw_history" => handle_pi_ui_btw_history(notif, app),
         "pi/ui/status" => handle_pi_ui_status(notif, app),
+        "pi/ui/program_status" => handle_pi_program_status(notif, app),
         "pi/ui/widget" => handle_pi_ui_widget(notif, app),
         "pi/ui/title" => handle_pi_ui_title(notif, app),
         "pi/ui/reset_extension_ui" => handle_pi_ui_reset_extension_ui(app),
@@ -1031,6 +1032,34 @@ fn handle_pi_ui_plan_file(notif: &acp::ExtNotification, app: &mut AppView) -> bo
     true
 }
 
+fn handle_pi_program_status(notif: &acp::ExtNotification, app: &mut AppView) -> bool {
+    use crate::terminal::program_status::State;
+    if !app.external_agent { return false; }
+    let Some(params) = pi_ui_params(notif) else { return false; };
+    if let Some(id) = app.active_agent().and_then(|agent| agent.session.session_id.as_ref())
+        && Some(id.0.as_ref()) != params["sessionId"].as_str() { return false; }
+    let state = match params["state"].as_str() {
+        Some("working") => State::Working, Some("idle") => State::Idle,
+        Some("done") => State::Done, Some("error") => State::Error,
+        Some("auth") => State::Auth, _ => return false,
+    };
+    if matches!(state, State::Working | State::Idle | State::Done | State::Error) {
+        app.notification_service.program_status_error = state == State::Error;
+    }
+    if let Some(escape) = app.notification_service.program_status(state) {
+        app.pending_notification_escapes.get_or_insert_with(String::new).push_str(escape);
+    }
+    true
+}
+
+fn durable_task_time(task: &serde_json::Value) -> String {
+    let Some(start) = task["startedAt"].as_i64() else { return String::new(); };
+    if let Some(elapsed) = task["endedAt"].as_i64().and_then(|end| end.checked_sub(start)).filter(|ms| *ms >= 0) {
+        return format!(" · elapsed {} (includes waits)", crate::util::format_duration(std::time::Duration::from_millis(elapsed as u64)));
+    }
+    chrono::DateTime::from_timestamp_millis(start).map(|time| format!(" · started {}", time.with_timezone(&chrono::Local).format("%H:%M:%S"))).unwrap_or_default()
+}
+
 fn handle_durable_tasks(notif: &acp::ExtNotification, app: &mut AppView) -> bool {
     use crate::views::modal::{ActiveModal, ArgPickerSelection};
     let Some(params) = pi_ui_params(notif) else { return false; };
@@ -1044,7 +1073,7 @@ fn handle_durable_tasks(notif: &acp::ExtNotification, app: &mut AppView) -> bool
     let mut items = rows.into_iter().map(|(id, task)| crate::slash::command::ArgItem {
         display: format!("#{id} {}", task["kind"].as_str().unwrap_or("task")),
         match_text: format!("{id} {task}"), insert_text: id.to_string(),
-        description: format!("{} · conversation {} · owner {} · waits {}", task["state"]["status"].as_str().unwrap_or("pending"), task["conversationId"], task["owner"], task["state"]["on"]),
+        description: format!("{} · conversation {} · owner {} · waits {}{}", task["state"]["status"].as_str().unwrap_or("pending"), task["conversationId"], task["owner"], task["state"]["on"], durable_task_time(task)),
     }).collect::<Vec<_>>();
     if items.is_empty() { items.push(crate::slash::command::ArgItem { display: "No live Durable tasks".into(), match_text: "idle".into(), insert_text: String::new(), description: "Completed work remains in the Durable store.".into() }); }
     if let Some(ActiveModal::ArgPicker { command, items: visible, original_items, state, .. }) = &mut agent.active_modal

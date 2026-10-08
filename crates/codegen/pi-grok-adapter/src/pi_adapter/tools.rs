@@ -771,6 +771,9 @@ impl PiAgent {
                             event["piAuthScope"] = json!(scope);
                             receiver
                         });
+                if cancellation.is_some() {
+                    self.send_ext_notification("pi/ui/program_status", json!({"sessionId":self.session_id().0.as_ref(),"state":"auth"})).await;
+                }
                 let agent = self.clone();
                 tokio::task::spawn_local(async move {
                     if let Err(error) = agent
@@ -940,6 +943,7 @@ impl PiAgent {
         };
         if let Some(scope) = string(&event, &["piAuthScope"]) {
             self.state.borrow_mut().auth_dialog_cancels.remove(scope);
+            self.send_ext_notification("pi/ui/program_status", json!({"sessionId":self.session_id().0.as_ref(),"state":"idle"})).await;
         }
         let Some(response) = response? else {
             self.send_ext_notification(

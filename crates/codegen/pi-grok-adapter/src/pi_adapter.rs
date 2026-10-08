@@ -220,6 +220,8 @@ struct AdapterState {
     /// notifications). Mirrors stock Grok shell so the pager can pre-create
     /// Thinking… and drive turn timers / breathing animation.
     turn_start_ms: Option<i64>,
+    /// Projection-only final assistant status; retries may replace an error.
+    last_response_error: bool,
     /// UTC ms when the current LLM stream segment began (`streamStartMs`).
     /// Bumped on each assistant `message_start` / `turn_start` so stream
     /// boundaries match Grok shell semantics.
@@ -366,6 +368,7 @@ impl PiAgent {
                 tool_usage: HashMap::new(),
                 last_context_tokens: None,
                 turn_start_ms: None,
+                last_response_error: false,
                 stream_start_ms: None,
                 live_prompt_id: None,
                 bash_stream_output: HashMap::new(),

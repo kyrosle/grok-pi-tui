@@ -384,6 +384,11 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
     send(`\x1b[<0;${col};${row + 1}M\x1b[<0;${col};${row + 1}m\x1b[C`);
     final = await wait(text => text.includes("NATIVE_CODEMODE_OUTPUT"), "native expanded Codemode output");
     if (!final.includes("[Open Image]")) throw new Error("native image open affordance missing\n" + final);
+    send("\r");
+    const viewer = await wait(text => text.includes("NATIVE_CODEMODE_OUTPUT") && /Esc.*close/.test(text), "native fullscreen Codemode viewer");
+    writeFileSync(join(artifacts, "codemode-fullscreen.txt"), viewer);
+    send("\x1b");
+    await wait(text => !/Esc.*close/.test(text), "native Codemode viewer close");
    } else if ((final.match(/fixture_note/g) ?? []).length !== 1) throw new Error("native nested card missing/duplicated\n" + final);
    if (mode === "minimal") {
     for (const cols of [64, 120]) {

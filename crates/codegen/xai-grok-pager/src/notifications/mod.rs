@@ -45,6 +45,8 @@ pub struct NotificationService {
     permission_notified: bool,
     /// Out-of-band escape queue for notification/shutdown escapes; see [`EscapeWriter`](crate::render::draw::EscapeWriter).
     escape_writer: EscapeWriter,
+    program_status: Option<crate::terminal::program_status::State>,
+    pub(crate) program_status_error: bool,
 }
 
 impl NotificationService {
@@ -68,11 +70,28 @@ impl NotificationService {
             progress_last_sent: None,
             permission_notified: false,
             escape_writer,
+            program_status: None,
+            program_status_error: false,
         }
     }
 
     pub fn config(&self) -> &NotificationConfig {
         &self.config
+    }
+
+    pub(crate) fn program_status(&mut self, state: crate::terminal::program_status::State) -> Option<&'static str> {
+        if !crate::terminal::program_status::supported() || self.program_status == Some(state) { return None; }
+        self.program_status = Some(state);
+        Some(state.escape())
+    }
+
+    pub(crate) fn awaiting_auth(&self) -> bool { self.program_status == Some(crate::terminal::program_status::State::Auth) }
+
+    /// Idle ticks preserve a just-reported result. Working/dialog states end
+    /// at idle when the corresponding native surface no longer needs input.
+    pub(crate) fn idle_program_status(&self) -> crate::terminal::program_status::State {
+        use crate::terminal::program_status::State;
+        match self.program_status { Some(State::Done) => State::Done, Some(State::Error) => State::Error, _ => State::Idle }
     }
 
     /// Live-update the auto session-recap toggle (F2 settings).
@@ -196,6 +215,7 @@ impl NotificationService {
     /// after any still-queued busy-title escape.
     pub fn shutdown(&mut self) {
         let mut buf = self.title_manager.reset();
+        if let Some(esc) = self.program_status(crate::terminal::program_status::State::Clear) { buf.push_str(esc); }
         self.clear_progress_into(&mut buf);
         self.escape_writer.emit(buf);
     }
@@ -256,6 +276,8 @@ impl NotificationService {
             progress_last_sent: None,
             permission_notified: false,
             escape_writer: EscapeWriter::disconnected(),
+            program_status: None,
+            program_status_error: false,
         }
     }
 }
