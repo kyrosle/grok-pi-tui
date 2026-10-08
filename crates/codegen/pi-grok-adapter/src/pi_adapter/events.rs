@@ -101,6 +101,8 @@ impl PiAgent {
                 }
             }
             "agent_settled" => {
+                let aborted = cancelling || event.get("aborted").and_then(Value::as_bool) == Some(true);
+                let stop_reason = if aborted { acp::StopReason::Cancelled } else { acp::StopReason::EndTurn };
                 self.refresh_context_usage().await;
                 let (mode_update, running) = {
                     let mut state = self.state.borrow_mut();
@@ -131,16 +133,20 @@ impl PiAgent {
                     .await;
                 }
                 self.rebroadcast_queue_mirror().await;
-                self.finish_prompts(acp::StopReason::EndTurn);
+                self.finish_prompts(stop_reason.clone());
                 if let Some(entry) = running
                     && entry.origin != QueueOrigin::Client
                 {
-                    self.send_server_prompt_complete(&entry, acp::StopReason::EndTurn)
+                    self.send_server_prompt_complete(&entry, stop_reason)
                         .await;
                 }
-                let dispatched = self.dispatch_next_queued().await;
-                if !dispatched {
-                    self.maybe_continue_goal().await;
+                // Pi/extension-side aborts must also leave continuations stopped.
+                // Retain local queued work for the user's next explicit action.
+                if !aborted {
+                    let dispatched = self.dispatch_next_queued().await;
+                    if !dispatched {
+                        self.maybe_continue_goal().await;
+                    }
                 }
             }
             // `agent_end` is not the Pi idle barrier. Retry, compaction and

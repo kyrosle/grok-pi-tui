@@ -569,6 +569,7 @@ mod tests {
             cost_output: None,
             cost_cache_read: None,
             cost_cache_write: None,
+            cost_tiers: Vec::new(),
             thinking_levels: vec!["off".into()],
             thinking_level_efforts: std::collections::HashMap::from([(
                 "off".into(),

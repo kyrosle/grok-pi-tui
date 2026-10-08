@@ -77,7 +77,7 @@ const {
   createDemoSelector,
   applyDemoCapabilities,
 } = await import("./index.ts");
-const { dispatchComponentInput, installCustomPatch } = await import("./host.ts");
+const { dispatchComponentInput, installCustomPatch, projectComponentLine } = await import("./host.ts");
 const testDirectory = mkdtempSync(join(tmpdir(), "remote-tui-host-tests-"));
 const previousMetaPath = process.env.PI_GROK_REMOTE_TUI_META;
 beforeAll(() => { process.env.PI_GROK_REMOTE_TUI_META = join(testDirectory, "active.json"); });
@@ -470,6 +470,17 @@ test("custom host keeps Pi custom inline by default", async () => {
   }
 });
 
+test("new and legacy cursor cells keep one native highlight without Pi control markers", () => {
+  for (const [frame, expected] of [
+    ["\x1b_pi:c\x07\x1b_pi:fc\x07 \x1b_pi:/fc\x07", "\x1b[7m \x1b[27m"],
+    ["a\x1b_pi:c\x07\x1b_pi:fc\x07字\x1b_pi:/fc\x07", "a\x1b[7m字\x1b[27m"],
+    ["\x1b_pi:fc\x07x\x1b_pi:/fc\x07after", "\x1b[7mx\x1b[27mafter"],
+    ["before\x1b_pi:c\x07\x1b[7m \x1b[27mafter", "before\x1b[7m \x1b[27mafter"],
+  ]) {
+    expect(projectComponentLine(frame!)).toBe(expected!);
+  }
+});
+
 test("custom host removes Pi hardware cursor markers from projected frames", async () => {
   const previous = process.env.PI_GROK_REMOTE_TUI;
   process.env.PI_GROK_REMOTE_TUI = "1";
@@ -496,7 +507,7 @@ test("custom host removes Pi hardware cursor markers from projected frames", asy
     sessionStart?.({}, { ui });
     void ui.custom((_tui, _theme, _kb, _done) => ({
       invalidate() {},
-      render: () => ["before\x1b_pi:c\x07\x1b[7m \x1b[27mafter"],
+      render: () => ["before\x1b_pi:c\x07\x1b_pi:fc\x07 \x1b_pi:/fc\x07after"],
       handleInput() {},
     }));
     await new Promise((resolve) => setImmediate(resolve));
@@ -504,6 +515,8 @@ test("custom host removes Pi hardware cursor markers from projected frames", asy
 
     expect(frame).toBeDefined();
     expect(frame?.join("\n")).not.toContain("pi:c");
+    expect(frame?.join("\n")).not.toContain("pi:fc");
+    expect(frame).toEqual(["before\x1b[7m \x1b[27mafter"]);
   } finally {
     if (previous === undefined) delete process.env.PI_GROK_REMOTE_TUI;
     else process.env.PI_GROK_REMOTE_TUI = previous;

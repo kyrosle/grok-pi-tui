@@ -38,6 +38,7 @@ export type ModelRuntimeLike = {
 			prompt: (prompt: AuthPrompt) => Promise<string>;
 			notify: (event: AuthNotify) => void;
 		},
+		options?: { agentName?: string },
 	) => Promise<unknown>;
 	logout: (providerId: string) => Promise<void>;
 	getAvailable?: () => Promise<unknown> | unknown;

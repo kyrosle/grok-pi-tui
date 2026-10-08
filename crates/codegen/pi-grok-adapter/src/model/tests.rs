@@ -706,7 +706,8 @@ fn parse_model_keeps_provider_and_api_separate_with_cost() {
         "maxTokens": 64000,
         "reasoning": true,
         "input": ["text", "image"],
-        "cost": { "input": 1.0, "output": 5.0, "cacheRead": 0.1, "cacheWrite": 1.25 }
+        "cost": { "input": 1.0, "output": 5.0, "cacheRead": 0.1, "cacheWrite": 1.25,
+          "tiers": [{"inputTokensAbove":100000,"input":5.0,"output":25.0,"cacheRead":0.5}] }
     }))
     .expect("model");
     assert_eq!(model.provider, "anthropic");
@@ -723,6 +724,8 @@ fn parse_model_keeps_provider_and_api_separate_with_cost() {
     assert_eq!(model.cost_output, Some(5.0));
     assert_eq!(model.cost_cache_read, Some(0.1));
     assert_eq!(model.cost_cache_write, Some(1.25));
+    assert_eq!(model.cost_tiers[0]["inputTokensAbove"], 100000);
+    assert_eq!(model.cost_tiers[0]["cacheRead"], 0.5);
 }
 
 #[test]

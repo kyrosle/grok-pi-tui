@@ -15,8 +15,9 @@ test("native login handles provider method selection and copy code without custo
  const runtime = {
   getProviders: () => ["anthropic", "other"].map(id => ({ id, name: id === "anthropic" ? "Anthropic" : "Other", auth: { oauth: { login() {} } } })),
   getProviderAuthStatus: () => ({ configured: false }),
-  async login(provider: string, method: string, interaction: any) {
+  async login(provider: string, method: string, interaction: any, options: any) {
    expect(provider).toBe("anthropic"); expect(method).toBe("oauth");
+   expect(options).toEqual({ agentName: "grok-pi" });
    expect(await interaction.prompt({ type: "select", message: "Method", options: [{ id: "copy", label: "Copy code" }] })).toBe("copy");
    expect(await interaction.prompt({ type: "manual_code", message: "Paste code" })).toBe("fixture-code");
   },

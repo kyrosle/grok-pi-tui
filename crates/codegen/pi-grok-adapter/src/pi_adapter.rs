@@ -492,6 +492,7 @@ pub(crate) fn build_model_catalog(
             || model.cost_output.is_some()
             || model.cost_cache_read.is_some()
             || model.cost_cache_write.is_some()
+            || !model.cost_tiers.is_empty()
         {
             let mut cost = serde_json::Map::new();
             if let Some(v) = model.cost_input {
@@ -505,6 +506,9 @@ pub(crate) fn build_model_catalog(
             }
             if let Some(v) = model.cost_cache_write {
                 cost.insert("cacheWrite".into(), json!(v));
+            }
+            if !model.cost_tiers.is_empty() {
+                cost.insert("tiers".into(), json!(model.cost_tiers));
             }
             meta.insert("cost".into(), Value::Object(cost));
         }
@@ -616,18 +620,26 @@ fn format_input_short(input: &[String], accepts_images: bool) -> String {
 fn format_cost_short(model: &PiModel) -> Option<String> {
     let input = model.cost_input.unwrap_or(0.0);
     let output = model.cost_output.unwrap_or(0.0);
-    if input == 0.0 && output == 0.0 {
+    if input == 0.0 && output == 0.0 && model.cost_tiers.is_empty() {
         // Only claim free when cost fields were present.
         if model.cost_input.is_some() || model.cost_output.is_some() {
             return Some("free".into());
         }
         return None;
     }
-    Some(format!(
+    let mut label = format!(
         "${} / ${}",
         format_cost_num(input),
         format_cost_num(output)
-    ))
+    );
+    for tier in &model.cost_tiers {
+        if let Some(above) = tier.get("inputTokensAbove").and_then(Value::as_u64) {
+            label.push_str(&format!("; >{} in ${} / ${}", format_token_count(above),
+                format_cost_num(tier.get("input").and_then(Value::as_f64).unwrap_or(input)),
+                format_cost_num(tier.get("output").and_then(Value::as_f64).unwrap_or(output))));
+        }
+    }
+    Some(label)
 }
 
 fn format_cost_num(value: f64) -> String {

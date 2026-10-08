@@ -35,7 +35,7 @@ export function registerLoginCommand(pi: ExtensionAPI): void {
       else if (event.type === "device_code") ctx.ui.notify(`${event.verificationUri ?? ""}\nCode: ${event.userCode ?? ""}`, "info");
       else if (event.type === "info" || event.type === "progress") ctx.ui.notify(event.message, "info");
      },
-    });
+    }, { agentName: "grok-pi" });
     await ctx.modelRegistry.refresh();
     ctx.ui.notify(`Logged in to ${provider.name}`, "info");
    } catch (error) {

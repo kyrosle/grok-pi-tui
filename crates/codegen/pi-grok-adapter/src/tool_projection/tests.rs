@@ -1,6 +1,20 @@
 use super::*;
 
 #[test]
+fn official_duration_survives_live_and_replay_typed_projection() {
+    let result = json!({"content":[{"type":"text","text":"done"}],"durationMs":12.94});
+    for name in ["codemode", "bash", "read", "ls"] {
+        let raw = normalize_tool_raw_output(name, Some(&json!({"command":"true","path":"."})), &result, false);
+        assert_eq!(raw["durationMs"], 13, "{name}");
+        let live = with_tool_duration(raw, &json!({"durationMs":17}));
+        assert_eq!(live["durationMs"], 17);
+    }
+    for invalid in [json!(-1), json!("NaN"), json!(1e30), Value::Null] {
+        assert!(with_tool_duration(json!({}), &json!({"durationMs":invalid})).get("durationMs").is_none());
+    }
+}
+
+#[test]
 fn pi_read_maps_to_native_read_card() {
     assert_eq!(tool_kind("read"), acp::ToolKind::Read);
     assert_eq!(tool_kind("use_skill"), acp::ToolKind::Other);

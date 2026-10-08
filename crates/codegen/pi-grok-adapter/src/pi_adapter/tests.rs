@@ -167,6 +167,7 @@ fn model_catalog_includes_provider_and_detail_description() {
         cost_output: Some(5.0),
         cost_cache_read: Some(0.1),
         cost_cache_write: Some(1.25),
+        cost_tiers: vec![json!({"inputTokensAbove":100_000,"input":5.0,"output":25.0,"cacheRead":0.5,"cacheWrite":6.25})],
         thinking_levels: vec!["off".into(), "low".into(), "medium".into(), "high".into()],
         thinking_level_efforts: std::collections::HashMap::from([
             ("off".into(), "none".into()),
@@ -191,7 +192,9 @@ fn model_catalog_includes_provider_and_detail_description() {
     assert!(description.contains("in txt+img"), "{description}");
     assert!(description.contains("⚡"), "{description}");
     assert!(description.contains("$1 / $5"), "{description}");
+    assert!(description.contains(">100k in $5 / $25"), "{description}");
     let meta = info.meta.as_ref().expect("meta");
+    assert_eq!(meta["cost"]["tiers"][0]["cacheWrite"], 6.25);
     assert_eq!(
         meta.get("provider").and_then(|v| v.as_str()),
         Some("anthropic")

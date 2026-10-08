@@ -435,16 +435,13 @@ pub(crate) fn normalize_tool_raw_output(
     result: &Value,
     is_error: bool,
 ) -> Value {
-    if name.eq_ignore_ascii_case("eval") {
-        return result.clone();
-    }
-    if name.eq_ignore_ascii_case("codemode") {
-        return codemode_tool_output(result);
-    }
-    if is_ls_tool(name) {
-        return ls_tool_output(args, result, is_error);
-    }
-    match tool_kind(name) {
+    let output = if name.eq_ignore_ascii_case("eval") {
+        result.clone()
+    } else if name.eq_ignore_ascii_case("codemode") {
+        codemode_tool_output(result)
+    } else if is_ls_tool(name) {
+        ls_tool_output(args, result, is_error)
+    } else { match tool_kind(name) {
         acp::ToolKind::Read => read_tool_output(args, result, is_error),
         acp::ToolKind::Execute => {
             let command = args
@@ -467,7 +464,21 @@ pub(crate) fn normalize_tool_raw_output(
             }
         }
         _ => result.clone(),
+    }};
+    with_tool_duration(output, result)
+}
+
+/// Preserve Pi's measured execution duration through typed card projection.
+/// Replay retains it in the tool-result envelope; live Pi reports it on the
+/// enclosing tool_execution_end event.
+pub(crate) fn with_tool_duration(mut output: Value, source: &Value) -> Value {
+    if let Some(ms) = source.get("durationMs").and_then(Value::as_f64)
+        .filter(|ms| ms.is_finite() && *ms >= 0.0 && *ms < i64::MAX as f64)
+        && let Some(fields) = output.as_object_mut()
+    {
+        fields.insert("durationMs".into(), json!(ms.round() as i64));
     }
+    output
 }
 
 /// Project Pi `codemode` results into the canonical `Codemode` raw output the

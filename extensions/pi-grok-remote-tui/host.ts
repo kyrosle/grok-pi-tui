@@ -29,6 +29,16 @@ let active: ActiveHost | null = null;
 const patchedUIs = new WeakSet<object>();
 export const HOST_MARK = "__piGrokRemoteTuiHost";
 
+/** Pi's renderFakeCursor wire markers are resolved by TuiBase, which this host
+ * bypasses. Preserve its drawn cursor through the existing native SGR mapper.
+ * Accept older components that already emit SGR too. */
+export function projectComponentLine(line: string): string {
+  return line
+    .replaceAll("\x1b_pi:fc\x07", "\x1b[7m")
+    .replaceAll("\x1b_pi:/fc\x07", "\x1b[27m")
+    .replaceAll(CURSOR_MARKER, "");
+}
+
 type PatchableUi = RemoteTuiDemoUi & {
   custom: ((...args: unknown[]) => unknown) & { [HOST_MARK]?: boolean };
   [HOST_MARK]?: boolean;
@@ -135,7 +145,7 @@ export function installCustomPatch(ui: PatchableUi): void {
           // projected frame itself, so forwarding it leaks its `pi:c` payload.
           const lines = component
             .render(frameWidth)
-            .map((line) => String(line).replaceAll(CURSOR_MARKER, ""));
+            .map((line) => projectComponentLine(String(line)));
           ui.setWidget(WIDGET_KEY, lines, { placement: "aboveEditor" });
         } catch (error) {
           if (closed) return;

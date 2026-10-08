@@ -140,6 +140,20 @@ fn csv_contains(csv: &str, name: &str) -> bool {
         .any(|candidate| candidate == name)
 }
 
+/// Check only host admission. Pi still resolves its configured default tools.
+/// An all-modifier list leaves unnamed defaults alone; the last named modifier
+/// wins, matching Pi's applyToolModifiers. Invalid mixed lists fail in Pi.
+fn tool_selection_allows(csv: &str, name: &str, default: bool) -> bool {
+    let entries: Vec<_> = csv.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    if !entries.is_empty() && entries.iter().all(|s| s.starts_with(['+', '-'])) {
+        entries.iter().rev().find_map(|entry| {
+            (entry.get(1..) == Some(name)).then(|| entry.starts_with('+'))
+        }).unwrap_or(default)
+    } else {
+        csv_contains(csv, name)
+    }
+}
+
 /// Whether a tool name is allowed by Pi's final CLI tool policy. This is used
 /// for grok-pi-owned same-name bridges (notably enhanced Bash) so their host
 /// control plane cannot remain enabled after Pi has excluded the tool itself.
@@ -152,10 +166,13 @@ pub(super) fn tool_name_allowed_by_cli(args: &[String], name: &str) -> bool {
     {
         return false;
     }
-    if let Some(allowed) = explicit_tools(args) {
-        return csv_contains(&allowed, name);
+    if excluded_tools(args).is_some_and(|excluded| csv_contains(&excluded, name)) {
+        return false;
     }
-    !excluded_tools(args).is_some_and(|excluded| csv_contains(&excluded, name))
+    if let Some(allowed) = explicit_tools(args) {
+        return tool_selection_allows(&allowed, name, true);
+    }
+    true
 }
 
 /// Whether the F2 tools extension should be injected at all.
@@ -229,15 +246,38 @@ pub(super) fn merge_tool_exclusions(args: &mut Vec<String>, additional: &str) ->
 /// A user-supplied `--exclude-tools codemode` still wins: Pi drops the name
 /// from the registry after the extension registers it.
 pub(super) fn codemode_requested(args: &[String], selected: Option<&str>) -> bool {
+    if !tool_name_allowed_by_cli(args, "codemode") {
+        return false;
+    }
     if selected.is_some_and(|names| csv_contains(names, "codemode")) {
         return true;
     }
-    explicit_tools(args).is_some_and(|allowed| csv_contains(&allowed, "codemode"))
+    explicit_tools(args).is_some_and(|allowed| tool_selection_allows(&allowed, "codemode", false))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signed_tool_selection_preserves_defaults_and_honors_denials() {
+        for (tools, bash, codemode) in [
+            ("+codemode", true, true),
+            ("-bash", false, false),
+            ("+codemode,-bash", false, true),
+            ("-codemode,+codemode", true, true),
+            ("+codemode,-codemode", true, false),
+            ("read,codemode", false, true),
+        ] {
+            let args = vec!["--tools".into(), tools.into()];
+            assert_eq!(tool_name_allowed_by_cli(&args, "bash"), bash, "{tools}");
+            assert_eq!(codemode_requested(&args, None), codemode, "{tools}");
+            assert!(!should_inject_tools_extension(&args));
+        }
+        for deny in ["--no-tools", "--exclude-tools=codemode"] {
+            assert!(!codemode_requested(&["--tools=+codemode".into(), deny.into()], None));
+        }
+    }
 
     #[test]
     fn codemode_extension_only_loads_when_requested() {

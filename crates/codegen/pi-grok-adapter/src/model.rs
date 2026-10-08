@@ -769,6 +769,8 @@ pub struct PiModel {
     pub cost_output: Option<f64>,
     pub cost_cache_read: Option<f64>,
     pub cost_cache_write: Option<f64>,
+    /// Official request-wide pricing tiers, kept opaque for ACP consumers.
+    pub cost_tiers: Vec<Value>,
     /// Pi-level tokens accepted by `set_thinking_level` for this model. This is
     /// derived with the same rules as Pi's `getSupportedThinkingLevels()`:
     /// standard levels default to enabled, `null` disables a level, and the
@@ -1177,6 +1179,9 @@ pub fn parse_model(value: &Value) -> Option<PiModel> {
     let cost_cache_write = cost
         .and_then(|c| c.get("cacheWrite").or_else(|| c.get("cache_write")))
         .and_then(Value::as_f64);
+    let cost_tiers = cost.and_then(|c| c.get("tiers")).and_then(Value::as_array)
+        .map(|tiers| tiers.iter().filter(|tier| tier.get("inputTokensAbove").and_then(Value::as_u64).is_some()).cloned().collect())
+        .unwrap_or_default();
     let (thinking_levels, thinking_level_efforts) = supported_thinking_levels(value, reasoning);
     Some(PiModel {
         provider: provider.to_string(),
@@ -1193,6 +1198,7 @@ pub fn parse_model(value: &Value) -> Option<PiModel> {
         cost_output,
         cost_cache_read,
         cost_cache_write,
+        cost_tiers,
         thinking_levels,
         thinking_level_efforts,
     })

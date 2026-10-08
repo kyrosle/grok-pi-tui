@@ -505,7 +505,9 @@ impl PiAgent {
                 .or_else(|| self.state.borrow_mut().tool_args.remove(id)),
         );
         self.state.borrow_mut().bash_stream_output.remove(id);
-        let raw_output = normalize_tool_raw_output(name, args.as_ref(), &output, is_error);
+        let raw_output = crate::tool_projection::with_tool_duration(
+            normalize_tool_raw_output(name, args.as_ref(), &output, is_error), event,
+        );
         let mut fields = acp::ToolCallUpdateFields::new()
             .status(Some(status))
             .raw_output(Some(raw_output));

@@ -124,6 +124,29 @@ fn entry(id: &str, origin: QueueOrigin) -> QueueEntry {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn pi_side_aborted_settle_cancels_waiters_without_dispatching_a_successor() {
+    tokio::task::LocalSet::new().run_until(async {
+        let fixture = Fixture::new("0").await;
+        fixture.running(entry("A", QueueOrigin::Extension));
+        let (completion, mut waiter) = oneshot::channel();
+        {
+            let mut state = fixture.agent.state.borrow_mut();
+            state.active_prompts.push(ActivePrompt {
+                id: 1, client_prompt_id: Some("A".into()), completion,
+                agent_started: true, cancelled: false,
+            });
+            state.queue_mirror.reserve("B".into(), "execute-B".into(), "display-B".into(), vec![], QueueLane::FollowUp, QueueOrigin::Client);
+        }
+        fixture.agent.handle_event(json!({"type":"agent_settled","aborted":true})).await.unwrap();
+        assert_eq!(waiter.try_recv().unwrap().reason, acp::StopReason::Cancelled);
+        assert!(!fixture.agent.state.borrow().agent_running);
+        assert!(fixture.agent.state.borrow().queue_mirror.running().is_none());
+        assert_eq!(fixture.completions.borrow()[0]["stopReason"], "cancelled");
+        fixture.close().await;
+    }).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn handled_after_cancel_does_not_complete_the_server_entry_twice() {
     tokio::task::LocalSet::new()
         .run_until(async {
