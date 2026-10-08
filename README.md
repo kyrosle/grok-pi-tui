@@ -19,6 +19,8 @@ See the [verification report](docs/VERIFICATION.md) for current pending work.
 
 `grok-pi` connects Pi's agent runtime to Grok Pager. The external product surface excludes Grok voice/STT/TTS, account/billing, training/retention and stock agent/plugin/MCP controls. F2, the command palette and the Web host-settings catalog share that boundary. Provider authentication uses Pi's `/login` and `/logout`; no Grok account is required.
 
+**Development source:** the four-cut change below is not yet published. The downloadable v0.1.10 predates these removals; build this checkout to use the new behavior.
+
 ## Install (macOS Apple Silicon)
 
 **v0.1.10** ships a prebuilt **macOS 14 (Sonoma) or newer**, Apple Silicon (M1/M2/M3/M4 and later) binary. Rust, this source checkout and MacPorts are not required. Intel Mac, Linux and Windows binary releases are not provided yet.
@@ -46,6 +48,26 @@ curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/inst
 ```
 
 Download asset: [`grok-pi-macos-aarch64.tar.gz`](https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/grok-pi-macos-aarch64.tar.gz). Release assets also include SHA-256 checksums and the bundled libraries' licenses and source archives. Provider authentication uses Pi's `/login` after launch. Settings use `~/.grok-pi` and project `.grok-pi`; previous `~/.tpig` test settings are not automatically migrated.
+
+## Optional Durable mode (development source)
+
+F2 → Agent → **Durable mode (experimental)** saves `[ui].pi_durable` (default `false`) for the next start. The current session stays in its original backend. `pig --durable` / `pig --no-durable` override the saved choice for one run.
+
+```bash
+pig --durable
+pig --durable --continue
+pig --durable-background  # Unix: explicit owner continues when the UI closes
+```
+
+Durable uses the official Pi SDK 1.1.0 with isolated SQLite stores, committed transcript/tool updates, inboxes, task graphs (`/tasks`) and owned foreground subagents. Interrupted unsafe tools pause for inspection; `/durable-recover continue` or `/durable-recover abort` records the decision. The optional owner accepts one UI, supports reconnect, and stops after 30 seconds idle without a UI. Default UI-owned mode pauses work on exit and resumes after restart. Ordinary Pi plugins, Codemode, MCP, images, Plan/Goal/Loop and classic tree operations are not adapted in this experimental mode; Pi RPC keeps its existing behavior. Credentials are configured with ordinary Pi `/login` and shared by its public ModelRuntime.
+
+Build the optional host with `GROK_PI_BUILD_DURABLE=1 ./build.sh`; the macOS packaging workflow includes it with dependency licenses. Durable requires system Node.js 22.19+. The published v0.1.10 does not contain this mode. The local validated 2026-10-08 development build includes it. See [Durable SPEC](docs/issues/架构/20261007-pi-durable-integration-SPEC.md) and [PLAN](docs/issues/架构/20261007-pi-durable-integration-PLAN.md) for implementation and remaining compatibility work.
+
+## Pi 1.1 integration (development source)
+
+Pi 1.1 supports `pig --tools +codemode,-bash`; explicit CLI selection takes precedence over F2. Native Codemode cards open the fullscreen viewer, preserve measured execution times on resume, and advertise tool traces when available. Model details retain prompt-length pricing tiers; actual usage costs remain Pi-owned. Remote component cursors accept both current and next-version Pi markers.
+
+Supporting terminals receive native OSC 7501 status after feature detection. `PI_PROGRAM_STATUS=1` forces it and `PI_PROGRAM_STATUS=0` disables it. Reports contain only the program name and state. Durable SDK 1.1.0 can reopen known 1.0.4 stores through official SQLite APIs without rewriting their manifests; unknown SDK versions are refused. These source changes are not in the published v0.1.10. [Implementation and evidence](docs/issues/架构/20261008-reference-adaptation-PLAN.md).
 
 ## Start
 
@@ -81,7 +103,7 @@ Update channels are product-local and persisted in `~/.grok-pi/config.toml` unde
 | Terminal UI | Grok Pager input, slash completion, Markdown, tool cards, diffs, dialogs, and scrollback |
 | Product tutorial | `/tutorial` (aliases `/tour`, `/onboarding`) covers 18 areas: native Pager controls, Pi providers/models/tools/sessions, extensions/Skills/Packages and optional automation with explicit boundaries |
 | Remote TUI compatibility | Experimental host for supported Pi `ctx.ui.custom` interactions in Pager; enabled by default, with per-component compatibility limits |
-| Extended shell execution | Bundled Pi Bash/Eval extension for background tasks, output limits, timeouts and process-tree cleanup |
+| Extended shell execution | Bundled Pi Bash extension for background tasks, output limits, timeouts and process-tree cleanup |
 | Parallel work | Bundled Subagents extension using Pi child sessions, enabled by default; native task views and product-isolated agent definitions. Optional Subagents V2 adds stable `/root/...` agent paths, peer messaging, nested spawn and team presets under `.grok-pi/teams` / `~/.grok-pi/teams` |
 | Rhai workflows | Optional `xai-workflow` host using Pi workers, off by default (F2 **Pi workflows**); scripts under `~/.grok-pi/workflows` and `<repo>/.grok-pi/workflows`. This orchestration has not migrated to Pi core. |
 | Session workflow | Resume, tree navigation, labels, recap, context inspection, and session picker |
@@ -91,7 +113,7 @@ Update channels are product-local and persisted in `~/.grok-pi/config.toml` unde
 
 The earlier deep-adaptation checkpoint passed automatic build/verify and four native PTYs. One configured-default real SDK chat returned OK with unchanged credential/config bytes. These are historical results; current product-surface validation is recorded separately in [VERIFICATION](docs/VERIFICATION.md). Real-provider native UI, human OAuth, real image generation and target-terminal acceptance remain separate layers.
 
-Pi is the authority for provider/model behavior, authentication, tools, sessions, retry and compaction; Pager presents their controls and results. Todo, Plan, Goal, extended Bash/Eval and Subagents are grok-pi extensions or integrations, rather than Pi built-ins. Adapter queue interception, Plan/Goal state and optional Rhai orchestration remain ownership work tracked in the current PLAN; this UI cut does not report them as migrated.
+Pi is the authority for provider/model behavior, authentication, tools, sessions, retry and compaction; Pager presents their controls and results. Todo, Plan, Goal, extended Bash and Subagents are grok-pi extensions or integrations, rather than Pi built-ins. Adapter queue interception, Plan/Goal state and optional Rhai orchestration remain ownership work tracked in the current PLAN; this UI cut does not report them as migrated.
 
 Commands are organized by responsibility:
 
@@ -147,13 +169,12 @@ retain their modifiers; repeat and release events remain distinct.
 
 ## Configuration
 
-Bundled bridge extensions are enabled by default where stable. Experimental native commands are opt-in.
+Bundled bridge extensions are enabled by default where stable; the former experimental `/pi-*` duplicate selectors are retired.
 
 | Variable | Default | Purpose |
 |---|---:|---|
 | `PI_GROK_REMOTE_TUI` | `1` | Enable Pi `ctx.ui.custom` components |
 | `PI_GROK_BASH` | `1` | Enable the bundled Pi Bash integration |
-| `PI_GROK_NATIVE_COMMANDS` | `0` | Enable experimental `/pi-*` commands |
 | `PI_GROK_SUBAGENTS_V2` | `0` | Enable optional V2 team tools (`spawn_team`, stable agent paths, peer messaging, nested spawn) on top of Pi subagents |
 | `GROK_HOME` | `~/.grok-pi` | User state root (isolated from stock Grok `~/.grok`) |
 | `GROK_PROJECT_DIR` | `.grok-pi` | Project config/workflows/hooks dir name under repo root |
@@ -214,7 +235,7 @@ See [VERIFICATION.md](docs/VERIFICATION.md) for the distinction between static c
 ## Documentation
 
 - [Feature matrix](docs/FEATURE_MATRIX.md) — supported behavior and intentional boundaries
-- [Eval v2 / Pi Codemode / MCP plan](docs/issues/adapter/20260930-Eval%20v2%20学习%20Pi%20Codemode%20并复用%20MCP.md) — official nested execution, opt-in Pi MCP and runtime boundaries
+- [Four-cut SPEC and implementation](docs/issues/架构/20261007-pi-native-four-cuts-SPEC.md) — Pi Codemode owns code orchestration; custom Eval is retired
 - [Subagents V2 guide](docs/usage/subagents-v2.md) — opt-in team collaboration, stable paths, presets, queue semantics, rollback, and troubleshooting
 - [Architecture alignment](docs/NATIVE_GROK_TUI_ALIGNMENT.md) — component ownership, protocol mapping, and migration guidance
 - [Verification record](docs/VERIFICATION.md) — completed checks and known environment blockers
@@ -248,23 +269,6 @@ flowchart LR
 | **`/btw`** (`pi_btw`) | F2 → Agent → Pi /btw (restart); saved answers are viewable with `/btw-history` | off | `pi-btw`, `@narumitw/pi-btw`, `@juicesharp/rpiv-btw` |
 | **Markdown user messages** (`pi_user_markdown`) | F2 → Agent → Markdown user messages | on | — |
 
-Eval bridge generations are mutually exclusive and selected at process start. Eval v1 remains the default. Eval Bridge v2 can expose JavaScript, Python, or both:
+Pi Codemode is an opt-in F2 tool loading Pi's official `builtin:codemode` extension. Pi MCP loads the official MCP and tool-search extensions. Pi owns tool execution, validation, connections, OAuth and cancellation. Enhanced Bash retains its task management; Python computations can run through Bash.
 
-```toml
-[ui]
-pi_eval = "v2"
-pi_eval_v2_language = "all"       # "js" (default), "py", or "all"
-pi_eval_v2_display_mode = "effects" # "effects" (default) or "legacy"
-```
-
-Use `pi_eval = "v1"` (or omit the key) for legacy Eval. Eval v1 keeps persistent Python and JavaScript kernels; Eval Bridge v2 uses isolated cells with explicit `store/load` persistence and the selected language set. Because `pi_eval` is a single version selector, v1 and v2 cannot run concurrently. `pi_eval` and `pi_eval_v2_language` are restart-required.
-
-Pi Codemode is an opt-in F2 built-in tool loading Pi's official `builtin:codemode` extension. F2 **Pi MCP** (`pi_mcp`, default off) enables Pi 1.0's built-in MCP and retains Pi trust, resource allowlists, exposure and CLI exclusions. Normal Eval v2 calls use official `ctx.executeTool()`; `await tools.waitFor(pattern, timeout_ms)` observes the public callable registry while servers connect. Pi owns MCP connections, OAuth, registration and permissions. Eval-only hides other top-level declarations with `prepareLoadout.hiddenDeclarations` while keeping allowed tools callable. The separately enabled external Eval MCP facade has no assistant-issued tool context and retains its isolated compatibility path. See the [Pi-first verification](docs/VERIFICATION.md).
-
-`pi_eval_v2_display_mode` is presentation-only and applies immediately: `effects` keeps Eval v2 orchestration source out of the normal transcript and presents its effects/results, while `legacy` restores source + result rendering. Change it from **F2 → Agent → Eval v2 display**, edit `[ui].pi_eval_v2_display_mode`, or use `/eval-display [effects|legacy]`; `/eval-display` with no argument toggles the current mode. The selected mode is persisted for future sessions.
-
-Under `pi_eval_v2_only` the choice decides which card the top level gets: `effects` hides the `eval` card and renders only its nested tool effects, while `legacy` renders the source/result card itself (nested effects still project from the bridge entries). The adapter reads the same key so the live path and session replay agree; a restart-required `pi_eval` version change is unaffected.
-
-Turning Pi subagents off omits the bundled bridge, forces `PI_GROK_SUBAGENTS=0`, and admits conflicting third-party packages again for the next process.
-
-F2 descriptions for the opt-in rows append **When on, blocks: …** from the same table.
+The current development source removes the custom Eval v1/v2 runtime, Eval-only/MCP modes, `/eval-display`, duplicate experimental `/pi-*` selectors, second Rust TUI Bridge and startup Profiler. Legacy Eval session cards remain readable. See the [four-cut SPEC](docs/issues/架构/20261007-pi-native-four-cuts-SPEC.md) and [PLAN](docs/issues/架构/20261007-pi-native-four-cuts-PLAN.md).

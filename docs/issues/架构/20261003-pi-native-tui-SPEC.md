@@ -37,10 +37,12 @@ category: "architecture"
 │  pi --mode rpc（系统 Pi ≥ 1.0）                                                   │
 │    models / providers / auth / agent loop / tools / sessions / tree / compaction │
 │    + pi-grok-host-bridge 扩展（补齐 RPC 未暴露的官方 extension API）              │
-│    + 可选产品扩展（Bash/Eval、Subagents、Todo、Plan、Goal、Web config …）         │
+│    + 可选产品扩展（Bash、Subagents、Todo、Plan、Goal、Web config …）         │
 └──────────────────────────────────────────────────────────────────────────────────┘
 Grok Build（xai-org/grok-build）：只作参考仓库，逐提交审阅、按需移植 UI 改进
 ```
+
+用户 2026-10-07 明确增加可选Durable mode，细节见[深度接入SPEC草案](20261007-pi-durable-integration-SPEC.md)/[PLAN](20261007-pi-durable-integration-PLAN.md)。上图为持续保留的出厂默认Pi RPC模式；F2保存开启（下次启动生效）或CLI单次覆盖开启时，使用同一原生Pager/ACP接入官方Pi Durable Harness与隔离SQLite。未开启时不初始化Durable依赖、数据库或owner。两种会话各属原后端，不热切、不隐式迁移；下表及§3的RPC/SessionManager/`appendEntry`要求描述默认模式，新模式的官方任务/storage所有权及capability按子SPEC验收。可选后端已在开发源码实施，当前自动验收和兼容缺口见子PLAN，本增量不更改出厂默认模式或宣称总纲完成。
 
 终态可度量条件（全部满足才算完成）：
 
@@ -231,3 +233,7 @@ END-08 检查产品自有的静态文案；Pi 返回的 provider/model 名称、
 ## 11. 交付
 
 按 [PLAN](20261003-pi-native-tui-PLAN.md) 的 T0–T8 分阶段交付，每阶段：先在 PLAN 记录范围，实施，跑本阶段要求的验证，回写回执，本地提交。全部终态条件 END-01~09 满足后，本 SPEC 状态改为 `completed`，并更新 README、`docs/README.zh-CN.md`、`FEATURE_MATRIX`、`NATIVE_GROK_TUI_ALIGNMENT`、`VERIFICATION`。
+
+## 2026-10-07 授权增量
+
+按[四组裁撤 SPEC](20261007-pi-native-four-cuts-SPEC.md)/[PLAN](20261007-pi-native-four-cuts-PLAN.md)，退休自建 Eval runtime、实验 native-commands、第二套 rust-tui-bridge、startup profiler。此项先按用户指定顺序实施，不改变其他 T2–T8 的状态；当前正式 native commands、官方 Codemode、增强 Bash、唯一保留 Remote TUI 与历史会话呈现保留。

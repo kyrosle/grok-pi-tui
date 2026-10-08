@@ -31,7 +31,7 @@ The [Pi-first](docs/issues/架构/20261002-pi-first-tui-PLAN.md), [deep adaptati
 
 1. **Grok Pager is the only terminal UI.** All visible terminal surfaces must come from `xai-grok-pager` or native component crates.
 2. **Pi is the only agent core.** Pi owns models, providers, agent loop, tools, extensions, compaction, retries, and sessions.
-3. **`pi-grok-adapter` is headless and library-only.** It may translate JSONL RPC ↔ ACP, but must not render widgets, own a terminal, read keyboard events, or depend on Ratatui/Crossterm.
+3. **`pi-grok-adapter` is headless and library-only.** It may translate Pi RPC or the official-SDK Durable host JSONL ↔ ACP, but must not render widgets, own a terminal, read keyboard events, or depend on Ratatui/Crossterm.
 4. **Reuse native Grok surfaces.** Map Pi capabilities to existing Pager prompt, slash, QuestionView, toast, banner, tool card, diff, and scrollback surfaces. Do not create a second TUI or ASCII fallback UI.
 5. **Do not modify Pi source to extend RPC.** When a Pi core capability is not exposed over RPC, prefer the official extension API. Preserve Pi semantics rather than emulating them with JSONL edits or unrelated RPCs.
 6. **Product-isolated state trees.** grok-pi must not share stock Grok’s user or project config roots (see [Product state isolation](#product-state-isolation)).
@@ -87,6 +87,8 @@ Examples under a git repo:
 
 ## Session and tree rules
 
+- These JSONL/session-tree rules describe default Pi RPC. Opt-in Durable follows [its SPEC](docs/issues/架构/20261007-pi-durable-integration-SPEC.md): official Harness/SQLite, separate conversations and product-isolated stores, no implicit cross-backend conversion.
+
 - Pi owns session files, trees, and the active leaf.
 - `/resume` must use the native Grok `SessionPicker`; catalog scanning is on-demand, never startup work.
 - Respect Pi's default session root, `--session-dir`, `PI_CODING_AGENT_SESSION_DIR`, and `sessionFile`-derived custom directories.
@@ -137,7 +139,8 @@ only names a file (e.g. `index.ts`), never the real error. Follow this order:
    self-heal after the crash, so reproduce a clean copy before the directory
    disappears. Verify the bundle loads in isolation:
    `pi -ne --mode rpc --extension <bundle>/index.ts` (must exit 0).
-3. **Check injection completeness.** The Rust injector
+3. **Check injection completeness.** After the 2026-10-07 four-cut, the current Bash-only bundle consists of `index.ts`, `bash-tasks.ts`, `prompts.ts`, and `shared.ts`; the Eval module list below records the historical bootstrap regression.
+   The Rust injector
    (`bash_extension.rs` / `*_extension.rs`) must materialize **every** relative
    import of the TypeScript entry, and the transitive closure of those modules.
    Known regression: splitting the Bash extension into multiple modules

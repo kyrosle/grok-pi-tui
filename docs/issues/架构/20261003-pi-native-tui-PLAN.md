@@ -26,6 +26,10 @@ category: "architecture"
 
 ## 阶段总览
 
+用户 2026-10-07 要求设计 Pi Durable 深度接入，并明确采用“默认保持当前行为、Durable显式开启”的运行模式：[SPEC 草案](20261007-pi-durable-integration-SPEC.md) / [PLAN](20261007-pi-durable-integration-PLAN.md) / [官方源码核对](20261007-pi-durable-integration-SOURCE.md)。本子项已进入实验实现，自动验收和兼容缺口见子PLAN；拟通过F2持久设置（下次启动生效）或CLI单次覆盖选择官方Harness的headless后端，复用原生Pager。出厂默认Pi RPC持续保留，未开启时不初始化Durable。普通扩展、Codemode/MCP、会话及任务所有权按模式逐项验收；T3/T4/T6的经典模式工作保持，新模式见子PLAN。本项不安排出厂默认切换，也不改变下表阶段完成状态。
+
+用户 2026-10-07 授权优先落实[四组裁撤 SPEC](20261007-pi-native-four-cuts-SPEC.md)/[PLAN](20261007-pi-native-four-cuts-PLAN.md)，四组子项已完成（90 bin、205 adapter、9 native PTY；未发布）。native-commands 与第二套 rust-tui-bridge 已从该子项退出；T4 后续只整合仍必要的桥接。本子项不代表整个 T4/T6 完成。
+
 用户 2026-10-05 明确优先安排 T5 的设置交互增量：[设置功能命名与中英文 SPEC](20261005-settings-language-SPEC.md) / [PLAN](20261005-settings-language-PLAN.md)。该子项已完成（功能命名、配置页中英文、本机 tpig 交付）；不改变其他阶段的完成状态。
 
 | 阶段 | 目标 | 对应 SPEC | 依赖 | 状态 |

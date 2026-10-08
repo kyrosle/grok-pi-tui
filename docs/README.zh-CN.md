@@ -11,6 +11,8 @@
 
 `grok-pi` 将 Pi Agent Runtime 接入 Grok Pager。external 产品入口不提供 Grok voice/STT/TTS、账号/计费、训练/retention 或 stock agent/plugin/MCP 控制；F2、命令面板与 Web 宿主设置目录共用这一边界。Provider 鉴权使用 Pi `/login`、`/logout`，无需 Grok 账号。
 
+**开发源码说明：**本次四组裁撤尚未发布；可下载的 v0.1.10 仍是裁撤前版本。使用新行为需构建当前 checkout。
+
 ## 安装（macOS Apple Silicon）
 
 **v0.1.10** 提供 **macOS 14（Sonoma）及更高版本**的 Apple Silicon（M1/M2/M3/M4 及后续芯片）预编译包，无需 Rust、源码仓库或 MacPorts。Intel Mac、Linux 和 Windows 的二进制发布暂未提供。
@@ -38,6 +40,26 @@ curl -fsSL https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/inst
 ```
 
 下载包：[`grok-pi-macos-aarch64.tar.gz`](https://github.com/kyrosle/grok-pi-tui/releases/download/v0.1.10/grok-pi-macos-aarch64.tar.gz)。Release 同时提供 SHA-256 校验文件，以及随包动态库的许可证和源码归档。启动后通过 Pi `/login` 登录 Provider。设置使用 `~/.grok-pi` 和项目 `.grok-pi`；旧 `~/.tpig` 测试设置不自动迁移。
+
+## 可选 Durable 模式（开发源码）
+
+F2 → Agent → **Durable 模式（实验性）**保存 `[ui].pi_durable`，默认 `false`，下次启动生效，当前会话仍使用原后端。`pig --durable` / `pig --no-durable`可单次覆盖保存值。
+
+```bash
+pig --durable
+pig --durable --continue
+pig --durable-background  # Unix：显式后台 owner，关闭界面后继续执行
+```
+
+此模式使用官方 Pi SDK 1.1.0 与隔离 SQLite，支持已提交的消息/工具输出、队列、任务图（`/tasks`）、前台子任务和恢复。不安全工具中断后先暂停；检查副作用后，用 `/durable-recover continue` 或 `/durable-recover abort`作明确决策。后台 owner 一次接受一个界面，可重连；没有界面、任务已空闲30秒后退出。普通模式退出会暂停工作，下次打开恢复。
+
+普通Pi插件、Codemode、MCP、图片、Plan/Goal/Loop及经典树导航尚未适配到此实验模式，默认Pi RPC保持现有功能。鉴权复用公开ModelRuntime，先在普通Pi中 `/login`。用 `GROK_PI_BUILD_DURABLE=1 ./build.sh`构建随包host；macOS打包流程会携带依赖及许可，需要系统Node.js 22.19+。已发布v0.1.10尚不包含此模式；本机已验证的2026-10-08开发构建包含此模式。实现和兼容缺口见[Durable SPEC](issues/架构/20261007-pi-durable-integration-SPEC.md)与[PLAN](issues/架构/20261007-pi-durable-integration-PLAN.md)。
+
+## Pi 1.1 适配（开发源码）
+
+Pi 1.1 支持 `pig --tools +codemode,-bash`，显式 CLI 选择优先于 F2。原生 Codemode 卡片可回车打开全屏查看器，恢复后保留官方执行耗时；折叠工具条目有 trace 时显示快捷键。模型详情保留分档价格，实际费用仍由 Pi 计算。Remote TUI 兼容旧版和新版光标标记。
+
+支持的终端经探测后接收原生 OSC 7501 状态；`PI_PROGRAM_STATUS=1` 强制开启，`PI_PROGRAM_STATUS=0` 关闭。上报仅含应用名称和状态。Durable SDK 1.1.0 可通过官方 SQLite API 重开已知 1.0.4 会话，保持原 manifest；未知 SDK 版本拒绝打开。上述源码变更尚未发布到 v0.1.10。[实现与验证](issues/架构/20261008-reference-adaptation-PLAN.md)。
 
 ## 启动
 
@@ -73,7 +95,7 @@ grok-pi update --channel stable  # 切回 stable；默认即 stable
 | 终端 UI | Grok Pager 输入、斜杠补全、Markdown、工具卡片、diff、对话框和 scrollback |
 | 产品教程 | `/tutorial`（别名 `/tour`、`/onboarding`）展示 18 个能力域：Pager 原生控制、Pi Provider/模型/工具/会话、扩展/Skill/Package 与可选自动化，分别说明边界 |
 | Remote TUI 兼容 | 实验 host 在 Pager 中承载受支持的 Pi `ctx.ui.custom` 交互；默认开启，兼容性仍按组件验证 |
-| 增强 Shell 执行 | Bundled Pi Bash/Eval 扩展提供后台任务、输出限制、超时和进程树清理 |
+| 增强 Shell 执行 | Bundled Pi Bash 扩展提供后台任务、输出限制、超时和进程树清理 |
 | 并行工作 | Bundled Subagents 扩展使用 Pi child session，默认开启，提供原生任务视图与产品隔离 agent 定义。可选 Subagents V2 增加稳定 `/root/...` path、peer messaging、nested spawn 和 `.grok-pi/teams` / `~/.grok-pi/teams` preset |
 | Rhai Workflow | 使用 Pi worker 的可选 `xai-workflow` 宿主，默认关闭（F2 **Pi workflows**）；脚本目录 `~/.grok-pi/workflows` 与 `<repo>/.grok-pi/workflows`。编排语义尚未迁入 Pi core。 |
 | 会话流程 | Resume、树导航、标签、回顾、上下文查看和会话选择器 |
@@ -83,7 +105,7 @@ grok-pi update --channel stable  # 切回 stable；默认即 stable
 
 先前深度适配检查点通过自动 build/verify 与四次原生 PTY；一次配置 default 的真实 SDK chat 返回 OK，credential/config 字节未改。这些属于历史结果，本轮产品入口验证独立记录在[VERIFICATION](VERIFICATION.md)。真人 Provider 原生 UI、OAuth、真实图片和目标终端体验保持独立验收层。
 
-Provider/model 行为、鉴权、工具、会话、retry 与 compaction 以 Pi 为权威，Pager 呈现控制和结果。Todo、Plan、Goal、增强 Bash/Eval 与 Subagents 属于 grok-pi 扩展或集成，并非 Pi 内置功能。adapter queue interception、Plan/Goal 状态和可选 Rhai 编排仍是当前 PLAN 记录的所有权工作，本轮 UI 裁剪不宣称它们已迁移。
+Provider/model 行为、鉴权、工具、会话、retry 与 compaction 以 Pi 为权威，Pager 呈现控制和结果。Todo、Plan、Goal、增强 Bash 与 Subagents 属于 grok-pi 扩展或集成，并非 Pi 内置功能。adapter queue interception、Plan/Goal 状态和可选 Rhai 编排仍是当前 PLAN 记录的所有权工作，本轮 UI 裁剪不宣称它们已迁移。
 
 命令按职责组织：
 
@@ -142,7 +164,6 @@ flowchart LR
 |---|---:|---|
 | `PI_GROK_REMOTE_TUI` | `1` | 启用 Pi `ctx.ui.custom` 组件 |
 | `PI_GROK_BASH` | `1` | 启用内置 Pi Bash 集成 |
-| `PI_GROK_NATIVE_COMMANDS` | `0` | 启用实验性的 `/pi-*` 命令 |
 | `PI_GROK_SUBAGENTS_V2` | `0` | 在 Pi subagents 上启用可选 V2 team tools（`spawn_team`、稳定 agent path、peer messaging、nested spawn）；与 F2「Pi subagents V2」开关等效 |
 | `GROK_HOME` | `~/.grok-pi` | 用户状态根目录（与 stock Grok 的 `~/.grok` 隔离） |
 | `GROK_PROJECT_DIR` | `.grok-pi` | 仓库内项目配置/workflows/hooks 目录名 |
@@ -202,7 +223,7 @@ incremental 缓存，若已超限的 target 仍过大则执行 `cargo clean`。�
 ## 文档
 
 - [功能矩阵](FEATURE_MATRIX.zh-CN.md) —— 支持的行为与有意边界（[English](FEATURE_MATRIX.md)）
-- [Eval v2 / Pi Codemode / MCP 实施方案](issues/adapter/20260930-Eval%20v2%20学习%20Pi%20Codemode%20并复用%20MCP.md) —— 官方嵌套执行、显式 Pi MCP 与 runtime 边界
+- [四组裁撤 SPEC](issues/架构/20261007-pi-native-four-cuts-SPEC.md) —— 工具编排使用 Pi Codemode，自建 Eval 已退休
 - [Subagents V2 使用指南](usage/subagents-v2.zh-CN.md) —— 可选 team 协作、稳定 path、preset、队列语义、回滚与排障（[English](usage/subagents-v2.md)）
 - [架构对齐](NATIVE_GROK_TUI_ALIGNMENT.md) —— 组件所有权、协议映射和迁移说明
 - [验证记录](VERIFICATION.md) —— 已完成检查与环境阻塞项
@@ -236,23 +257,6 @@ flowchart LR
 | **`/btw`**（`pi_btw`） | F2 → Agent → Pi /btw（需重启）；已保存答案可用 `/btw-history` 查看 | 关 | `pi-btw`、`@narumitw/pi-btw`、`@juicesharp/rpiv-btw` |
 | **用户消息 Markdown**（`pi_user_markdown`） | F2 → Agent → Markdown user messages | 开 | — |
 
-Eval bridge 的版本在进程启动时互斥选择，默认仍为 Eval v1。Eval Bridge v2 可启用 JavaScript、Python 或两者：
+Pi Codemode 为 F2 可选工具，加载 Pi 官方 `builtin:codemode`；Pi MCP 使用官方 MCP 与工具搜索扩展。Pi 负责工具执行、校验、连接、OAuth 与取消。增强 Bash 保留任务管理，Python 计算可通过 Bash 执行。
 
-```toml
-[ui]
-pi_eval = "v2"
-pi_eval_v2_language = "all"         # "js"（默认）、"py" 或 "all"
-pi_eval_v2_display_mode = "effects" # "effects"（默认）或 "legacy"
-```
-
-使用 `pi_eval = "v1"`（或省略该键）即为 legacy Eval。Eval v1 保留持久化 Python/JavaScript kernel；Eval Bridge v2 使用隔离 cell，并通过显式 `store/load` 跨 cell 持久化，同时按 `pi_eval_v2_language` 暴露语言。`pi_eval` 是单值版本 selector，因此 v1/v2 不会双活；`pi_eval` 与 `pi_eval_v2_language` 都需要重启 `grok-pi` 生效。
-
-Pi Codemode 是 F2「Built-in tools」中的可选工具，显式加载 Pi 官方 `builtin:codemode` 扩展。F2 **Pi MCP**（`pi_mcp`，默认关）启用 Pi 1.0 内置 MCP，保留 Pi trust、资源 allowlist、exposure 与 CLI exclusions。正常 Eval v2 使用官方 `ctx.executeTool()`；`await tools.waitFor(pattern, timeout_ms)` 只观察异步连接中的公开 callable registry。MCP 连接、OAuth、工具注册与权限由 Pi 管理。Eval-only 用 `prepareLoadout.hiddenDeclarations` 隐藏其它顶层声明，同时保留合法 callable tools。另行开启的外部 Eval MCP 没有 assistant-issued tool context，保留隔离的兼容调用边界。详见 [Pi-first 验证记录](VERIFICATION.md)。
-
-`pi_eval_v2_display_mode` 只控制展示并会立即生效：`effects` 会在普通会话记录中隐藏 Eval v2 的编排源码，重点展示其 effects/结果；`legacy` 恢复源码 + 结果的传统展示。可通过 **F2 → Agent → Eval v2 display**、`[ui].pi_eval_v2_display_mode`，或 `/eval-display [effects|legacy]` 修改；不带参数执行 `/eval-display` 会在两种模式间切换。所选模式会持久化到后续会话。
-
-开启 `pi_eval_v2_only` 时该选项决定顶层展示哪种卡片：`effects` 隐藏 `eval` 卡、只渲染其嵌套工具 effects；`legacy` 则渲染源码/结果卡片本身（嵌套 effects 仍由 bridge 条目投影）。Adapter 读取同一个配置键，保证 live 与 resume 重放一致；需要重启的 `pi_eval` 版本切换不受影响。
-
-关闭 Pi subagents 后，下次启动会省略内置桥接、强制 `PI_GROK_SUBAGENTS=0`，并重新放行与其冲突的第三方包。
-
-对应 F2 项的说明文案会附带 **When on, blocks: …**（与同一张表同步）。
+当前开发源码移除自建 Eval v1/v2、Eval-only/MCP 模式、`/eval-display`、重复实验 `/pi-*` 选择器、第二套 Rust TUI Bridge 和启动 Profiler。历史 Eval 会话卡片继续可读。见[四组裁撤 SPEC](issues/架构/20261007-pi-native-four-cuts-SPEC.md)与[PLAN](issues/架构/20261007-pi-native-four-cuts-PLAN.md)。

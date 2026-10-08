@@ -9,6 +9,27 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 可选官方 Pi Durable 模式：F2/CLI 重启后选择后端、独立 SQLite、恢复、任务面板、前台子代理与显式 Unix 后台 owner。
+- 改造移植 Dwsy `9a00b24` 的 Codemode 全屏查看器与 `c6a4ff4` 的 trace 快捷键提示。
+- 原生 OSC 7501 探测、`PI_PROGRAM_STATUS=1|0`、状态去重和退出清理；不发送会话内容。
+
+### 修复
+
+- Durable 切换失败保留原会话与 HTTP transport、后台 owner 固定 store、跨会话恢复取消、重开后的工具限制与历史投影；历史 Eval 导出摘要和全屏查看继续可用。
+- Pi 1.1 工具增减选择、Pi 侧取消语义及 live/replay 官方工具耗时；保留 Codemode 小数毫秒。
+- Remote TUI 新版 fake-cursor 标记转换为现有原生光标高亮。
+
+### 变更
+
+- Durable SDK 与随包 host 升级 1.1.0；已知 1.0.4 会话可重开且原 manifest 不重写。任务界面区分执行耗时与包含等待的墙钟跨度。
+- 模型 metadata/详情保留分档价格；登录通过官方 LoginOptions 使用 grok-pi 名称。
+
+### 移除
+
+- 开发源码移除自建 Eval v1/v2 与 MCP 入口、重复实验 Pi 选择器、第二套 Rust TUI Bridge、未注入的启动 Profiler。保留官方 Pi Codemode/MCP、增强 Bash与历史 Eval 卡片。尚未发布。
+
 ## [0.1.10] - 2026-10-05
 
 ### 新增

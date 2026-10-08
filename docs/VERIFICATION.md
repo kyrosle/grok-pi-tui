@@ -1,4 +1,48 @@
+## Working-tree review and local commits — 2026-10-08
+
+[Review record](issues/架构/20261008-working-tree-review-COMMITS.md) records the local commit batches and fixes found during review. This evidence supersedes earlier working-tree completion claims for the current source; the installed optimized binary described below predates these review fixes and was not replaced in this commit task.
+
+- SDK 14/0, including failed attach/HTTP-dispatcher preservation, background-owner identity, resumed tool restrictions and store-wide recovery abort. Actual Durable SDK→ACP 2/0 includes history replay after switching conversations; ordinary adapter tests 208/0 plus 4 non-ignored integration tests pass. Installed-Pi tests retain their explicit ignore contracts.
+- Production bin 92/0. Native historical Eval export/fullscreen 3/0 and renderer 8/0; Codemode 15/0, transcript dispatch 18/0, F2 Durable 1/0, duration/trace/status projection 1/0 each. Auth/Remote TUI 21/0 and Bash module-closure regression pass. This is scoped coverage, not the complete Pager suite.
+- `./build.sh`, stock Pager check, architecture 17/17, four-cut closure, architecture-negative checks and dependency guard pass. Rust syntax3399/3399, failures0. Dependency graph remains 796 packages with forbidden/stock-runtime/audio empty, pending29 and `terminalReady=false`.
+- Fresh debug binary SHA256 `eed8e5c7592be358d43444b872f68f4d6abc12aa3c17ce548cd558aaa2285567`: classic native PTY3/3, `/tmp/grok-pi-review-classic-pty-20261008/report.json`; Durable live/reopen/F2/simulated OSC PTY, `/var/folders/lh/z16j0yfx541cm_wsg95lm92c0000gn/T/grok-pi-durable-pty-uAaV9M`. Test homes and providers are temporary/faux. SDK bundle rebuilt after the final host correction.
+
+Local commits were authorized; no push, release publication, user-store migration or installed-pig replacement was performed. Real provider/OAuth, power-loss durability and cross-terminal manual experience remain unverified.
+
+## Reference adaptation and installed pig — 2026-10-08
+
+[Implementation PLAN](issues/架构/20261008-reference-adaptation-PLAN.md) records exact Pi/Dwsy reference SHAs, fixes, failed captures and final artifact. Local `pig` now uses the optimized unpublished `0.1.10+dirty` build with official Durable SDK 1.1.0. Default RPC and default-off Durable preference remain; user Grok/Pi settings were unchanged. Published v0.1.10 is unchanged. The 2026-10-07 sections below are historical evidence.
+
+- Adapter 208/0; production-profile grok-pi binary 92/0; Bun auth/Remote TUI 23/0; SDK 11/0; actual Durable ACP 2/0.
+- Native Codemode 14/0, fullscreen dispatch 16/0 plus no-graphics Codemode 1/0; measured-duration, trace, semantic status and terminal-probe checks pass. Existing idle-title replacement regression 1/0 retains its behavior after the new status output is queued.
+- Pi production debug build and optimized release-dist build pass; default stock Pager check passes. Architecture17/four-cut closure pass, syntax3395 parsed/failures0; new terminal source separately formatted/compiled/tested. Fresh dependency graph796/forbidden0/pending29/terminalReady=false. The full Pager suite was not run and the master T0–T8 is not closed.
+- Real 1.0.4 SDK temporary SQLite reopened with 1.1.0, stable submission identity and original manifest preserved. SDK scan cursors (`next`) retain their scan order. Unknown versions remain refused; actual user stores were not migrated.
+- Final package: **54,262,832-byte binary**, SHA256 `3332e9d82cf729b8c922c78efc715ef4ca25fec8d16835d87d01f79aca619693`; archive `/tmp/grok-pi-0.1.10-reference-adaptation-macos-arm64.tar.gz`, SHA256 `2b980442dd3686875037fc1593d2ce8089449fbfe99fc1a578410564bdfa5f02`. Two dylibs relocated and strict ad-hoc signatures verified. Four SDK packages and capability manifest are1.1.0; all bundle symlinks are relative and safe tar extraction passes.
+- Installed binary matches that SHA at `/Users/kyros/.local/bin/grok-pi`; `pig` symlink retained. Backup `/Users/kyros/.local/share/grok-pi/backups/20261008-reference-17766546`. Installed classic Codemode fullscreen/Remote UI/models PTY3/3 has nativeExit0: `/tmp/grok-pi-reference-installed-pty-20261008/report.json`. Installed actual bundled Durable host/SDK PTY verifies live/reopen/F2 and simulated OSC support (`query`, working/done/clear, no msg/prompt): `/var/folders/lh/z16j0yfx541cm_wsg95lm92c0000gn/T/grok-pi-durable-pty-tLuXoU`.
+
+OSC7501 reuses the existing bounded native startup fd probe; its 150ms read can consume typeahead like the other native timed probes. It runs before the input reader, uses a DA1 fence and supports `PI_PROGRAM_STATUS=1|0`. Very-late real-terminal replies and cross-terminal experience remain manual boundaries. Synthetic/faux providers establish SDK/transport/UI behavior, not real account inference, OAuth or power-loss durability. No commit/push was performed.
+
+## Optional Durable development backend — 2026-10-07
+
+Official SDKs are locked at 1.0.4 in `runtime/pi-durable-host/package-lock.json`. Default Pi RPC is unchanged when F2 is off; F2 saves `[ui].pi_durable` for next start, with CLI overrides. Current installed binary and published v0.1.10 predate this mode.
+
+- SDK tests: `npm test` in the host — 9 passing, real SQLite, stable requestId, close/reopen checkpoint, safe/unsafe policy intersection, SIGKILL after an external effect, wait cancellation and SDK-owned subagent; explicit local owner survives detach/reconnect. Synthetic providers only.
+- Host → production ACP: `cargo-shared.sh test -p pi-grok-adapter --test durable_projection -- --ignored` — 2 passing, stream/tool result/reopen and separate owner transport.
+- Rust: adapter unit206, grok-pi bin91, F2 preference1, translations4, external profile61 passing; production no-default-features check/build and stock check pass. Existing warnings remain.
+- Native PTY: `node runtime/pi-durable-host/test/native-pty.mjs` — live message/tool/task Picker/F2 save/current-mode continuity, explicit restart/resume and exact mode-qualified resume hint pass. Pi RPC Codemode/signal/timeout/EOF PTYs also pass.
+- `./verify.sh` passes architecture, entry, dependency report, installed-Pi/mock and syntax checks. Terminal acceptance of the master T0–T8 is still pending; reports do not waive linked business dependencies.
+- Optimized macOS arm64 development artifact, two relocated dylibs, ad-hoc signature validation, SDK layout/version/license packaging are verified. A synthetic packaged PTY is recorded separately; none of this proves real model/OAuth, power-loss durability or every-terminal behavior.
+
+Diagnostics under `/tmp/grok-pi-durable-*.log` and frozen task records in the [PLAN](issues/架构/20261007-pi-durable-integration-PLAN.md). No paid inference, actual user-store migration, commit/push or installed-pig overwrite was performed. Ordinary Pi plugins, Codemode/MCP/images/Plan/Goal/Loop/classic tree remain unsupported in Durable with explicit capabilities; auth is configured through ordinary Pi. No launchd job is automatically installed. Background mode is explicit Unix owner; idle without a UI stops after 30 seconds.
+
 # grok-pi verification
+
+## 2026-10-07 four-cut implementation
+
+[Accepted SPEC](issues/架构/20261007-pi-native-four-cuts-SPEC.md) / [completed PLAN](issues/架构/20261007-pi-native-four-cuts-PLAN.md): custom Eval runtime/MCP, duplicate experimental Pi selectors, the second Rust TUI Bridge and unused startup profiler are retired. Enhanced Bash, official Pi Codemode/MCP, existing Remote TUI and historical Eval rendering remain. This remains uncommitted source and the public v0.1.10 Release is unchanged. A later explicit user request installed the optimized local `0.1.10+dirty` build as `pig`; all4 installed native PTY cases pass, and original binaries/libraries are backed up. See PLAN for exact SHA and installation evidence.
+
+Scoped PASS: bin90, adapter205 plus4 nonignored integration tests, settings232, historical Eval renderer8, Web12/200 assertions; standalone Bash runtime and6 official Codemode/MCP scenarios. Explicit installed-Pi projection passes5 scenarios. Fresh production build34.74s and stock check43.40s exit0; native PTY9/9 allnativeExit0, binarySHA `814114cf9f781cafe47088a62306c6c11c42aa28749515cabea91647bb08eb21` unchanged. Architecture17+negative, four-cut closure guard, mock8 and Rust syntax3395/0 pass. Production graph remains796/pending29/terminalReady=false. Full evidence, initial fixture/check repairs, ignored cases and human/provider/cross-device limits are recorded in PLAN.
+
 
 ## v0.1.10 macOS release
 

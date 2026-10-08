@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Optional official Pi Durable mode with restart-required F2/CLI selection, isolated SQLite stores, recovery, task views, foreground subagents and an explicit Unix background owner.
+- Native Codemode fullscreen viewer and conditional trace hints, adapted from Dwsy `9a00b24` and `c6a4ff4`.
+- Native OSC 7501 status detection, `PI_PROGRAM_STATUS=1|0`, deduplication and exit clearing; reports omit conversation content.
+
+### Fixed
+
+- Durable failed-attach preservation, background-owner store identity, store-wide recovery abort, resumed tool restrictions and switched-session history replay; historical Eval summaries and fullscreen viewing remain available.
+- Pi 1.1 signed tool selection, Pi-side cancellation, measured live/replay tool duration and fractional Codemode nested times.
+- Remote TUI fake-cursor markers from the next Pi TUI version resolve to the existing native highlight.
+
+### Changed
+
+- Durable SDKs and packaged host upgrade to 1.1.0; known 1.0.4 stores reopen without manifest rewrites. Task views distinguish execution time from wall time including waits.
+- Model metadata/details retain price tiers; login identifies grok-pi through official LoginOptions.
+
+### Removed
+
+- Development source retires the custom Eval v1/v2 runtime and MCP facade, duplicate experimental Pi selectors, second Rust TUI Bridge and unused startup Profiler. Official Pi Codemode/MCP and enhanced Bash remain; historical Eval cards stay readable. Not yet published.
+
 ## [0.1.10] - 2026-10-05
 
 ### Added
