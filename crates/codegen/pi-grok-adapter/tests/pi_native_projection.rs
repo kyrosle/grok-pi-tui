@@ -34,7 +34,7 @@ fn completed<'a>(events: &'a [Value], id: &str) -> &'a Value {
     items[0]
 }
 
-async fn scenario(name: &str, eval_only: bool) -> Value {
+async fn scenario(name: &str) -> Value {
     let directory = tempfile::tempdir().unwrap();
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -116,12 +116,6 @@ async fn scenario(name: &str, eval_only: bool) -> Value {
             ),
             ("PI_OFFLINE".into(), "1".into()),
             ("PI_TELEMETRY".into(), "0".into()),
-            ("PI_GROK_EVAL_VERSION".into(), "v2".into()),
-            (
-                "PI_GROK_EVAL_V2_ONLY".into(),
-                if eval_only { "1" } else { "0" }.into(),
-            ),
-            ("PI_GROK_EVAL_MCP".into(), "0".into()),
             (
                 "PI_GROK_SUBAGENTS".into(),
                 if child_case { "1" } else { "0" }.into(),
@@ -162,7 +156,6 @@ async fn scenario(name: &str, eval_only: bool) -> Value {
             None,
             transport,
             false,
-            eval_only,
         )
         .unwrap(),
     );
@@ -377,7 +370,7 @@ async fn scenario(name: &str, eval_only: bool) -> Value {
                     "NATIVE_RESOURCE"
                 );
             }
-            json!({"scenario":name,"evalOnly":eval_only,"live":live,"replay":replay})
+            json!({"scenario":name,"live":live,"replay":replay})
         }
     };
     rpc.kill().await;
@@ -397,20 +390,8 @@ async fn installed_pi_live_replay_and_dialog_teardown() {
         std::env::set_var("PI_GROK_RPC_WATCHDOG", "0");
     }
     let mut cases = Vec::new();
-    for (name, eval_only) in [
-        ("eval", false),
-        ("eval", true),
-        ("codemode", false),
-        ("subagent", false),
-        ("signal", false),
-        ("timeout", false),
-        ("eof", false),
-    ] {
-        cases.push(
-            tokio::task::LocalSet::new()
-                .run_until(scenario(name, eval_only))
-                .await,
-        );
+    for name in ["codemode", "subagent", "signal", "timeout", "eof"] {
+        cases.push(tokio::task::LocalSet::new().run_until(scenario(name)).await);
     }
     if let Ok(path) = std::env::var("PI_NATIVE_CAPTURE") {
         std::fs::write(

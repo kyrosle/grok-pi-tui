@@ -1,6 +1,6 @@
 # Background Bash & Tasks
 
-grok-pi's bundled Bash/Eval extension extends Pi's Bash tool with native
+grok-pi's bundled Bash extension extends Pi's Bash tool with native
 background-task control. This is an extension capability with its own task
 lifecycle, rather than a built-in Pi background-task API.
 

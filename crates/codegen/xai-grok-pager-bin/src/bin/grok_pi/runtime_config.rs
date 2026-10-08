@@ -1,7 +1,4 @@
-use super::{
-    bash_extension,
-    tools_extension::{has_explicit_tools_arg, should_inject_tools_extension},
-};
+use super::{bash_extension, tools_extension::should_inject_tools_extension};
 
 /// Best-effort host terminal size for Remote TUI viewport (Pi child has no TTY).
 pub(super) fn host_terminal_size() -> Option<(u16, u16)> {
@@ -36,19 +33,8 @@ pub(super) fn env_flag_default_on(name: &str) -> bool {
     }
 }
 
-/// Experimental features default to OFF and require an explicit truthy value.
-pub(super) fn env_flag_default_off(name: &str) -> bool {
-    match std::env::var(name) {
-        Ok(value) => matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "on" | "yes"
-        ),
-        Err(_) => false,
-    }
-}
-
 /// `[ui].pi_bash` — switch for grok-pi's enhanced Bash bridge only.
-/// Eval version/visibility are independent. An explicitly-set `PI_GROK_BASH`
+/// An explicitly-set `PI_GROK_BASH`
 /// environment variable remains a process-local override; otherwise F2/TOML is
 /// authoritative. Missing/invalid config defaults on.
 pub(super) fn bash_bridge_enabled() -> bool {
@@ -75,9 +61,7 @@ pub(super) fn resolve_bash_max_wait_mins(cli: Option<f64>, inherited: Option<&st
         .unwrap_or_else(|| DEFAULT_BASH_MAX_WAIT_MINS.to_string())
 }
 
-/// Adapter background/kill RPC is valid only while the enhanced Bash half of
-/// the shared Bash/Eval extension is active. Eval-only sessions still inject
-/// the bundle, but must expose no Bash control metadata to the host adapter.
+/// Adapter background/kill RPC is valid only while enhanced Bash is active.
 pub(super) fn bash_control_meta_for_adapter(
     bash_enabled: bool,
     extension: Option<&bash_extension::BashExtension>,
@@ -87,90 +71,9 @@ pub(super) fn bash_control_meta_for_adapter(
         .map(|extension| extension.control_meta_path().to_path_buf())
 }
 
-/// `[ui].pi_eval` — select the mutually exclusive Eval bridge generation.
-/// Only an explicit `"v2"` opts into Eval Bridge v2; missing/invalid values preserve v1.
-pub(super) fn eval_version() -> &'static str {
-    let config = xai_grok_config::load_effective_config_disk_only().ok();
-    eval_version_from_config(config.as_ref())
-}
-
-pub(super) fn eval_version_from_config(config: Option<&toml::Value>) -> &'static str {
-    match config
-        .and_then(|root| root.get("ui"))
-        .and_then(|ui| ui.get("pi_eval"))
-        .and_then(toml::Value::as_str)
-    {
-        Some("v2") => "v2",
-        _ => "v1",
-    }
-}
-
-/// `[ui].pi_eval_v2_language` — select Eval v2 language exposure.
-/// Missing or invalid values preserve the pre-selector JavaScript-only default.
-pub(super) fn eval_v2_language() -> &'static str {
-    let config = xai_grok_config::load_effective_config_disk_only().ok();
-    eval_v2_language_from_config(config.as_ref())
-}
-
-fn eval_v2_language_from_config(config: Option<&toml::Value>) -> &'static str {
-    match config
-        .and_then(|root| root.get("ui"))
-        .and_then(|ui| ui.get("pi_eval_v2_language"))
-        .and_then(toml::Value::as_str)
-    {
-        Some("py") => "py",
-        Some("all") => "all",
-        _ => "js",
-    }
-}
-
-/// `[ui].pi_eval_v2_only` — force Eval v2 and isolate the top-level model to Eval.
-pub(super) fn eval_v2_only_enabled() -> bool {
-    let config = xai_grok_config::load_effective_config_disk_only().ok();
-    eval_v2_only_enabled_from_config(config.as_ref())
-}
-
-pub(super) fn eval_v2_only_enabled_from_config(config: Option<&toml::Value>) -> bool {
-    config
-        .and_then(|root| root.get("ui"))
-        .and_then(|ui| ui.get("pi_eval_v2_only"))
-        .and_then(toml::Value::as_bool)
-        .unwrap_or(false)
-}
-
-/// The MCP facade is explicitly opt-in and only works with Eval-v2-only.
-pub(super) fn eval_mcp_enabled() -> bool {
-    let config = xai_grok_config::load_effective_config_disk_only().ok();
-    eval_mcp_enabled_from_config(config.as_ref())
-}
-
-pub(super) fn eval_mcp_enabled_from_config(config: Option<&toml::Value>) -> bool {
-    config
-        .and_then(|root| root.get("ui"))
-        .and_then(|ui| ui.get("pi_eval_mcp"))
-        .and_then(toml::Value::as_bool)
-        .unwrap_or(false)
-}
-
-pub(super) fn eval_v2_only_tool_policy_applies(
-    pi_args: &[String],
-    bridge_extensions_enabled: bool,
-    eval_v2_only: bool,
-) -> bool {
-    bridge_extensions_enabled
-        && eval_v2_only
-        && !has_explicit_tools_arg(pi_args)
-        && !pi_args
-            .iter()
-            .any(|arg| matches!(arg.as_str(), "--no-tools" | "-nt"))
-}
-
 pub(super) fn normal_f2_tool_policy_applies(
     pi_args: &[String],
     bridge_extensions_enabled: bool,
-    eval_v2_only_tool_policy_applied: bool,
 ) -> bool {
-    bridge_extensions_enabled
-        && !eval_v2_only_tool_policy_applied
-        && should_inject_tools_extension(pi_args)
+    bridge_extensions_enabled && should_inject_tools_extension(pi_args)
 }

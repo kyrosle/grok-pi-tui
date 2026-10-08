@@ -79,7 +79,6 @@ async fn run() -> Value {
             None,
             None,
             false,
-            false,
         )
         .unwrap(),
     );

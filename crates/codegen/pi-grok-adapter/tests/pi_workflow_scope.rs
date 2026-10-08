@@ -130,7 +130,6 @@ async fn scenario() {
             None,
             None,
             true,
-            false,
         )
         .unwrap(),
     );

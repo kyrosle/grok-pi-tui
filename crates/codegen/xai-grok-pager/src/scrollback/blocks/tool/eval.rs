@@ -57,15 +57,6 @@ impl EvalToolCallBlock {
         self
     }
 
-    pub fn effects_first(&self) -> bool {
-        // A cell that never called a host tool has no effect rows to show; the
-        // output alone would strand the source, so it always renders as a
-        // normal Eval card regardless of the effects-first setting.
-        self.bridge_version.as_deref() == Some("v2")
-            && self.tool_calls != Some(0)
-            && crate::appearance::cache::load_pi_eval_v2_effects_first()
-    }
-
     pub fn with_output(mut self, output: impl Into<String>) -> Self {
         let output = output.into();
         self.output = (!output.is_empty()).then_some(output);
@@ -146,14 +137,9 @@ impl EvalToolCallBlock {
     fn render_body(&self, ctx: &BlockContext, include_output: bool) -> BlockOutput {
         let theme = Theme::current();
         let width = ctx.content_width().max(20);
-        let effects_first = self.effects_first();
-        let mut lines: Vec<BlockLine> = if effects_first {
-            Vec::new()
-        } else {
-            vec![self.header_line(&theme, false).into()]
-        };
+        let mut lines: Vec<BlockLine> = vec![self.header_line(&theme, false).into()];
 
-        if !effects_first && !self.code.is_empty() {
+        if !self.code.is_empty() {
             lines.push(Line::from("").into());
             for line in word_wrap_lines(self.highlighted_code(&theme), width) {
                 lines.push(BlockLine::styled(line));
@@ -463,8 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn v2_effects_first_hides_source_but_keeps_output() {
-        crate::appearance::cache::set_pi_eval_v2_effects_first(true);
+    fn historical_v2_keeps_source_and_output() {
         let block = EvalToolCallBlock::new("js", "await tool.read({ path: 'secret' })")
             .with_bridge_version("v2")
             .with_output("done");
@@ -475,13 +460,12 @@ mod tests {
             .map(|line| line.content.to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        assert!(!text.contains("tool.read"));
+        assert!(text.contains("tool.read"));
         assert!(text.contains("done"));
     }
 
     #[test]
     fn v1_keeps_source_even_when_v2_effects_first_is_enabled() {
-        crate::appearance::cache::set_pi_eval_v2_effects_first(true);
         let block = EvalToolCallBlock::new("js", "1 + 1").with_bridge_version("v1");
         let output = block.output(&ctx());
         let text = output
@@ -495,7 +479,6 @@ mod tests {
 
     #[test]
     fn effects_first_yields_to_cells_without_host_tool_calls() {
-        crate::appearance::cache::set_pi_eval_v2_effects_first(true);
         let quiet = EvalToolCallBlock::new("js", "2 + 2")
             .with_bridge_version("v2")
             .with_tool_calls(0)
@@ -507,27 +490,24 @@ mod tests {
             .map(|line| line.content.to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        assert!(text.contains("2 + 2"), "source must render for a no-tool cell");
+        assert!(
+            text.contains("2 + 2"),
+            "source must render for a no-tool cell"
+        );
         assert!(text.contains("4"));
 
         let loud = EvalToolCallBlock::new("js", "await tool.read({})")
             .with_bridge_version("v2")
             .with_tool_calls(3);
-        assert!(loud.effects_first());
-
-        // Payloads from extensions predating the counter keep the old behavior.
+        assert!(loud.is_foldable());
+        // Payloads from extensions predating the counter retain their source too.
         let legacy = EvalToolCallBlock::new("js", "1").with_bridge_version("v2");
-        assert!(legacy.effects_first());
-        crate::appearance::cache::set_pi_eval_v2_effects_first(false);
-        assert!(!loud.effects_first());
+        assert!(legacy.is_foldable());
     }
 }
 
 impl BlockContent for EvalToolCallBlock {
     fn output(&self, ctx: &BlockContext) -> BlockOutput {
-        if self.effects_first() {
-            return self.render_body(ctx, true);
-        }
         let theme = Theme::current();
         match ctx.mode {
             DisplayMode::Collapsed => BlockOutput {
@@ -578,8 +558,7 @@ impl BlockContent for EvalToolCallBlock {
     }
 
     fn is_foldable(&self) -> bool {
-        !self.effects_first()
-            && (!self.code.is_empty() || self.output.is_some() || self.error.is_some())
+        !self.code.is_empty() || self.output.is_some() || self.error.is_some()
     }
 
     fn default_display_mode(&self) -> DisplayMode {
@@ -594,10 +573,6 @@ impl BlockContent for EvalToolCallBlock {
     }
 
     fn preamble(&self, _ctx: &BlockContext) -> Option<Text<'static>> {
-        if self.effects_first() {
-            None
-        } else {
-            Some(Text::from(vec![self.header_line(&Theme::current(), false)]))
-        }
+        Some(Text::from(vec![self.header_line(&Theme::current(), false)]))
     }
 }

@@ -869,11 +869,6 @@ const docsZh: DocsDictionary = {
         role: "Rhai 工作流的 Pi spawn 后端",
         default: "关（F2）",
       },
-      {
-        name: "pi-grok-native-commands",
-        role: "实验性 /pi-* 选择器",
-        default: "关（env）",
-      },
     ],
     catalogFoot:
       "* Remote TUI 默认开；设 PI_GROK_REMOTE_TUI=0 关闭。F2 门控功能切换后需完整进程重启。",

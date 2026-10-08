@@ -360,31 +360,6 @@ pub async fn set_language(value: String) -> Result<()> {
     update_config(|cfg| cfg.ui.language = value).await
 }
 
-/// Persist the grok-pi Eval bridge generation (`v1` or `v2`).
-pub async fn set_pi_eval(value: String) -> Result<()> {
-    update_config(|cfg| cfg.ui.pi_eval = value).await
-}
-
-/// Persist the Eval v2 language selector (`js`, `py`, or `all`).
-pub async fn set_pi_eval_v2_language(value: String) -> Result<()> {
-    update_config(|cfg| cfg.ui.pi_eval_v2_language = value).await
-}
-
-/// Persist the Eval v2 presentation mode (`effects` or `legacy`).
-pub async fn set_pi_eval_v2_display_mode(value: String) -> Result<()> {
-    update_config(|cfg| cfg.ui.pi_eval_v2_display_mode = value).await
-}
-
-/// Persist the grok-pi Eval v2 isolation mode.
-pub async fn set_pi_eval_v2_only(value: bool) -> Result<()> {
-    update_config(|cfg| cfg.ui.pi_eval_v2_only = value).await
-}
-
-/// Persist the opt-in Eval v2-only MCP facade.
-pub async fn set_pi_eval_mcp(value: bool) -> Result<()> {
-    update_config(|cfg| cfg.ui.pi_eval_mcp = value).await
-}
-
 /// Persist the optional PSM SQLite session-index preference for grok-pi.
 pub async fn set_psm_resume_index(value: bool) -> Result<()> {
     update_config(|cfg| cfg.ui.psm_resume_index = value).await

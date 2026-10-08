@@ -20,10 +20,15 @@ def main() -> int:
     args = parser.parse_args()
     workspace = args.workspace.resolve()
     paths = tracked_rust_paths(workspace)
+    deleted = set(subprocess.check_output(["git", "diff", "--name-only", "--diff-filter=D", "HEAD"], cwd=workspace, text=True).splitlines())
+    removed = []
     failures = {}
     parsed = []
     for path in paths:
         relative = path.relative_to(workspace).as_posix()
+        if not path.exists() and relative in deleted:
+            removed.append(relative)
+            continue
         if not path.exists():
             failures[relative] = [{"kind": "missing_tracked_file"}]
             continue
@@ -37,7 +42,7 @@ def main() -> int:
     report = {
         "schemaVersion": 2, "proofLayer": "syntax-only", "sourceSelection": "git-ls-files-cached-recursive", "parserEdition": "2024",
         "passed": bool(paths) and not failures, "selectedFileCount": len(paths),
-        "parsedFileCount": len(parsed), "parsedFiles": parsed, "failures": failures,
+        "removedTrackedFiles": removed, "parsedFileCount": len(parsed), "parsedFiles": parsed, "failures": failures,
         "limits": ["Includes tracked tests and third_party Rust", "No type, feature-profile or runtime proof", "Untracked Rust and submodule contents are not included"],
     }
     output = args.json_out or workspace / "verification-logs/rust-syntax-verification.json"

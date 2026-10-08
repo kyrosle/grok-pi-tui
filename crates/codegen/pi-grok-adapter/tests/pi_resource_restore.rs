@@ -170,7 +170,6 @@ impl Fixture {
                 None,
                 None,
                 false,
-                false,
             )
             .unwrap()
             .with_resource_admission_planner(planner),

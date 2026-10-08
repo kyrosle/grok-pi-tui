@@ -37,15 +37,15 @@ test("explicit native language wins; auto uses the host OS then browser locale",
 
 test("host options display semantic translations while retaining canonical runtime values", () => {
 	const api = frontend();
-	const entry = { key: "pi_eval", label: "Code execution mode", options: ["v1", "v2"], localized: {
-		en: { label: "Code execution mode", description: "Select execution behavior.", options: { v1: "Persistent REPL", v2: "Tool-enabled execution" } },
-		"zh-CN": { label: "代码执行模式", description: "选择代码的执行方式。", options: { v1: "持久交互式", v2: "工具协作" } },
+	const entry = { key: "language", label: "Settings language", options: ["auto", "en"], localized: {
+		en: { label: "Settings language", description: "Select execution behavior.", options: { auto: "Follow system", en: "English" } },
+		"zh-CN": { label: "设置语言", description: "选择代码的执行方式。", options: { auto: "跟随系统", en: "English" } },
 	} };
 	api.setState({ host: { ui: { language: "zh-CN" } } });
-	expect(api.hostLabel(entry)).toBe("代码执行模式");
+	expect(api.hostLabel(entry)).toBe("设置语言");
 	expect(api.hostDescription(entry)).toBe("选择代码的执行方式。");
-	expect(entry.options.map(value => api.hostOptionLabel(entry, value))).toEqual(["持久交互式", "工具协作"]);
-	expect(entry.options).toEqual(["v1", "v2"]);
+	expect(entry.options.map(value => api.hostOptionLabel(entry, value))).toEqual(["跟随系统", "English"]);
+	expect(entry.options).toEqual(["auto", "en"]);
 	api.setState({ host: { ui: { language: "en" } } });
-	expect(api.hostOptionLabel(entry, "v2")).toBe("Tool-enabled execution");
+	expect(api.hostOptionLabel(entry, "en")).toBe("English");
 });

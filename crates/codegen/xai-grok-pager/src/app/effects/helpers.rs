@@ -1695,47 +1695,7 @@ pub(crate) async fn persist_setting(
                 .await
                 .map_err(|e| e.to_string())
         }
-        "pi_eval" => {
-            let SettingValue::Enum(version) = value else {
-                return Err(kind_mismatch("pi_eval", "Enum", &value));
-            };
-            crate::settings_config::set_pi_eval(version.to_string())
-                .await
-                .map_err(|e| e.to_string())
-        }
-        "pi_eval_v2_language" => {
-            let SettingValue::Enum(language) = value else {
-                return Err(kind_mismatch("pi_eval_v2_language", "Enum", &value));
-            };
-            crate::settings_config::set_pi_eval_v2_language(language.to_string())
-                .await
-                .map_err(|e| e.to_string())
-        }
-        "pi_eval_v2_display_mode" => {
-            let SettingValue::Enum(mode) = value else {
-                return Err(kind_mismatch("pi_eval_v2_display_mode", "Enum", &value));
-            };
-            crate::settings_config::set_pi_eval_v2_display_mode(mode.to_string())
-                .await
-                .map_err(|e| e.to_string())
-        }
-        "pi_eval_v2_only" => {
-            let SettingValue::Bool(b) = value else {
-                return Err(kind_mismatch("pi_eval_v2_only", "Bool", &value));
-            };
-            crate::settings_config::set_pi_eval_v2_only(b)
-                .await
-                .map_err(|e| e.to_string())
-        }
-        "pi_eval_mcp" => {
-            let SettingValue::Bool(b) = value else {
-                return Err(kind_mismatch("pi_eval_mcp", "Bool", &value));
-            };
-            crate::settings_config::set_pi_eval_mcp(b)
-                .await
-                .map_err(|e| e.to_string())
-        }
-        "psm_resume_index" => {
+"psm_resume_index" => {
             let SettingValue::Bool(b) = value else {
                 return Err(kind_mismatch("psm_resume_index", "Bool", &value));
             };

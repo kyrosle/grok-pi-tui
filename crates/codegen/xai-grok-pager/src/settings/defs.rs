@@ -11,8 +11,8 @@ use crate::appearance::ScrollMode;
 use crate::appearance::TextSelection;
 use crate::appearance::permission_cursor::DefaultSelectedPermission;
 
-use xai_grok_shared::ui_config::UiConfig;
 use crate::settings_config::DISPLAY_REFRESH_DEFAULT_AUTO_CADENCE_ENABLED;
+use xai_grok_shared::ui_config::UiConfig;
 use xai_tool_types::questions as ask_user_question;
 
 // Int bounds for `max_thoughts_width`. `pub(crate)` so the dispatcher's clamp and the shell helper's defensive
@@ -38,50 +38,6 @@ const LANGUAGE_CHOICES: &[EnumChoice] = &[
         canonical: "zh-CN",
         display: "简体中文",
         description: "Show settings in Simplified Chinese.",
-    },
-];
-
-const PI_EVAL_CHOICES: &[EnumChoice] = &[
-    EnumChoice {
-        canonical: "v1",
-        display: "Persistent REPL",
-        description: "Run Python and JavaScript cells with variables preserved between calls.",
-    },
-    EnumChoice {
-        canonical: "v2",
-        display: "Tool-enabled execution",
-        description: "Run code that can call Pi tools. Use store/load to retain data between calls.",
-    },
-];
-
-const PI_EVAL_V2_LANGUAGE_CHOICES: &[EnumChoice] = &[
-    EnumChoice {
-        canonical: "js",
-        display: "JavaScript",
-        description: "Make JavaScript available in Tool-enabled execution mode.",
-    },
-    EnumChoice {
-        canonical: "py",
-        display: "Python",
-        description: "Make Python available in Tool-enabled execution mode.",
-    },
-    EnumChoice {
-        canonical: "all",
-        display: "Python and JavaScript",
-        description: "Make both Python and JavaScript available in Tool-enabled execution mode.",
-    },
-];
-
-const PI_EVAL_V2_DISPLAY_MODE_CHOICES: &[EnumChoice] = &[
-    EnumChoice {
-        canonical: "effects",
-        display: "Tool activity",
-        description: "Focus on nested tool calls and results; show a code card when no tool is called.",
-    },
-    EnumChoice {
-        canonical: "legacy",
-        display: "Code and results",
-        description: "Show the execution code and its results, including when Code-only tool access is enabled.",
     },
 ];
 
@@ -612,7 +568,6 @@ const PI_BUILTIN_TOOLS_CHILDREN: &[&str] = &[
     "pi_builtin_tools.grep",
     "pi_builtin_tools.find",
     "pi_builtin_tools.ls",
-    "pi_builtin_tools.eval",
     "pi_builtin_tools.codemode",
 ];
 
@@ -1309,8 +1264,8 @@ pub fn default_settings() -> Vec<SettingMeta> {
             key: "pi_bash_command_format",
             category: SettingCategory::Appearance,
             owner: SettingOwner::Shell,
-            label: "Format Bash/Eval display",
-            description: "Display Bash commands and Eval code with readable line breaks in permission, run-detail, and Eval popup views. Executed inputs are unchanged. Default off.",
+            label: "Format command display",
+            description: "Display Bash commands and historical tool source with readable line breaks in permission, run-detail, and popup views. Executed inputs are unchanged. Default off.",
             keywords: &[
                 "bash",
                 "eval",
@@ -1978,105 +1933,10 @@ pub fn default_settings() -> Vec<SettingMeta> {
             category: SettingCategory::Agent,
             owner: SettingOwner::Shell,
             label: "Background command support",
-            description: "Allow Bash commands to run in the background and appear in the task panel. Off uses the standard Pi Bash tool. Code execution is configured separately. Applies after restart.",
+            description: "Allow Bash commands to run in the background and appear in the task panel. Off uses the standard Pi Bash tool. Applies after restart.",
             keywords: &["pi", "bash", "bridge", "extension", "runtime"],
             kind: SettingKind::Bool {
                 default: ui_default.pi_bash,
-            },
-            restart_required: true,
-            hidden_in_minimal: false,
-            external_only: true,
-        },
-        SettingMeta {
-            key: "pi_eval",
-            category: SettingCategory::Agent,
-            owner: SettingOwner::Shell,
-            label: "Code execution mode",
-            description: "Choose how the Eval tool runs code: Persistent REPL keeps Python and JavaScript variables between calls; Tool-enabled execution can call Pi tools and keeps data explicitly with store/load. Requires the Eval tool; applies after restart.",
-            keywords: &[
-                "pi",
-                "eval",
-                "v1",
-                "v2",
-                "javascript",
-                "python",
-                "runtime",
-                "bridge",
-            ],
-            kind: SettingKind::Enum {
-                default: "v1",
-                choices: PI_EVAL_CHOICES,
-                supports_preview: false,
-            },
-            restart_required: true,
-            hidden_in_minimal: false,
-            external_only: true,
-        },
-        SettingMeta {
-            key: "pi_eval_v2_language",
-            category: SettingCategory::Agent,
-            owner: SettingOwner::Shell,
-            label: "Execution language",
-            description: "Choose Python, JavaScript, or both for Tool-enabled execution. Does not affect Persistent REPL. Applies after restart.",
-            keywords: &[
-                "pi",
-                "eval",
-                "v2",
-                "language",
-                "javascript",
-                "python",
-                "all",
-            ],
-            kind: SettingKind::Enum {
-                default: "js",
-                choices: PI_EVAL_V2_LANGUAGE_CHOICES,
-                supports_preview: false,
-            },
-            restart_required: true,
-            hidden_in_minimal: false,
-            external_only: true,
-        },
-        SettingMeta {
-            key: "pi_eval_v2_display_mode",
-            category: SettingCategory::Agent,
-            owner: SettingOwner::Shell,
-            label: "Execution display",
-            description: "Choose how Tool-enabled execution appears: Tool activity focuses on nested tool calls; Code and results also shows the execution code. Calls without tools always keep a code card. Applies immediately.",
-            keywords: &["pi", "eval", "v2", "display", "effects", "legacy", "source"],
-            kind: SettingKind::Enum {
-                default: "effects",
-                choices: PI_EVAL_V2_DISPLAY_MODE_CHOICES,
-                supports_preview: false,
-            },
-            restart_required: false,
-            hidden_in_minimal: false,
-            external_only: true,
-        },
-        SettingMeta {
-            key: "pi_eval_v2_only",
-            category: SettingCategory::Agent,
-            owner: SettingOwner::Shell,
-            label: "Code-only tool access",
-            description: "Use Tool-enabled execution and expose only Eval to the model; other Pi tools remain callable through code. Explicit CLI --tools/--no-tools restrictions still apply. Applies after restart.",
-            keywords: &[
-                "pi", "eval", "v2", "only", "isolate", "tools", "hide", "sandbox",
-            ],
-            kind: SettingKind::Bool {
-                default: ui_default.pi_eval_v2_only,
-            },
-            restart_required: true,
-            hidden_in_minimal: false,
-            external_only: true,
-        },
-        SettingMeta {
-            key: "pi_eval_mcp",
-            category: SettingCategory::Agent,
-            owner: SettingOwner::Shell,
-            label: "Share execution over local MCP",
-            description: "Let other MCP clients call this session through an authenticated local URL. Requires Code-only tool access and a restart. The URL grants code execution access; share it only with trusted clients.",
-            keywords: &["pi", "eval", "mcp", "binding", "local", "tokenizers"],
-            kind: SettingKind::Bool {
-                default: ui_default.pi_eval_mcp,
             },
             restart_required: true,
             hidden_in_minimal: false,
@@ -2223,28 +2083,6 @@ pub fn default_settings() -> Vec<SettingMeta> {
             keywords: &["pi", "tool", "ls", "list", "directory"],
             kind: SettingKind::Bool {
                 default: ui_default.pi_builtin_tools.ls,
-            },
-            restart_required: true,
-            hidden_in_minimal: false,
-            external_only: true,
-        },
-        SettingMeta {
-            key: "pi_builtin_tools.eval",
-            category: SettingCategory::Agent,
-            owner: SettingOwner::Shell,
-            label: "Eval",
-            description: "Allow Python or JavaScript execution through Eval. Choose its behavior under Code execution mode. Applies after restart.",
-            keywords: &[
-                "pi",
-                "tool",
-                "eval",
-                "python",
-                "javascript",
-                "kernel",
-                "repl",
-            ],
-            kind: SettingKind::Bool {
-                default: ui_default.pi_builtin_tools.eval,
             },
             restart_required: true,
             hidden_in_minimal: false,

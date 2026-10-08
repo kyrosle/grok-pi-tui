@@ -68,7 +68,6 @@ impl Fixture {
             None,
             None,
             false,
-            false,
         )
         .unwrap();
         let completions = Rc::new(RefCell::new(Vec::new()));

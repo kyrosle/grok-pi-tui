@@ -271,7 +271,6 @@ def main() -> int:
         "view-plan",
         "multiline",
         "compact-mode",
-        "eval-display",
         "vim-mode",
         "theme",
         "timestamps",

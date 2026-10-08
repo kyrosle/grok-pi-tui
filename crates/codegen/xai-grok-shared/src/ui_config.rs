@@ -5,17 +5,6 @@ fn default_true() -> bool {
     true
 }
 
-fn default_pi_eval() -> String {
-    "v1".to_string()
-}
-
-fn default_pi_eval_v2_language() -> String {
-    "js".to_string()
-}
-
-fn default_pi_eval_v2_display_mode() -> String {
-    "effects".to_string()
-}
 use xai_grok_status_line::StatusLineConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,11 +19,10 @@ pub struct UiConfig {
     pub pi_builtin_tools: PiBuiltinTools,
     /// Enable grok-pi's enhanced Bash bridge. This is separate from
     /// `pi_builtin_tools.bash`: disabling it restores stock Pi Bash behavior
-    /// while leaving Eval runtime injection independent.
     /// Default on; takes effect for new grok-pi sessions only.
     #[serde(default = "default_true")]
     pub pi_bash: bool,
-    /// Format Bash commands and Eval code for display in detail/popup views.
+    /// Format Bash commands and historical tool source for display in detail/popup views.
     /// Display-only; executed inputs remain unchanged.
     /// Default off; F2 can enable without restart.
     #[serde(default)]
@@ -43,28 +31,6 @@ pub struct UiConfig {
     /// Default on; display-only and live-applied.
     #[serde(default = "default_true")]
     pub write_edit_hover_popups: bool,
-    /// Select the Eval bridge generation independently of `pi_bash`.
-    /// `v1` keeps the legacy Python + JavaScript runtime; `v2` uses the host-RPC runtime.
-    /// Default v1; takes effect for new grok-pi sessions only.
-    #[serde(default = "default_pi_eval")]
-    pub pi_eval: String,
-    /// Select Eval v2 languages: `js`, `py`, or `all`.
-    /// Default `js` preserves the pre-selector v2 behavior.
-    #[serde(default = "default_pi_eval_v2_language")]
-    pub pi_eval_v2_language: String,
-    /// Select Eval v2 presentation: `effects` hides orchestration source while
-    /// `legacy` keeps the source/result card. Display-only and live-applied.
-    #[serde(default = "default_pi_eval_v2_display_mode")]
-    pub pi_eval_v2_display_mode: String,
-    /// Force Eval Bridge v2 and allow only the Eval tool in the Pi registry.
-    /// This is a restart-required grok-pi isolation mode; it does not mutate
-    /// the stored `pi_eval` or per-tool preferences underneath it.
-    #[serde(default)]
-    pub pi_eval_v2_only: bool,
-    /// Enable a private loopback MCP endpoint over the live Eval v2-only runtime.
-    /// Takes effect at process start, and requires pi_eval_v2_only.
-    #[serde(default)]
-    pub pi_eval_mcp: bool,
     /// Use Pi Session Manager for external Pi `/resume`: SQLite catalog,
     /// Ctrl+F full-text search, and message preview. Requires PSM running.
     /// Disabled by default; off → Pi JSONL list only (no PSM SQLite paths).
@@ -451,7 +417,6 @@ pub struct PiBuiltinTools {
     pub grep: bool,
     pub find: bool,
     pub ls: bool,
-    pub eval: bool,
     /// Pi's `codemode` tool. Registered by a built-in *extension* rather than
     /// the built-in tool registry, so grok-pi must also pass
     /// `--extension builtin:codemode` before this name can be activated.
@@ -468,7 +433,6 @@ impl PiBuiltinTools {
             && !self.grep
             && !self.find
             && !self.ls
-            && !self.eval
             && !self.codemode
     }
 }
@@ -484,7 +448,6 @@ impl Default for PiBuiltinTools {
             grep: false,
             find: false,
             ls: false,
-            eval: false,
             codemode: false,
         }
     }
@@ -519,11 +482,6 @@ impl Default for UiConfig {
             pi_bash: true,
             pi_bash_command_format: false,
             write_edit_hover_popups: true,
-            pi_eval: default_pi_eval(),
-            pi_eval_v2_language: default_pi_eval_v2_language(),
-            pi_eval_v2_display_mode: default_pi_eval_v2_display_mode(),
-            pi_eval_v2_only: false,
-            pi_eval_mcp: false,
             psm_resume_index: false,
             pi_tree_file_rollback: false,
             pi_tree_skip_summary_prompt: false,

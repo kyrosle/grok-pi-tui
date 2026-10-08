@@ -609,43 +609,6 @@ fn compaction_events_project_to_native_session_updates() {
 }
 
 #[test]
-fn eval_top_level_hidden_follows_the_display_mode() {
-    use super::tools::{eval_card_hidden_for_mode, eval_top_level_call};
-    // Eval-v2-only hides the card while effects-first is selected...
-    assert!(eval_card_hidden_for_mode(false));
-    // ...but legacy presentation exists to show exactly that card.
-    assert!(!eval_card_hidden_for_mode(true));
-    // The mode only ever governs the top-level Eval call, whatever its casing.
-    assert!(eval_top_level_call(true, "eval"));
-    assert!(eval_top_level_call(true, "EVAL"));
-    assert!(!eval_top_level_call(true, "read"));
-    assert!(!eval_top_level_call(true, "get_task_output"));
-    // Without Eval-v2-only the card is an ordinary tool card.
-    assert!(!eval_top_level_call(false, "eval"));
-}
-
-#[test]
-fn eval_result_without_tool_calls_needs_an_explicit_zero() {
-    use super::tools::eval_result_without_tool_calls;
-    // New extension payload: explicit zero marks a quiet cell.
-    assert!(eval_result_without_tool_calls(&json!({
-        "content": [{ "type": "text", "text": "4" }],
-        "details": { "toolCalls": 0, "bridgeVersion": "v2" }
-    })));
-    // Any counted call keeps the historical suppression.
-    assert!(!eval_result_without_tool_calls(&json!({
-        "details": { "toolCalls": 2 }
-    })));
-    // Replay shape stores details alone as raw_output.
-    assert!(eval_result_without_tool_calls(&json!({ "toolCalls": 0 })));
-    // Older payloads without the counter must not claim "without tools".
-    assert!(!eval_result_without_tool_calls(&json!({
-        "details": { "bridgeVersion": "v2" }
-    })));
-    assert!(!eval_result_without_tool_calls(&json!({ "content": [] })));
-}
-
-#[test]
 fn auth_dialog_envelope_hides_only_a_valid_scoped_title() {
     let scope = uuid::Uuid::now_v7().to_string();
     assert_eq!(

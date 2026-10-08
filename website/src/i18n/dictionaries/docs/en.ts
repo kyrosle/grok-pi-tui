@@ -873,11 +873,6 @@ export const docsEn = {
         role: "Pi spawn backend for Rhai workflows",
         default: "Off (F2)",
       },
-      {
-        name: "pi-grok-native-commands",
-        role: "Experimental /pi-* selectors",
-        default: "Off (env)",
-      },
     ],
     catalogFoot:
       "* Remote TUI default-on; set PI_GROK_REMOTE_TUI=0 to disable. F2-gated features need a full process restart after toggle.",

@@ -53,17 +53,11 @@ pub(super) fn action_for_bool(key: SettingKey, new: bool) -> Option<Action> {
             tool: PiBuiltinTool::Ls,
             enabled: new,
         },
-        "pi_builtin_tools.eval" => Action::SetPiBuiltinTool {
-            tool: PiBuiltinTool::Eval,
-            enabled: new,
-        },
         "pi_builtin_tools.codemode" => Action::SetPiBuiltinTool {
             tool: PiBuiltinTool::Codemode,
             enabled: new,
         },
         "pi_bash" => Action::SetPiBash(new),
-        "pi_eval_v2_only" => Action::SetPiEvalV2Only(new),
-        "pi_eval_mcp" => Action::SetPiEvalMcp(new),
         "psm_resume_index" => Action::SetPsmResumeIndex(new),
         "pi_tree_file_rollback" => Action::SetPiTreeFileRollback(new),
         "pi_tree_skip_summary_prompt" => Action::SetPiTreeSkipSummaryPrompt(new),
@@ -162,18 +156,6 @@ pub(super) fn action_for_enum_commit(key: SettingKey, choice: &str) -> Option<Ac
             .map(Action::SetFollowUpBehavior),
         "language" => match choice {
             "auto" | "en" | "zh-CN" => Some(Action::SetSettingsLanguage(choice.to_string())),
-            _ => None,
-        },
-        "pi_eval" => match choice {
-            "v1" | "v2" => Some(Action::SetPiEval(choice.to_string())),
-            _ => None,
-        },
-        "pi_eval_v2_language" => match choice {
-            "js" | "py" | "all" => Some(Action::SetPiEvalV2Language(choice.to_string())),
-            _ => None,
-        },
-        "pi_eval_v2_display_mode" => match choice {
-            "effects" | "legacy" => Some(Action::SetPiEvalV2DisplayMode(choice.to_string())),
             _ => None,
         },
         "pi_bash_run_display" => crate::appearance::ExecuteHeaderContent::from_canonical(choice)

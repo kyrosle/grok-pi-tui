@@ -27,7 +27,7 @@ pub(super) fn write_tools_extension() -> Result<NamedTempFile> {
 /// exist at all. `--exclude-tools` still removes it, so an unselected
 /// `codemode` is denied before registration.
 #[cfg(windows)]
-const BUILTIN_TOOL_NAMES: [&str; 10] = [
+const BUILTIN_TOOL_NAMES: [&str; 9] = [
     "read",
     "bash",
     "powershell",
@@ -36,12 +36,11 @@ const BUILTIN_TOOL_NAMES: [&str; 10] = [
     "grep",
     "find",
     "ls",
-    "eval",
     "codemode",
 ];
 #[cfg(not(windows))]
-const BUILTIN_TOOL_NAMES: [&str; 9] = [
-    "read", "bash", "edit", "write", "grep", "find", "ls", "eval", "codemode",
+const BUILTIN_TOOL_NAMES: [&str; 8] = [
+    "read", "bash", "edit", "write", "grep", "find", "ls", "codemode",
 ];
 #[cfg(windows)]
 const DEFAULT_BUILTIN_TOOLS: [&str; 5] = ["read", "bash", "powershell", "edit", "write"];
@@ -255,7 +254,7 @@ mod tests {
             &["--tools".into(), "read,edit".into()],
             None
         ));
-        // No policy at all (--no-tools, eval-v2-only) keeps the extension unloaded.
+        // No policy at all (--no-tools) keeps the extension unloaded.
         assert!(!codemode_requested(&[], None));
     }
 
@@ -265,7 +264,7 @@ mod tests {
         let source = std::fs::read_to_string(file.path()).expect("read extension");
         assert!(source.contains("PI_GROK_BUILTIN_TOOLS"));
         assert!(source.contains("setActiveTools"));
-        assert!(source.contains("\"eval\""));
+        assert!(!source.contains("\"eval\""));
         assert_eq!(
             file.path().extension().and_then(|value| value.to_str()),
             Some("ts")
@@ -335,23 +334,23 @@ mod tests {
     fn disabled_builtin_tools_become_registry_denylist() {
         #[cfg(windows)]
         assert_eq!(
-            disabled_builtin_tools_from_selected("read,edit,write,grep,eval"),
+            disabled_builtin_tools_from_selected("read,edit,write,grep"),
             "bash,powershell,find,ls,codemode"
         );
         #[cfg(not(windows))]
         assert_eq!(
-            disabled_builtin_tools_from_selected("read,edit,write,grep,eval"),
+            disabled_builtin_tools_from_selected("read,edit,write,grep"),
             "bash,find,ls,codemode"
         );
         #[cfg(windows)]
         assert_eq!(
             disabled_builtin_tools_from_selected("read,bash,powershell,edit,write"),
-            "grep,find,ls,eval,codemode"
+            "grep,find,ls,codemode"
         );
         #[cfg(not(windows))]
         assert_eq!(
             disabled_builtin_tools_from_selected("read,bash,edit,write"),
-            "grep,find,ls,eval,codemode"
+            "grep,find,ls,codemode"
         );
     }
 

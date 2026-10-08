@@ -1,6 +1,5 @@
 use super::*;
 use crate::btw_bridge::BtwHistoryEntry;
-use crate::pi_adapter::tools::{eval_result_without_tool_calls, eval_top_level_hidden};
 
 impl PiAgent {
     /// Publish Pi-owned session metadata title. This is distinct from an
@@ -179,9 +178,6 @@ impl PiAgent {
                 }
                 // Suppress the top-level Eval card exactly like the live
                 // handlers, so resume shows only the replayed nested effects.
-                if eval_top_level_hidden(self.eval_v2_only, &name) {
-                    return;
-                }
                 let mut tool_call = acp::ToolCall::new(acp::ToolCallId::new(id), name.clone())
                     .kind(tool_kind(&name))
                     .status(acp::ToolCallStatus::InProgress)
@@ -208,22 +204,6 @@ impl PiAgent {
                 // Exception: a cell that never called a host tool has no effect
                 // rows at all — emit the withheld start shell here so the cell
                 // renders instead of vanishing on resume.
-                if eval_top_level_hidden(self.eval_v2_only, &name) {
-                    if !eval_result_without_tool_calls(&raw) {
-                        self.state.borrow_mut().tool_args.remove(&id);
-                        return;
-                    }
-                    let args = self.state.borrow_mut().tool_args.remove(&id);
-                    let tool_call =
-                        acp::ToolCall::new(acp::ToolCallId::new(id.clone()), name.clone())
-                            .kind(tool_kind(&name))
-                            .status(acp::ToolCallStatus::InProgress)
-                            .content(Vec::new())
-                            .locations(Vec::new())
-                            .raw_input(args);
-                    self.send_replay_update(acp::SessionUpdate::ToolCall(tool_call), timestamp_ms)
-                        .await;
-                }
                 let args = self.state.borrow_mut().tool_args.remove(&id);
                 let normalized = normalize_tool_raw_output(&name, args.as_ref(), &raw, is_error);
                 let mut fields = acp::ToolCallUpdateFields::new()

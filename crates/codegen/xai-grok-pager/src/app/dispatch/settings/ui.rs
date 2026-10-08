@@ -10,16 +10,16 @@ use super::setters::{
     set_fork_secondary_model_inner, set_group_tool_verbs_inner, set_hunk_tracker_mode_inner,
     set_invert_scroll_inner, set_keep_text_selection_inner, set_max_thoughts_width_inner,
     set_multiline_mode, set_page_flip_on_send_inner, set_pi_at_search_hidden_inner,
-    set_pi_bash_command_format_inner, set_pi_bash_run_display_inner,
-    set_pi_eval_v2_display_mode_inner, set_progress_bar_inner, set_prompt_cursor_inner,
-    set_prompt_suggestions_inner, set_recap_mermaid_inner, set_recap_model_inner,
-    set_remember_tool_approvals_inner, set_render_mermaid_inner, set_respect_manual_folds_inner,
-    set_screen_mode_inner, set_scroll_lines_inner, set_scroll_mode_inner, set_scroll_speed_inner,
-    set_session_recap_inner, set_show_thinking_blocks_inner, set_show_tips_inner,
-    set_side_by_side_edit_inner, set_simple_mode_inner, set_theme_inner,
-    set_thinking_border_colors_inner, set_timeline_inner, set_timestamps, set_timestamps_inner,
-    set_vim_mode_inner, set_voice_capture_mode_inner, set_voice_keybind_enabled_inner,
-    set_voice_stt_language_inner, set_write_edit_hover_popups_inner,
+    set_pi_bash_command_format_inner, set_pi_bash_run_display_inner, set_progress_bar_inner,
+    set_prompt_cursor_inner, set_prompt_suggestions_inner, set_recap_mermaid_inner,
+    set_recap_model_inner, set_remember_tool_approvals_inner, set_render_mermaid_inner,
+    set_respect_manual_folds_inner, set_screen_mode_inner, set_scroll_lines_inner,
+    set_scroll_mode_inner, set_scroll_speed_inner, set_session_recap_inner,
+    set_show_thinking_blocks_inner, set_show_tips_inner, set_side_by_side_edit_inner,
+    set_simple_mode_inner, set_theme_inner, set_thinking_border_colors_inner, set_timeline_inner,
+    set_timestamps, set_timestamps_inner, set_vim_mode_inner, set_voice_capture_mode_inner,
+    set_voice_keybind_enabled_inner, set_voice_stt_language_inner,
+    set_write_edit_hover_popups_inner,
 };
 use crate::app::actions::{Action, Effect, PiControlMethod};
 use crate::app::app_view::{ActiveView, AppView};
@@ -588,13 +588,21 @@ pub(in crate::app::dispatch) fn dispatch_open_pi_config(app: &mut AppView) -> Ve
     let Some(cwd) = app.agents.get(&id).map(|agent| agent.session.cwd.clone()) else {
         return vec![];
     };
-    if app.external_agent && app.agents.get(&id).and_then(|agent| agent.session.session_id.as_ref()).is_none() {
+    if app.external_agent
+        && app
+            .agents
+            .get(&id)
+            .and_then(|agent| agent.session.session_id.as_ref())
+            .is_none()
+    {
         app.show_toast("Pi session is not ready");
         return vec![];
     }
     match crate::views::pi_config::PiConfigModalState::open(cwd) {
         Ok(mut state) => {
-            if app.external_agent { state.begin_snapshot_load(); }
+            if app.external_agent {
+                state.begin_snapshot_load();
+            }
             if let Some(agent) = app.agents.get_mut(&id) {
                 agent.active_modal = Some(ActiveModal::PiConfig {
                     state: Box::new(state),
@@ -606,24 +614,48 @@ pub(in crate::app::dispatch) fn dispatch_open_pi_config(app: &mut AppView) -> Ve
             app.show_toast(&message);
         }
     }
-    if app.external_agent && app.agents.get(&id).is_some_and(|agent| matches!(agent.active_modal, Some(ActiveModal::PiConfig { .. }))) {
+    if app.external_agent
+        && app
+            .agents
+            .get(&id)
+            .is_some_and(|agent| matches!(agent.active_modal, Some(ActiveModal::PiConfig { .. })))
+    {
         dispatch_pi_control(app, PiControlMethod::PackagesList, serde_json::json!({}))
-    } else { vec![] }
+    } else {
+        vec![]
+    }
 }
 
-pub(in crate::app::dispatch) fn dispatch_pi_control(app: &mut AppView, method: PiControlMethod, mut params: serde_json::Value) -> Vec<Effect> {
+pub(in crate::app::dispatch) fn dispatch_pi_control(
+    app: &mut AppView,
+    method: PiControlMethod,
+    mut params: serde_json::Value,
+) -> Vec<Effect> {
     if !app.external_agent {
         app.show_toast("Pi controls are available in Pi sessions");
         return vec![];
     }
-    let ActiveView::Agent(agent_id) = app.active_view else { return vec![]; };
-    let Some(session_id) = app.agents.get(&agent_id).and_then(|agent| agent.session.session_id.clone()) else {
+    let ActiveView::Agent(agent_id) = app.active_view else {
+        return vec![];
+    };
+    let Some(session_id) = app
+        .agents
+        .get(&agent_id)
+        .and_then(|agent| agent.session.session_id.clone())
+    else {
         app.show_toast("Pi session is not ready");
         return vec![];
     };
-    let Some(object) = params.as_object_mut() else { return vec![]; };
+    let Some(object) = params.as_object_mut() else {
+        return vec![];
+    };
     object.insert("sessionId".into(), serde_json::json!(session_id.0.as_ref()));
-    vec![Effect::PiControlRequest { agent_id, session_id, method, params }]
+    vec![Effect::PiControlRequest {
+        agent_id,
+        session_id,
+        method,
+        params,
+    }]
 }
 
 /// Open the native Pi provider/model management center.
@@ -1072,25 +1104,12 @@ pub(in crate::app::dispatch) fn action_for_reset(
             tool: crate::app::actions::PiBuiltinTool::Ls,
             enabled: *b,
         }),
-        ("pi_builtin_tools.eval", SettingValue::Bool(b)) => Some(Action::SetPiBuiltinTool {
-            tool: crate::app::actions::PiBuiltinTool::Eval,
-            enabled: *b,
-        }),
         ("pi_builtin_tools.codemode", SettingValue::Bool(b)) => Some(Action::SetPiBuiltinTool {
             tool: crate::app::actions::PiBuiltinTool::Codemode,
             enabled: *b,
         }),
         ("pi_bash", SettingValue::Bool(b)) => Some(Action::SetPiBash(*b)),
         ("language", SettingValue::Enum(s)) => Some(Action::SetSettingsLanguage((*s).to_string())),
-        ("pi_eval", SettingValue::Enum(s)) => Some(Action::SetPiEval((*s).to_string())),
-        ("pi_eval_v2_language", SettingValue::Enum(s)) => {
-            Some(Action::SetPiEvalV2Language((*s).to_string()))
-        }
-        ("pi_eval_v2_display_mode", SettingValue::Enum(s)) => {
-            Some(Action::SetPiEvalV2DisplayMode((*s).to_string()))
-        }
-        ("pi_eval_v2_only", SettingValue::Bool(b)) => Some(Action::SetPiEvalV2Only(*b)),
-        ("pi_eval_mcp", SettingValue::Bool(b)) => Some(Action::SetPiEvalMcp(*b)),
         ("psm_resume_index", SettingValue::Bool(b)) => Some(Action::SetPsmResumeIndex(*b)),
         ("pi_tree_file_rollback", SettingValue::Bool(b)) => Some(Action::SetPiTreeFileRollback(*b)),
         ("pi_tree_skip_summary_prompt", SettingValue::Bool(b)) => {
@@ -1357,15 +1376,6 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
         }
         ("pi_bash", SettingValue::Bool(b)) => app.current_ui.pi_bash = *b,
         ("language", SettingValue::Enum(s)) => app.current_ui.language = (*s).to_string(),
-        ("pi_eval", SettingValue::Enum(s)) => app.current_ui.pi_eval = (*s).to_string(),
-        ("pi_eval_v2_language", SettingValue::Enum(s)) => {
-            app.current_ui.pi_eval_v2_language = (*s).to_string()
-        }
-        ("pi_eval_v2_display_mode", SettingValue::Enum(s)) => {
-            set_pi_eval_v2_display_mode_inner(app, s)
-        }
-        ("pi_eval_v2_only", SettingValue::Bool(b)) => app.current_ui.pi_eval_v2_only = *b,
-        ("pi_eval_mcp", SettingValue::Bool(b)) => app.current_ui.pi_eval_mcp = *b,
         ("psm_resume_index", SettingValue::Bool(b)) => app.current_ui.psm_resume_index = *b,
         ("pi_tree_file_rollback", SettingValue::Bool(b)) => {
             app.current_ui.pi_tree_file_rollback = *b

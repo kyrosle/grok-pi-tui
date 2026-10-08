@@ -21,15 +21,14 @@ const binarySha256 = binaryHash.digest("hex");
 const results: unknown[] = [];
 
 async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi-pty-state-"))) {
- const evalOnly = mode === "eval" || mode === "minimal";
  const controls = mode === "runtime" || mode === "packages";
- const codemode = mode === "codemode" || mode === "models";
+ const codemode = mode === "codemode" || mode === "models" || mode === "minimal";
  const grok = join(directory, "grok");
  mkdirSync(grok, { recursive: true });
  const configPath = join(grok, "config.toml");
  const languageCase = mode.startsWith("language-");
  if (!["settings-reopen", "settings-rollback", "language-reopen"].includes(mode))
-  writeFileSync(configPath, `[ui]\npi_subagents = false\npi_todo = false\npi_workflows = false\npi_bash = false\npi_eval = "v2"\npi_eval_v2_only = ${evalOnly}\ngroup_tool_verbs = false\n[ui.pi_builtin_tools]\ncodemode = ${codemode}\n`);
+  writeFileSync(configPath, `[ui]\npi_subagents = false\npi_todo = false\npi_workflows = false\npi_bash = ${mode === "bash"}\ngroup_tool_verbs = false\n[ui.pi_builtin_tools]\ncodemode = ${codemode}\n`);
  if (!languageCase && !["settings-reopen", "settings-rollback"].includes(mode))
   writeFileSync(configPath, readFileSync(configPath, "utf8").replace("[ui]\n", '[ui]\nlanguage = "en"\n'));
  if (mode === "product-surface")
@@ -42,8 +41,8 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
  if (mode === "models") argv.push("--thinking", "high");
  if (mode === "minimal") argv.push("--minimal");
  const env = { ...process.env, GROK_HOME: grok, GROK_PROJECT_DIR: ".grok-pi", PI_CODING_AGENT_DIR: join(directory, "pi"),
-  PI_OFFLINE: "1", PI_TELEMETRY: "0", GROK_CONTEXTUAL_HINTS: "0", PI_GROK_REMOTE_TUI: mode === "remote-ui" ? "1" : "0", PI_GROK_NATIVE_COMMANDS: "0", PI_GROK_EVAL_VERSION: "v2",
-  PI_GROK_EVAL_V2_ONLY: evalOnly ? "1" : "0", PI_GROK_EVAL_MCP: "0", PI_GROK_RPC_WATCHDOG: "0", PI_NATIVE_RENDER_TRACE: join(directory, "render-tools.jsonl"),
+  PI_OFFLINE: "1", PI_TELEMETRY: "0", GROK_CONTEXTUAL_HINTS: "0", PI_GROK_REMOTE_TUI: mode === "remote-ui" ? "1" : "0", PI_GROK_NATIVE_COMMANDS: "1", PI_GROK_RUST_TUI_BRIDGE: "1", PI_GROK_EVAL_VERSION: "v2",
+  PI_GROK_RPC_WATCHDOG: "0", PI_NATIVE_RENDER_TRACE: join(directory, "render-tools.jsonl"),
   TERM: "xterm-256color", TERM_PROGRAM: "xterm", COLORTERM: "truecolor" };
  // Pin terminal locale in synthetic cases; language-reopen deliberately changes
  // the system locale to prove the saved explicit preference wins.
@@ -304,7 +303,6 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
     save("english", await chooseLanguage(1, "en", "Settings language"));
     await close(); await open("Settings");
     save("chinese", await chooseLanguage(2, "zh-CN", "设置语言"));
-    if (!/pi_eval\s*=\s*"v2"/.test(readFileSync(configPath, "utf8"))) throw new Error("Language switch changed canonical execution setting");
    } else {
     if (!/language\s*=\s*"zh-CN"/.test(readFileSync(configPath, "utf8"))) throw new Error("Language choice not persisted across native processes");
     save("persisted-chinese", await open("设置"));
@@ -363,11 +361,16 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
    } else if (!/group_tool_verbs\s*=\s*true/.test(before)) throw new Error("F2 boolean was not persisted across native processes");
    send("\x1bOQ");
    await wait(text => !text.includes("Settings"), "native F2 close before quit");
-  } else if (mode === "eval" || mode === "codemode" || mode === "minimal") {
-   send(`render-${mode === "minimal" ? "eval" : mode}\r`);
+  } else if (mode === "bash") {
+   send("render-bash\r");
+   const rendered = await wait(text => text.includes("NATIVE_RENDER_DONE"), "native enhanced Bash result");
+   if (rendered.includes("NATIVE_BASH_FAILURE")) throw new Error("Enhanced Bash result failed");
+   save("enhanced-bash", rendered);
+  } else if (mode === "codemode" || mode === "minimal") {
+   send(`render-${mode === "minimal" ? "codemode" : mode}\r`);
    let final = await wait(text => text.includes("NATIVE_RENDER_DONE") && text.includes("Worked for"), "native turn completion", 30);
    const calls = readFileSync(join(directory, "render-tools.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
-   if (calls.length !== 1 || calls[0].text !== (mode === "codemode" ? "codemode" : "eval"))
+   if (calls.length !== 1 || calls[0].text !== "codemode")
     throw new Error("Native tool did not execute exactly once: " + JSON.stringify(calls));
    // The turn-complete task restores prompt focus after its last text frame.
    await new Promise(done => setTimeout(done, 250));
@@ -426,7 +429,7 @@ async function run(mode: string, directory = mkdtempSync(join(tmpdir(), "grok-pi
 }
 
 const selected = process.argv.slice(2);
-const modes = selected.length ? selected : ["eval", "codemode", "signal", "timeout", "eof"];
+const modes = selected.length ? selected : ["codemode", "signal", "timeout", "eof"];
 if (modes.some(mode => ["runtime", "packages", "models", "remote-ui", "product-surface", "language"].includes(mode))) {
  if (!process.env.PI_NATIVE_EXPECTED_SHA256 || process.env.PI_NATIVE_EXPECTED_SHA256 !== binarySha256)
   throw new Error("New Pi deep-adaptation PTY cases require the root-verified fresh binary SHA in PI_NATIVE_EXPECTED_SHA256");
@@ -443,7 +446,7 @@ for (const mode of modes) {
   await run("settings-rollback", directory);
   continue;
  }
- if (!["eval", "codemode", "signal", "timeout", "eof", "minimal", "runtime", "packages", "models", "remote-ui", "product-surface"].includes(mode)) throw new Error("Unknown PTY fixture: " + mode);
+ if (!["bash", "codemode", "signal", "timeout", "eof", "minimal", "runtime", "packages", "models", "remote-ui", "product-surface"].includes(mode)) throw new Error("Unknown PTY fixture: " + mode);
  await run(mode);
 }
 const finalHash = createHash("sha256");

@@ -53,13 +53,13 @@ export default function (pi: any) {
    const first = requests++ === 0;
    const user = [...context.messages].reverse().find((message: any) => message.role === "user");
    const userText = typeof user?.content === "string" ? user.content : JSON.stringify(user?.content);
-   const codemode = userText?.includes("render-codemode");
-   const code = codemode
-    ? `const result = await tools.fixture_note({text:"codemode"}); text("NATIVE_CODEMODE_OUTPUT"); text(result.value); image(result.image);`
-    : `const result = await tool.fixture_note({text:"eval"}); console.log("NATIVE_EVAL_OUTPUT"); console.log(result.text);`;
-   const content = first ? [{ type: "toolCall", id: codemode ? "fixture-codemode" : "fixture-eval", name: codemode ? "codemode" : "eval",
-    arguments: codemode ? { code } : { language: "js", code, timeout: 10 } }]
-    : [{ type: "text", text: "NATIVE_RENDER_DONE" }];
+   const bash = userText?.includes("render-bash");
+   const code = `const result = await tools.fixture_note({text:"codemode"}); text("NATIVE_CODEMODE_OUTPUT"); text(result.value); image(result.image);`;
+   const prior = [...context.messages].reverse().find((message: any) => message.role === "toolResult");
+   const bashOk = !bash || (!prior?.isError && JSON.stringify(prior?.content ?? []).includes("NATIVE_BASH_OUTPUT"));
+   const content = first ? [{ type: "toolCall", id: bash ? "fixture-bash" : "fixture-codemode", name: bash ? "bash" : "codemode",
+     arguments: bash ? { command: "printf NATIVE_BASH_OUTPUT", task_name: "执行 Bash 验证" } : { code } }]
+     : [{ type: "text", text: bashOk ? "NATIVE_RENDER_DONE" : "NATIVE_BASH_FAILURE" }];
    const message: any = { role: "assistant", content, api: model.api, provider: model.provider, model: model.id,
     stopReason: first ? "toolUse" : "stop", timestamp: Date.now(),
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } };

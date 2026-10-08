@@ -1719,18 +1719,6 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
         "pi_bash" => {
             let _ = dispatch(Action::SetPiBash(false), app);
         }
-        "pi_eval" => {
-            let _ = dispatch(Action::SetPiEval("v2".to_string()), app);
-        }
-        "pi_eval_v2_language" => {
-            let _ = dispatch(Action::SetPiEvalV2Language("all".to_string()), app);
-        }
-        "pi_eval_v2_only" => {
-            let _ = dispatch(Action::SetPiEvalV2Only(true), app);
-        }
-        "pi_eval_mcp" => {
-            let _ = dispatch(Action::SetPiEvalMcp(true), app);
-        }
         "pi_herdr" => {
             let _ = dispatch(
                 Action::SetHostFeatureBool {

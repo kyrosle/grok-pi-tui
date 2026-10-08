@@ -519,11 +519,6 @@ pub fn external_setting_supported(key: &str) -> bool {
                 | "contextual_hints.export_copy"
                 | "contextual_hints.ssh_wrap"
                 | "pi_bash"
-                | "pi_eval"
-                | "pi_eval_v2_language"
-                | "pi_eval_v2_display_mode"
-                | "pi_eval_v2_only"
-                | "pi_eval_mcp"
                 | "pi_builtin_tools"
                 | "pi_builtin_tools.read"
                 | "pi_builtin_tools.bash"
@@ -533,7 +528,6 @@ pub fn external_setting_supported(key: &str) -> bool {
                 | "pi_builtin_tools.grep"
                 | "pi_builtin_tools.find"
                 | "pi_builtin_tools.ls"
-                | "pi_builtin_tools.eval"
                 | "pi_builtin_tools.codemode"
                 | "psm_resume_index"
                 | "pi_tree_file_rollback"
@@ -693,26 +687,8 @@ pub fn current_value_for(
         "pi_builtin_tools.grep" => Some(SettingValue::Bool(ui.pi_builtin_tools.grep)),
         "pi_builtin_tools.find" => Some(SettingValue::Bool(ui.pi_builtin_tools.find)),
         "pi_builtin_tools.ls" => Some(SettingValue::Bool(ui.pi_builtin_tools.ls)),
-        "pi_builtin_tools.eval" => Some(SettingValue::Bool(ui.pi_builtin_tools.eval)),
         "pi_builtin_tools.codemode" => Some(SettingValue::Bool(ui.pi_builtin_tools.codemode)),
         "pi_bash" => Some(SettingValue::Bool(ui.pi_bash)),
-        "pi_eval" => Some(SettingValue::Enum(match ui.pi_eval.as_str() {
-            "v2" => "v2",
-            _ => "v1",
-        })),
-        "pi_eval_v2_language" => Some(SettingValue::Enum(match ui.pi_eval_v2_language.as_str() {
-            "py" => "py",
-            "all" => "all",
-            _ => "js",
-        })),
-        "pi_eval_v2_display_mode" => Some(SettingValue::Enum(
-            match ui.pi_eval_v2_display_mode.as_str() {
-                "legacy" => "legacy",
-                _ => "effects",
-            },
-        )),
-        "pi_eval_v2_only" => Some(SettingValue::Bool(ui.pi_eval_v2_only)),
-        "pi_eval_mcp" => Some(SettingValue::Bool(ui.pi_eval_mcp)),
         "psm_resume_index" => Some(SettingValue::Bool(ui.psm_resume_index)),
         "pi_tree_file_rollback" => Some(SettingValue::Bool(ui.pi_tree_file_rollback)),
         "pi_tree_skip_summary_prompt" => Some(SettingValue::Bool(ui.pi_tree_skip_summary_prompt)),
@@ -1121,43 +1097,14 @@ mod tests {
                 ("pi_builtin_tools.ls", SettingKind::Bool { default }) => {
                     assert_eq!(*default, ui.pi_builtin_tools.ls);
                 }
-                ("pi_builtin_tools.eval", SettingKind::Bool { default }) => {
-                    assert_eq!(*default, ui.pi_builtin_tools.eval);
-                }
                 ("pi_builtin_tools.codemode", SettingKind::Bool { default }) => {
                     assert_eq!(*default, ui.pi_builtin_tools.codemode);
                 }
                 ("pi_bash", SettingKind::Bool { default }) => {
                     assert_eq!(*default, ui.pi_bash);
                 }
-                ("pi_eval", SettingKind::Enum { default, .. }) => {
-                    let expected = if ui.pi_eval == "v2" { "v2" } else { "v1" };
-                    assert_eq!(*default, expected);
-                }
                 ("language", SettingKind::Enum { default, .. }) => {
                     assert_eq!(*default, ui.language);
-                }
-                ("pi_eval_v2_language", SettingKind::Enum { default, .. }) => {
-                    let expected = match ui.pi_eval_v2_language.as_str() {
-                        "py" => "py",
-                        "all" => "all",
-                        _ => "js",
-                    };
-                    assert_eq!(*default, expected);
-                }
-                ("pi_eval_v2_display_mode", SettingKind::Enum { default, .. }) => {
-                    let expected = if ui.pi_eval_v2_display_mode == "legacy" {
-                        "legacy"
-                    } else {
-                        "effects"
-                    };
-                    assert_eq!(*default, expected);
-                }
-                ("pi_eval_v2_only", SettingKind::Bool { default }) => {
-                    assert_eq!(*default, ui.pi_eval_v2_only);
-                }
-                ("pi_eval_mcp", SettingKind::Bool { default }) => {
-                    assert_eq!(*default, ui.pi_eval_mcp);
                 }
                 ("page_flip_on_send", SettingKind::Bool { default }) => {
                     assert_eq!(
@@ -1869,8 +1816,6 @@ mod tests {
             "scroll_speed",
             "cancel_turn_key",
             "pi_builtin_tools",
-            "pi_eval",
-            "pi_eval_mcp",
             "session_recap",
             "recap_model",
             "default_model",

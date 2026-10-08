@@ -264,59 +264,6 @@
         "source": "native"
       },
       {
-        "key": "pi_eval",
-        "default": "v1",
-        "restartRequired": true,
-        "section": "runtime",
-        "kind": "string",
-        "options": [
-          "v1",
-          "v2"
-        ],
-        "source": "native"
-      },
-      {
-        "key": "pi_eval_v2_language",
-        "default": "js",
-        "restartRequired": true,
-        "section": "runtime",
-        "kind": "string",
-        "options": [
-          "js",
-          "py",
-          "all"
-        ],
-        "source": "native"
-      },
-      {
-        "key": "pi_eval_v2_display_mode",
-        "default": "effects",
-        "restartRequired": false,
-        "section": "runtime",
-        "kind": "string",
-        "options": [
-          "effects",
-          "legacy"
-        ],
-        "source": "native"
-      },
-      {
-        "key": "pi_eval_v2_only",
-        "default": false,
-        "restartRequired": true,
-        "section": "runtime",
-        "kind": "bool",
-        "source": "native"
-      },
-      {
-        "key": "pi_eval_mcp",
-        "default": false,
-        "restartRequired": true,
-        "section": "runtime",
-        "kind": "bool",
-        "source": "native"
-      },
-      {
         "key": "psm_resume_index",
         "default": false,
         "restartRequired": false,

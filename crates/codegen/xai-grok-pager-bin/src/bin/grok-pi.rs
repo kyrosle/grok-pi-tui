@@ -37,8 +37,6 @@ mod migrate_home;
 #[cfg(test)]
 #[path = "grok_pi/model_manager_tests.rs"]
 mod model_manager_tests;
-#[path = "grok_pi/native_commands_extension.rs"]
-mod native_commands_extension;
 #[path = "grok_pi/pi_version.rs"]
 mod pi_version;
 #[path = "grok_pi/plan_mode_extension.rs"]
@@ -55,8 +53,6 @@ mod rollback_extension;
 mod rpc_compat_extension;
 #[path = "grok_pi/runtime_config.rs"]
 mod runtime_config;
-#[path = "grok_pi/rust_tui_bridge_extension.rs"]
-mod rust_tui_bridge_extension;
 #[path = "grok_pi/session_paths.rs"]
 mod session_paths;
 #[path = "grok_pi/shortcut_manager_extension.rs"]
@@ -111,18 +107,15 @@ use goal_extension::write_goal_extension;
 use herdr_extension::{is_managed_pi_integration, write_herdr_extension};
 use host_feature_extension::write_host_feature_extension;
 use loop_extension::write_loop_extension;
-use native_commands_extension::write_native_commands_extension;
 use pi_version::ensure_compatible_pi_host;
 use plan_mode_extension::write_plan_mode_extension;
 use recap_extension::write_recap_extension;
 use remote_tui_extension::write_remote_tui_extension;
 use rpc_compat_extension::write_rpc_compat_extension;
 use runtime_config::{
-    bash_bridge_enabled, bash_control_meta_for_adapter, env_flag_default_off, env_flag_default_on,
-    eval_mcp_enabled, eval_v2_language, eval_v2_only_enabled, eval_v2_only_tool_policy_applies,
-    eval_version, host_terminal_size, normal_f2_tool_policy_applies, resolve_bash_max_wait_mins,
+    bash_bridge_enabled, bash_control_meta_for_adapter, env_flag_default_on, host_terminal_size,
+    normal_f2_tool_policy_applies, resolve_bash_max_wait_mins,
 };
-use rust_tui_bridge_extension::write_rust_tui_bridge_extension;
 use session_paths::pi_session_dir;
 use shortcut_manager_extension::write_shortcut_manager_extension;
 use subagent_extension::write_subagent_extension;
@@ -195,7 +188,6 @@ const PI_GROK_NATIVE_COMMANDS: &[&str] = &[
     // Native Grok terminal/composer appearance controls.
     "multiline",
     "compact-mode",
-    "eval-display",
     "vim-mode",
     "theme",
     "timestamps",
@@ -386,16 +378,10 @@ async fn run(mut args: Args) -> Result<()> {
         None
     };
     let bash_bridge_enabled = bash_bridge_enabled();
-    // Eval and enhanced Bash share one physical extension bundle, but their
-    // runtime switches are independent. Keep the bundle available whenever
-    // bridge extensions are enabled; PI_GROK_BASH gates only Bash registration.
-    let bash_extension = bridge_extensions_enabled
+    let bash_extension = (bridge_extensions_enabled && bash_bridge_enabled)
         .then(|| write_bash_extension())
         .transpose()
-        .context("failed to create Pi Bash/Eval extension")?;
-    let eval_v2_only = eval_v2_only_enabled();
-    let eval_version = if eval_v2_only { "v2" } else { eval_version() };
-    let eval_v2_language = eval_v2_language();
+        .context("failed to create Pi Bash extension")?;
     // F2 `[ui].pi_subagents` (default on). Restart required — inject at startup only.
     let subagent_extension = if host_feature_enabled(PI_SUBAGENTS) {
         Some(write_subagent_extension().context("failed to create Pi subagent extension")?)
@@ -471,13 +457,6 @@ async fn run(mut args: Args) -> Result<()> {
         .then(|| write_export_extension())
         .transpose()
         .context("failed to create Pi export extension")?;
-    // Pi's interactive component internals are not a stable extension API.
-    // Keep this experiment opt-in so a Pi upgrade cannot block the core RPC host.
-    let native_commands_extension = (bridge_extensions_enabled
-        && env_flag_default_off("PI_GROK_NATIVE_COMMANDS"))
-    .then(|| write_native_commands_extension())
-    .transpose()
-    .context("failed to create Pi native commands extension")?;
     let remote_tui_enabled = bridge_extensions_enabled && env_flag_default_on("PI_GROK_REMOTE_TUI");
     let remote_tui_extension = if remote_tui_enabled {
         Some(write_remote_tui_extension().context("failed to create Pi remote-tui extension")?)
@@ -499,16 +478,6 @@ async fn run(mut args: Args) -> Result<()> {
     } else {
         None
     };
-    // Optional experimental Rust TUI bridge (does not replace remote-tui).
-    let rust_tui_bridge_extension =
-        if remote_tui_enabled && env_flag_default_off("PI_GROK_RUST_TUI_BRIDGE") {
-            Some(
-                write_rust_tui_bridge_extension()
-                    .context("failed to create Pi Rust TUI bridge extension")?,
-            )
-        } else {
-            None
-        };
     let plan_mode_extension = bridge_extensions_enabled
         .then(|| write_plan_mode_extension())
         .transpose()
@@ -613,9 +582,6 @@ async fn run(mut args: Args) -> Result<()> {
         shortcut_manager_extension
             .as_ref()
             .map(|extension| extension.source_path()),
-        rust_tui_bridge_extension
-            .as_ref()
-            .map(|extension| extension.path()),
     ]
     .into_iter()
     .flatten()
@@ -671,25 +637,8 @@ async fn run(mut args: Args) -> Result<()> {
     let managed_resource_args = pi_args[managed_resource_start..].to_vec();
     let skip_herdr_resources = herdr_extension.is_some();
 
-    // Eval-v2-only is a strong F2 isolation mode: keep Pi's registry intact,
-    // then let the host extension collapse the top-level active set to `eval`.
-    // Explicit user --tools or --no-tools still wins; --no-builtin-tools remains
-    // compatible because Eval is an extension tool, not an upstream Pi builtin.
-    let eval_v2_only_tool_policy_applied =
-        eval_v2_only_tool_policy_applies(&pi_args, bridge_extensions_enabled, eval_v2_only);
-
-    // CLI tool restrictions (--tools, --no-tools, --no-builtin-tools,
-    // --exclude-tools) are authoritative and always override normal F2 preferences.
-    // When normal F2 owns the selection, disabled built-in names are also merged
-    // into Pi's native --exclude-tools denylist. Eval-v2-only deliberately skips
-    // this saved preference for the current process so nested Eval retains the
-    // registry; explicit CLI exclusions remain authoritative. The tools extension
-    // remains responsible for normal-mode activation of non-default tools.
-    let f2_tools_enabled = normal_f2_tool_policy_applies(
-        &pi_args,
-        bridge_extensions_enabled,
-        eval_v2_only_tool_policy_applied,
-    );
+    // Explicit CLI restrictions override persisted F2 tool preferences.
+    let f2_tools_enabled = normal_f2_tool_policy_applies(&pi_args, bridge_extensions_enabled);
     let selected_builtin_tools = f2_tools_enabled.then(configured_builtin_tools);
     let cli_exclusions = if let Some(selected) = selected_builtin_tools.as_deref() {
         let disabled = disabled_builtin_tools_from_selected(selected)
@@ -778,12 +727,6 @@ async fn run(mut args: Args) -> Result<()> {
             .map(|extension| extension.source_path().to_path_buf()),
     );
     add_subagent_extension(
-        "grok-pi: Rust TUI bridge",
-        rust_tui_bridge_extension
-            .as_ref()
-            .map(|extension| extension.path().to_path_buf()),
-    );
-    add_subagent_extension(
         "grok-pi: subagents",
         subagent_extension
             .as_ref()
@@ -850,13 +793,7 @@ async fn run(mut args: Args) -> Result<()> {
             .map(|extension| extension.path().to_path_buf()),
     );
     add_subagent_extension(
-        "grok-pi: native commands",
-        native_commands_extension
-            .as_ref()
-            .map(|extension| extension.path().to_path_buf()),
-    );
-    add_subagent_extension(
-        "grok-pi: Bash/Eval",
+        "grok-pi: Bash",
         bash_extension
             .as_ref()
             .map(|extension| extension.source_path().to_path_buf()),
@@ -914,9 +851,6 @@ async fn run(mut args: Args) -> Result<()> {
             .as_ref()
             .map(|extension| extension.source_path()),
         export_extension.as_ref().map(|extension| extension.path()),
-        native_commands_extension
-            .as_ref()
-            .map(|extension| extension.path()),
         web_config_extension
             .as_ref()
             .map(|extension| extension.source_path()),
@@ -948,28 +882,6 @@ async fn run(mut args: Args) -> Result<()> {
     }
     // Identifies this Pi child as running under the grok-pi host for user extensions.
     let mut env = vec![("PI_GROK".to_string(), "1".to_string())];
-    // Only the host-owned eval-v2-only policy may widen Eval nested access.
-    // Explicit --tools/--no-tools leave this marker off; native registry exclusions
-    // such as --exclude-tools and --no-builtin-tools remain authoritative.
-    env.push((
-        "PI_GROK_EVAL_V2_ONLY".to_string(),
-        if eval_v2_only_tool_policy_applied {
-            "1"
-        } else {
-            "0"
-        }
-        .to_string(),
-    ));
-    // Only the host-applied isolation policy may expose a remotely controllable Eval.
-    env.push((
-        "PI_GROK_EVAL_MCP".to_string(),
-        if eval_v2_only_tool_policy_applied && eval_mcp_enabled() {
-            "1"
-        } else {
-            "0"
-        }
-        .to_string(),
-    ));
     if recap_extension.is_some() {
         env.push(("PI_GROK_RECAP".to_string(), "1".to_string()));
         // SAFETY: single-threaded startup; the adapter advertises this capability.
@@ -1100,11 +1012,6 @@ async fn run(mut args: Args) -> Result<()> {
             }
             .to_string(),
         ));
-        env.push(("PI_GROK_EVAL_VERSION".to_string(), eval_version.to_string()));
-        env.push((
-            "PI_GROK_EVAL_V2_LANGUAGE".to_string(),
-            eval_v2_language.to_string(),
-        ));
         env.push(("PI_GROK_BASH_MAX_WAIT_MINS".to_string(), bash_max_wait_mins));
         env.push((
             "PI_GROK_BASH_CONTROL_META".to_string(),
@@ -1193,11 +1100,9 @@ async fn run(mut args: Args) -> Result<()> {
     let _context_extension = context_extension;
     let _auth_extension = auth_extension;
     let _export_extension = export_extension;
-    let _native_commands_extension = native_commands_extension;
     let _remote_tui_extension = remote_tui_extension;
     let _rpc_compat_extension = rpc_compat_extension;
     let _shortcut_manager_extension = shortcut_manager_extension;
-    let _rust_tui_bridge_extension = rust_tui_bridge_extension;
     let _plan_mode_extension = plan_mode_extension;
     let _goal_extension = goal_extension;
     let _loop_extension = loop_extension;
@@ -1284,7 +1189,6 @@ async fn run(mut args: Args) -> Result<()> {
                 goal_control,
                 subagent_transport,
                 workflows_enabled,
-                eval_v2_only_tool_policy_applied,
             )
             .context("failed to restore Pi plan-mode state")?
             .with_resource_admission_planner(resource_planner),
@@ -1347,7 +1251,9 @@ async fn run(mut args: Args) -> Result<()> {
                 }),
                 // Grok worktree product flow is not wired for Pi yet.
                 hide_new_worktree: true,
-                changelog_url: Some("https://github.com/kyrosle/grok-pi-tui/blob/main/CHANGELOG.MD"),
+                changelog_url: Some(
+                    "https://github.com/kyrosle/grok-pi-tui/blob/main/CHANGELOG.MD",
+                ),
                 host_features: host_feature_manifest.clone(),
             },
         );
@@ -1368,14 +1274,10 @@ async fn run(mut args: Args) -> Result<()> {
 
 #[cfg(test)]
 mod env_flag_tests {
-    use super::runtime_config::{
-        bash_bridge_enabled_from_config, eval_mcp_enabled_from_config,
-        eval_v2_only_enabled_from_config, eval_version_from_config,
-    };
+    use super::runtime_config::bash_bridge_enabled_from_config;
     use super::{
         Args, PI_GROK_NATIVE_COMMANDS, bash_control_meta_for_adapter, bootstrap_with_deadline,
-        disable_all_extensions, env_flag_default_off, env_flag_default_on,
-        eval_v2_only_tool_policy_applies, normal_f2_tool_policy_applies,
+        disable_all_extensions, env_flag_default_on, normal_f2_tool_policy_applies,
         resolve_bash_max_wait_mins,
     };
     use clap::Parser;
@@ -1410,7 +1312,7 @@ mod env_flag_tests {
 
     #[test]
     fn bash_control_meta_is_hidden_when_bash_bridge_is_off() {
-        let extension = super::write_bash_extension().expect("write Bash/Eval extension");
+        let extension = super::write_bash_extension().expect("write Bash extension");
         assert!(bash_control_meta_for_adapter(false, Some(&extension)).is_none());
         assert_eq!(
             bash_control_meta_for_adapter(true, Some(&extension)).as_deref(),
@@ -1426,84 +1328,6 @@ mod env_flag_tests {
         assert_eq!(resolve_bash_max_wait_mins(Some(2.5), Some("3.75")), "2.5");
         assert_eq!(resolve_bash_max_wait_mins(Some(0.0), Some("3.75")), "0");
         assert_eq!(resolve_bash_max_wait_mins(Some(-1.0), None), "-1");
-    }
-
-    #[test]
-    fn eval_bridge_defaults_v1_and_only_explicit_v2_opts_in() {
-        assert_eq!(eval_version_from_config(None), "v1");
-
-        let missing: toml::Value = toml::from_str("[ui]\n").expect("parse missing config");
-        assert_eq!(eval_version_from_config(Some(&missing)), "v1");
-
-        let v1: toml::Value = toml::from_str("[ui]\npi_eval = \"v1\"\n").expect("parse v1 config");
-        assert_eq!(eval_version_from_config(Some(&v1)), "v1");
-
-        let v2: toml::Value = toml::from_str("[ui]\npi_eval = \"v2\"\n").expect("parse v2 config");
-        assert_eq!(eval_version_from_config(Some(&v2)), "v2");
-
-        let invalid: toml::Value =
-            toml::from_str("[ui]\npi_eval = \"both\"\n").expect("parse invalid config");
-        assert_eq!(eval_version_from_config(Some(&invalid)), "v1");
-    }
-
-    #[test]
-    fn eval_mcp_is_opt_in_and_needs_host_isolation_policy() {
-        assert!(!eval_mcp_enabled_from_config(None));
-        let missing: toml::Value = toml::from_str("[ui]\n").unwrap();
-        assert!(!eval_mcp_enabled_from_config(Some(&missing)));
-        let configured: toml::Value = toml::from_str("[ui]\npi_eval_mcp = true\n").unwrap();
-        assert!(eval_mcp_enabled_from_config(Some(&configured)));
-        assert!(!eval_v2_only_tool_policy_applies(&[], true, false));
-        assert!(!eval_v2_only_tool_policy_applies(
-            &["--no-tools".into()],
-            true,
-            true
-        ));
-        assert!(eval_v2_only_tool_policy_applies(&[], true, true));
-    }
-
-    #[test]
-    fn eval_v2_only_defaults_off_and_honors_explicit_true() {
-        assert!(!eval_v2_only_enabled_from_config(None));
-
-        let missing: toml::Value = toml::from_str("[ui]\n").expect("parse missing config");
-        assert!(!eval_v2_only_enabled_from_config(Some(&missing)));
-
-        let enabled: toml::Value =
-            toml::from_str("[ui]\npi_eval_v2_only = true\n").expect("parse enabled config");
-        assert!(eval_v2_only_enabled_from_config(Some(&enabled)));
-
-        let disabled: toml::Value =
-            toml::from_str("[ui]\npi_eval_v2_only = false\n").expect("parse disabled config");
-        assert!(!eval_v2_only_enabled_from_config(Some(&disabled)));
-    }
-
-    #[test]
-    fn eval_v2_only_tool_policy_isolates_model_without_filtering_registry() {
-        let args = Vec::new();
-        assert!(eval_v2_only_tool_policy_applies(&args, true, true));
-        assert!(args.is_empty());
-        assert!(!normal_f2_tool_policy_applies(&args, true, true));
-        assert!(normal_f2_tool_policy_applies(&args, true, false));
-
-        let disabled = Vec::new();
-        assert!(!eval_v2_only_tool_policy_applies(&disabled, true, false));
-
-        let no_bridge = Vec::new();
-        assert!(!eval_v2_only_tool_policy_applies(&no_bridge, false, true));
-        assert!(!normal_f2_tool_policy_applies(&no_bridge, false, false));
-
-        let explicit = vec!["--tools".to_string(), "read,eval".to_string()];
-        assert!(!eval_v2_only_tool_policy_applies(&explicit, true, true));
-        assert!(!normal_f2_tool_policy_applies(&explicit, true, false));
-
-        let no_tools = vec!["--no-tools".to_string()];
-        assert!(!eval_v2_only_tool_policy_applies(&no_tools, true, true));
-        assert!(!normal_f2_tool_policy_applies(&no_tools, true, false));
-
-        let no_builtins = vec!["--no-builtin-tools".to_string()];
-        assert!(eval_v2_only_tool_policy_applies(&no_builtins, true, true));
-        assert!(!normal_f2_tool_policy_applies(&no_builtins, true, true));
     }
 
     #[test]
@@ -1534,27 +1358,6 @@ mod env_flag_tests {
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"plan-mode"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"view-plan"));
         assert!(PI_GROK_NATIVE_COMMANDS.contains(&"pi-shortcut-manager"));
-    }
-
-    #[test]
-    fn native_commands_default_off() {
-        // SAFETY: test-only env mutation in this unit test process.
-        unsafe {
-            std::env::remove_var("PI_GROK_NATIVE_COMMANDS");
-        }
-        assert!(!env_flag_default_off("PI_GROK_NATIVE_COMMANDS"));
-    }
-
-    #[test]
-    fn experimental_flags_require_an_explicit_opt_in() {
-        // SAFETY: test-only env mutation in this unit test process.
-        unsafe {
-            std::env::set_var("PI_GROK_NATIVE_COMMANDS", "yes");
-        }
-        assert!(env_flag_default_off("PI_GROK_NATIVE_COMMANDS"));
-        unsafe {
-            std::env::remove_var("PI_GROK_NATIVE_COMMANDS");
-        }
     }
 
     #[test]

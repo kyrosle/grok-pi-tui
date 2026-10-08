@@ -20,7 +20,7 @@ async fn handled_reload_with_false_missing_or_non_boolean_ack_never_reports_relo
             let rpc = process.rpc.clone();
             let bootstrap = PiBootstrap::load(&rpc).await.unwrap();
             let (mut client, channel) = acp_channels();
-            let agent = PiAgent::new(rpc.clone(), channel.tx, bootstrap, directory.path().join("sessions"), None, None, None, None, None, false, false).unwrap();
+            let agent = PiAgent::new(rpc.clone(), channel.tx, bootstrap, directory.path().join("sessions"), None, None, None, None, None, false).unwrap();
             let notifications = Rc::new(RefCell::new(Vec::<String>::new()));
             let captured = notifications.clone();
             let sink = tokio::task::spawn_local(async move {

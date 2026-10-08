@@ -7,7 +7,6 @@ const BUILTIN_TOOLS = [
 	"grep",
 	"find",
 	"ls",
-	"eval",
 	"codemode",
 ] as const;
 

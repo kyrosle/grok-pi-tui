@@ -356,13 +356,11 @@ mod tests {
             serde_json::json!(["auto", "en", "zh-CN"])
         );
         assert_eq!(language["localized"]["zh-CN"]["label"], "设置语言");
-        let eval = native
-            .iter()
-            .find(|entry| entry["key"] == "pi_eval")
-            .unwrap();
-        assert_eq!(eval["options"], serde_json::json!(["v1", "v2"]));
-        assert_ne!(eval["localized"]["en"]["options"]["v1"], "v1");
-        assert_ne!(eval["localized"]["zh-CN"]["options"]["v2"], "v2");
+        assert!(!native.iter().any(|entry| {
+            entry["key"]
+                .as_str()
+                .is_some_and(|key| key.starts_with("pi_eval") || key == "pi_builtin_tools.eval")
+        }));
         for source in sources {
             for entry in source["manifest"]["settings"].as_array().unwrap() {
                 assert!(entry["localized"]["en"]["label"].is_string());

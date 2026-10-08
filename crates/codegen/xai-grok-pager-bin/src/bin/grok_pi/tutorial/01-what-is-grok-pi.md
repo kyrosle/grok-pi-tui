@@ -10,7 +10,7 @@ It combines the Pi agent core with Grok Pager through three layers:
 - **The adapter stays headless.** It translates Pi RPC events into Pager-native
   surfaces and never draws a second terminal interface.
 
-Todo, Plan mode, background Bash/Eval and Subagents are bundled grok-pi
+Todo, Plan mode, background Bash and Subagents are bundled grok-pi
 extensions or integrations. Each has its own defaults and capability limits;
 they are not Pi built-ins. Optional Rhai workflows use Pi workers but retain
 their own orchestration runtime.

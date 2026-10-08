@@ -38,7 +38,6 @@ async fn disposition_controls_completion_without_a_speculative_idle_probe() {
                         None,
                         None,
                         false,
-                        false,
                     )
                     .unwrap(),
                 );

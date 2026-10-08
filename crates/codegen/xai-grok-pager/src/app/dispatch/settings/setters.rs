@@ -2296,7 +2296,6 @@ pub(in crate::app::dispatch) fn set_pi_builtin_tool(
         PiBuiltinTool::Grep => &mut app.current_ui.pi_builtin_tools.grep,
         PiBuiltinTool::Find => &mut app.current_ui.pi_builtin_tools.find,
         PiBuiltinTool::Ls => &mut app.current_ui.pi_builtin_tools.ls,
-        PiBuiltinTool::Eval => &mut app.current_ui.pi_builtin_tools.eval,
         PiBuiltinTool::Codemode => &mut app.current_ui.pi_builtin_tools.codemode,
     };
     if *current == enabled {
@@ -2316,7 +2315,6 @@ pub(in crate::app::dispatch) fn set_pi_builtin_tool(
             PiBuiltinTool::Grep => "grep",
             PiBuiltinTool::Find => "find",
             PiBuiltinTool::Ls => "ls",
-            PiBuiltinTool::Eval => "eval",
             PiBuiltinTool::Codemode => "codemode",
         },
         if enabled { "on" } else { "off" },
@@ -2370,144 +2368,6 @@ pub(in crate::app::dispatch) fn set_settings_language(
         key: "language",
         value: SettingValue::Enum(canonical),
         rollback_value: SettingValue::Enum(previous),
-    }]
-}
-
-pub(in crate::app::dispatch) fn set_pi_eval(app: &mut AppView, requested: String) -> Vec<Effect> {
-    let canonical = match requested.as_str() {
-        "v2" => "v2",
-        _ => "v1",
-    };
-    let previous = match app.current_ui.pi_eval.as_str() {
-        "v2" => "v2",
-        _ => "v1",
-    };
-    if previous == canonical {
-        return vec![];
-    }
-    app.current_ui.pi_eval = canonical.to_string();
-    refresh_open_settings_modals(app);
-    app.show_toast(&format!(
-        "\u{2713} Eval bridge version: {canonical} \u{2014} restart grok-pi to apply"
-    ));
-    vec![Effect::PersistSetting {
-        key: "pi_eval",
-        value: crate::settings::SettingValue::Enum(canonical),
-        rollback_value: crate::settings::SettingValue::Enum(previous),
-    }]
-}
-
-pub(in crate::app::dispatch) fn set_pi_eval_v2_language(
-    app: &mut AppView,
-    requested: String,
-) -> Vec<Effect> {
-    let canonical = match requested.as_str() {
-        "py" => "py",
-        "all" => "all",
-        _ => "js",
-    };
-    let previous = match app.current_ui.pi_eval_v2_language.as_str() {
-        "py" => "py",
-        "all" => "all",
-        _ => "js",
-    };
-    if previous == canonical {
-        return vec![];
-    }
-    app.current_ui.pi_eval_v2_language = canonical.to_string();
-    refresh_open_settings_modals(app);
-    app.show_toast(&format!(
-        "\u{2713} Eval v2 language: {canonical} \u{2014} restart grok-pi to apply"
-    ));
-    vec![Effect::PersistSetting {
-        key: "pi_eval_v2_language",
-        value: crate::settings::SettingValue::Enum(canonical),
-        rollback_value: crate::settings::SettingValue::Enum(previous),
-    }]
-}
-
-pub(super) fn set_pi_eval_v2_display_mode_inner(app: &mut AppView, mode: &str) {
-    let canonical = if mode.eq_ignore_ascii_case("legacy") {
-        "legacy"
-    } else {
-        "effects"
-    };
-    crate::appearance::cache::set_pi_eval_v2_effects_first(canonical == "effects");
-    app.current_ui.pi_eval_v2_display_mode = canonical.to_string();
-    for agent in app.agents.values_mut() {
-        agent.scrollback.invalidate_heights();
-        for child in agent.subagent_views.values_mut() {
-            child.scrollback.invalidate_heights();
-        }
-    }
-}
-
-/// Set Eval v2 presentation and persist it to `[ui]`. This is display-only and
-/// takes effect immediately for existing scrollback blocks.
-pub(in crate::app::dispatch) fn set_pi_eval_v2_display_mode(
-    app: &mut AppView,
-    requested: String,
-) -> Vec<Effect> {
-    let previous = if crate::appearance::cache::load_pi_eval_v2_effects_first() {
-        "effects"
-    } else {
-        "legacy"
-    };
-    let canonical = match requested.trim().to_ascii_lowercase().as_str() {
-        "legacy" => "legacy",
-        "toggle" if previous == "effects" => "legacy",
-        "toggle" => "effects",
-        _ => "effects",
-    };
-    if previous == canonical {
-        return vec![];
-    }
-    set_pi_eval_v2_display_mode_inner(app, canonical);
-    refresh_open_settings_modals(app);
-    app.show_toast(&format!("✓ Eval v2 display: {canonical}"));
-    vec![Effect::PersistSetting {
-        key: "pi_eval_v2_display_mode",
-        value: crate::settings::SettingValue::Enum(canonical),
-        rollback_value: crate::settings::SettingValue::Enum(previous),
-    }]
-}
-
-pub(in crate::app::dispatch) fn set_pi_eval_v2_only(
-    app: &mut AppView,
-    enabled: bool,
-) -> Vec<Effect> {
-    let previous = app.current_ui.pi_eval_v2_only;
-    if previous == enabled {
-        return vec![];
-    }
-    app.current_ui.pi_eval_v2_only = enabled;
-    refresh_open_settings_modals(app);
-    let value = if enabled { "on" } else { "off" };
-    app.show_toast(&format!(
-        "\u{2713} Eval v2 only: {value} \u{2014} restart grok-pi to apply"
-    ));
-    vec![Effect::PersistSetting {
-        key: "pi_eval_v2_only",
-        value: crate::settings::SettingValue::Bool(enabled),
-        rollback_value: crate::settings::SettingValue::Bool(previous),
-    }]
-}
-
-pub(in crate::app::dispatch) fn set_pi_eval_mcp(app: &mut AppView, enabled: bool) -> Vec<Effect> {
-    let previous = app.current_ui.pi_eval_mcp;
-    if previous == enabled {
-        return vec![];
-    }
-    app.current_ui.pi_eval_mcp = enabled;
-    refresh_open_settings_modals(app);
-    let value = if enabled { "on" } else { "off" };
-    app.show_toast(&format!(
-        "Eval MCP: {value} — restart grok-pi to apply (requires Eval v2 only)"
-    ));
-    vec![Effect::PersistSetting {
-        key: "pi_eval_mcp",
-        value: crate::settings::SettingValue::Bool(enabled),
-        rollback_value: crate::settings::SettingValue::Bool(previous),
     }]
 }
 

@@ -17,6 +17,9 @@ python3 "$ADAPTER/scripts/verify_native_grok.py" \
   --json-out "$LOG_DIR/native-grok-verification.json" \
   | tee "$LOG_DIR/native-grok-verification.log"
 
+python3 "$ADAPTER/tests/four_cuts_contract.py" \
+  | tee "$LOG_DIR/four-cuts-contract.log"
+
 python3 "$ADAPTER/scripts/test_native_architecture.py" \
   | tee "$LOG_DIR/architecture-negative.log"
 

@@ -716,10 +716,10 @@ fn language_chooser_uses_localized_copy_but_dispatches_canonical_value() {
 fn chinese_setting_details_wrap_within_narrow_modal() {
     let mut state = external_state();
     state.ui_snapshot.language = "zh-CN".into();
-    state.focus_key("pi_eval");
+    state.focus_key("pi_bash");
     let rendered = render_lines(&mut state, 60, 26).join("\n");
     assert!(
-        rendered.contains(state.t(state.meta("pi_eval").unwrap().label)),
+        rendered.contains(state.t(state.meta("pi_bash").unwrap().label)),
         "{rendered}"
     );
     assert!(!rendered.contains("Eval bridge version"), "{rendered}");
